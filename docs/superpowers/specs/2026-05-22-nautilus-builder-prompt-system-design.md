@@ -226,16 +226,17 @@ Replace flat numbering with stable IDs such as:
 - `SAFE-02` adapter and instrument registry
 - `RUN-01` async backtest job runtime
 - `COMP-01` RuleGraphStrategy compiler
-- `RUN-02` NautilusTrader backtest worker
+- `COMP-02` NautilusTrader backtest worker
 - `UX-01` visual strategy builder
-- `UX-02` live terminal and job console
+- `UX-02` observational terminal and job console
 - `AI-01` AI strategy builder flow
-- `LIVE-01` shadow promotion integration contract
+- `GOV-04` Builder-side promotion contract
 - `SYS-01` end-to-end MVP verification
 - `GOV-01` lifecycle and versioning
 - `GOV-02` repository and dependency setup
 - `GOV-03` existing strategy registry or import
-- `GOV-04` product rename consistency
+
+The final revised pack may fold naming consistency into system verification rather than keep a separate rename seam.
 
 ### Dependency Metadata
 
