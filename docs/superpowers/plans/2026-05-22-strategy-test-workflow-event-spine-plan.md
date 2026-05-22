@@ -145,3 +145,27 @@ rtk pytest tests/workflow_spine tests/api tests/auth tests/backtest_jobs tests/r
 - In-memory event stream emits namespaced Builder workflow events.
 - ND sharing is represented only through explicit Builder-owned bridge streams.
 - No real Redis/Postgres integration is introduced yet.
+
+## Follow-on Slice: ND AI Pipeline Compatibility Mapping
+
+Goal: add a small contract adapter that maps Builder workflow identity/events to ND-facing advisory bridge payloads without importing ND internals or writing to ND-owned streams.
+
+### Additional files
+
+- `packages/workflow_spine/nd_compat.py`
+  - Builder-owned mapping models for ND AI pipeline compatibility.
+  - Converts Builder workflow events into ND advisory request/report payloads.
+- `tests/workflow_spine/test_nd_ai_compatibility.py`
+  - Verifies ID mapping, stream names, and no direct ND mutation assumptions.
+
+### Additional tasks
+
+- [ ] Write red tests for ND AI compatibility mapping:
+  - Builder event maps to `builder:nd:advisory` payload;
+  - payload preserves `strategy_lineage_id`, `strategy_version_id`, `ai_thread_id`, `improvement_cycle_id`, and `source_ref` when present;
+  - mapper rejects `nd:*` output streams;
+  - mapper does not require a shared display name.
+- [ ] Implement `nd_compat.py` minimally.
+- [ ] Run `rtk pytest tests/workflow_spine/test_nd_ai_compatibility.py`.
+- [ ] Run `rtk pytest tests/workflow_spine`.
+- [ ] Commit as `add ND AI compatibility mapping`.
