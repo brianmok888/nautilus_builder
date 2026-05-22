@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+from packages.promotions.service import PromotionService
+
+
+def test_builder_promotion_request_is_signal_preview_only() -> None:
+    service = PromotionService()
+
+    request = service.create_shadow_request(
+        strategy_version="0.3.0-beta.1",
+        compile_hash="abc123",
+        gate_compatibility=True,
+    )
+
+    assert request.profile == "signal_preview_only"
+    assert request.may_submit_order is False
+    assert request.may_create_trade_action is False
+
+
+def test_promotion_request_carries_builder_side_evidence_refs() -> None:
+    service = PromotionService()
+
+    request = service.create_shadow_request(
+        strategy_version="0.3.0-beta.1",
+        compile_hash="abc123",
+        gate_compatibility=True,
+    )
+
+    assert "validation_report" in request.evidence_refs
+    assert "backtest_result" in request.evidence_refs
+    assert request.compile_hash == "abc123"
