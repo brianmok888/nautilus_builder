@@ -13,7 +13,7 @@ It must be used together with:
 
 - Build inside the Nautilus Builder workspace only.
 - Do not touch the Nautilus-Daedalus repository.
-- Any Daedalus-related prompt is Builder-side only and may use contracts, payloads, mocks, fixtures, or external-integration assumptions.
+- Any Daedalus-related prompt is limited to Builder-owned contracts, payload schemas, readiness reports, mocks, fixtures, or read-only external metadata. It must not require Daedalus source edits, Daedalus runtime imports, or cross-repo implementation progress.
 - The frontend is an authoring and observation surface only. It must not own runtime truth.
 
 ## Dual-Mode Usage
@@ -72,14 +72,13 @@ Every prompt below includes:
 - `COMP-01` RuleGraphStrategy compiler
 - `COMP-02` NautilusTrader backtest worker
 - `UX-01` visual strategy builder UX
-- `UX-02` live terminal and job console
+- `UX-02` observational terminal and job console
 - `AI-01` AI strategy builder flow
 - `GOV-01` lifecycle and versioning
 - `GOV-02` repository and dependency setup
 - `GOV-03` existing strategy registry and safe import
 - `GOV-04` Builder-side promotion contract
 - `SYS-01` end-to-end MVP verification
-- `GOV-05` rename product to Nautilus Builder consistency pass
 
 ---
 
@@ -641,7 +640,7 @@ Users need a visual authoring surface, but StrategySpec remains the persisted tr
 
 ---
 
-## `UX-02` — Live Terminal and Job Console
+## `UX-02` — Observational Terminal and Job Console
 
 - **Phase:** UX
 - **Depends on:** `RUN-01`, `COMP-02`
@@ -654,7 +653,7 @@ Build the terminal/job console as an observational surface over backend state.
 
 ### Why this exists
 
-Users need to inspect status, logs, validation, and metrics without receiving raw shell access or runtime mutation authority.
+Users need to inspect status, logs, validation, and metrics without receiving shell access or runtime mutation authority.
 
 ### Prerequisites
 
@@ -1100,7 +1099,7 @@ Builder must express promotion intent, evidence, and signal-preview boundaries w
 
 - **Phase:** SYS
 - **Depends on:** `SAFE-01`, `SAFE-02`, `RUN-01`, `COMP-01`, `COMP-02`, `UX-01`, `UX-02`, `AI-01`, `GOV-01`, `GOV-03`, `GOV-04`
-- **Unlocks:** `GOV-05`
+- **Unlocks:** none
 - **Can run in parallel with:** none
 
 ### Goal
@@ -1159,6 +1158,7 @@ This prompt proves that the composed system preserves runtime, safety, lifecycle
 - full E2E test report
 - failed checks and fixes
 - explicit safety statement for demo or candidate status
+- naming consistency check against source docs
 
 ### Boundary/self-review checklist
 
@@ -1168,69 +1168,3 @@ This prompt proves that the composed system preserves runtime, safety, lifecycle
 ### Remaining gaps
 
 - product polish beyond MVP remains out of scope
-
----
-
-## `GOV-05` — Rename Product to Nautilus Builder Consistency Pass
-
-- **Phase:** GOV
-- **Depends on:** `SYS-01`
-- **Unlocks:** none
-- **Can run in parallel with:** none
-
-### Goal
-
-Perform a final consistency pass so product naming reflects Nautilus Builder across user-facing and architecture-facing artifacts.
-
-### Why this exists
-
-The doc set explicitly renames the product from Nautilus Strategy Lab to Nautilus Builder and this consistency should be maintained.
-
-### Prerequisites
-
-- `SYS-01`
-
-### Scope included
-
-- naming consistency in Builder-owned surfaces and docs
-
-### Scope excluded
-
-- unrelated copy rewrites
-- external repo edits
-
-### Explicit non-goals
-
-- renaming external systems
-- broad content refactoring unrelated to product naming
-
-### Required files to create or change
-
-- Builder-owned docs, UI labels, and configuration names as needed
-
-### Tests to add first or alongside
-
-- naming consistency checks where practical
-
-### Implementation constraints
-
-- preserve explicit distinction among Nautilus Builder, NautilusTrader, and Nautilus-Daedalus
-
-### Verification commands
-
-- run naming-related checks or searches where practical
-
-### Expected evidence
-
-- changed files
-- summary of naming fixes
-- checks run and results
-
-### Boundary/self-review checklist
-
-- are system names still semantically distinct?
-- did the pass stay inside Builder-owned artifacts?
-
-### Remaining gaps
-
-- future branding work beyond current Builder scope remains out of scope

@@ -12,7 +12,7 @@ Produce the approved three-document set for the Nautilus Builder prompt system:
 
 ## Hard Scope Constraints
 
-- Work only in `/home/mok/projects/nautilus_builder`
+- Work only in the current Nautilus Builder repository root or an isolated worktree created from it
 - Do **not** modify, read from for implementation decisions beyond already-captured boundary assumptions, or otherwise touch the Nautilus-Daedalus repository
 - Daedalus-related content must stay Builder-side only: contracts, integration assumptions, mocks, fixtures, and external-boundary notes
 - Do not add implementation code for Nautilus Builder product features in this plan; this plan is only for the prompt-system document set

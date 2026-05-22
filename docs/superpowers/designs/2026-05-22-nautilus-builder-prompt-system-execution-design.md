@@ -29,6 +29,8 @@ Each prompt must:
 - identify what is out of scope;
 - and emit concrete verification evidence.
 
+In this document, an **execution graph** means the dependency-aware ordering formed by prompt IDs, prerequisites, unlocks, and allowed parallelism.
+
 ## Phase Model
 
 The revised prompt pack should be grouped into these phases.
@@ -90,18 +92,25 @@ Purpose:
 - handle read-only external strategy registry/import rules;
 - run final end-to-end verification.
 
+Governance is split conceptually into two roles:
+
+- **preflight governance**: repo/dependency and lifecycle constraints that must exist before some implementation seams begin;
+- **finishing governance**: registry/import, promotion-boundary, and final verification work that closes the system without broadening feature scope.
+
 ## Phase Ordering Rules
 
 The normal order is:
 
-`FND → SAFE → RUN → COMP → UX → AI → GOV`
+`GOV(preflight) → FND → SAFE → RUN → COMP → UX → AI → GOV(finishing)`
 
 Rules:
 
 1. No UX prompt may begin before required foundation, validation, and lifecycle prerequisites exist.
 2. No AI prompt may bypass validation and lifecycle boundaries.
-3. No Daedalus-related prompt may become a cross-repo implementation task.
-4. Final verification prompts must run only after required upstream seams are complete.
+3. `GOV-02` may run before foundation work because it defines repo and dependency boundaries for later seams.
+4. `GOV-01` may unlock downstream work before finishing-governance items are reached because lifecycle policy is an upstream contract.
+5. No Daedalus-related prompt may become a cross-repo implementation task.
+6. Final verification prompts must run only after required upstream seams are complete.
 
 ## Prompt Metadata Contract
 
@@ -187,6 +196,8 @@ Minimum required evidence:
 
 If a prompt cannot emit concrete evidence, it is incomplete.
 
+`Runtime truth` means durable backend-owned state, persisted events, validator outcomes, compiler artifacts, and NautilusTrader backtest results rather than browser memory or transient UI state.
+
 ## Review Gates
 
 Each prompt should pass two lightweight checks before downstream work proceeds:
@@ -239,12 +250,12 @@ Any prompt that references Daedalus must remain Builder-side only.
 
 Allowed:
 
-- external contract assumptions;
-- payload schemas;
-- promotion request models;
-- mocked or stubbed responses;
-- read-only registry metadata;
-- readiness checks that stop at external integration boundaries.
+- Builder-owned payload schemas;
+- Builder-owned promotion request models;
+- Builder-owned readiness reports;
+- mocked or stubbed responses that simulate external integration boundaries;
+- read-only registry metadata stored in Builder;
+- compatibility checks that stop before any Daedalus source change or runtime import.
 
 Forbidden:
 
@@ -266,6 +277,8 @@ Examples of likely safe parallelism:
 - some UX surfaces after core contracts stabilize;
 - some governance documentation prompts after core architecture is established.
 
+`Safe parallelism` means concurrent work that cannot create competing truth models, cannot bypass unresolved policy decisions, and cannot force downstream rework when merged.
+
 Examples of unsafe parallelism:
 
 - compiler work before StrategySpec is stable;
@@ -285,6 +298,14 @@ The revised pack should use stable semantic IDs, for example:
 - `GOV-01`
 
 This replaces fragile flat numbering and improves traceability from audit findings to rewritten prompts.
+
+## Final ID Decisions
+
+The revised pack intentionally finalizes a few IDs differently from the earliest design sketch:
+
+- `COMP-02` is used for the NautilusTrader backtest worker because the seam belongs to compilation/execution rather than durable job orchestration.
+- `GOV-04` is used for the Builder-side promotion contract because Builder must stop at governance/contract boundaries rather than own a live-execution phase.
+- the separate rename pass was removed from the final pack and folded into system verification as a naming-consistency check against source docs.
 
 ## Completion Criteria for the Revised Prompt Pack
 

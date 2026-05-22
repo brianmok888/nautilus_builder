@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This audit evaluates `doc/nautilus_builder_implementation_prompts.md` against the surrounding Nautilus Builder documentation and the approved prompt-system design.
+This audit evaluates `doc/nautilus_builder_implementation_prompts.md` against the surrounding Nautilus Builder source docs and the approved prompt-system design.
 
-The goal is to identify the gaps that must be fixed before the prompt pack can serve as a reliable, dual-mode execution system for coding agents.
+The goal is to identify concrete defects that must be fixed before the prompt pack can serve as a bounded, verifiable dual-mode execution system for coding agents.
 
 ## Scope
 
@@ -44,6 +44,7 @@ Each finding uses:
 - **Finding ID**
 - **Severity**
 - **Location**
+- **Source basis** (when a mismatch maps to a specific source-doc rule)
 - **Problem**
 - **Why it matters**
 - **Recommended fix**
@@ -64,6 +65,7 @@ Each finding uses:
 
 - **Severity:** major
 - **Location:** `## How to Use These Prompts`
+- **Source basis:** `doc/nautilus_builder_implementation_prompts.md`; approved design requirement for dual-mode execution behavior
 - **Problem:** The usage section assumes a specific skill stack (`nt`, `nt-architect`, `nt-ai-strategy-builder`, and others) without defining a tool-agnostic equivalent path.
 - **Why it matters:** This makes the prompt pack less portable and mixes operating-environment assumptions into the core implementation instructions.
 - **Recommended fix:** Split usage guidance into an OpenCode-aware path and a generic-agent path with identical acceptance criteria.
@@ -82,6 +84,7 @@ Each finding uses:
 
 - **Severity:** major
 - **Location:** Prompt 10 — Daedalus Shadow Promotion Integration
+- **Source basis:** `doc/nautilus_builder_hardguards.md`; `doc/nautilus_builder_repo_dependency_architecture.md`; approved Builder-only scope rule
 - **Problem:** The title and framing suggest implementation may extend into Nautilus-Daedalus rather than clearly constraining work to Builder-side contracts and integration assumptions.
 - **Why it matters:** This conflicts with the approved scope that Builder work must not require touching the Nautilus-Daedalus repository.
 - **Recommended fix:** Rewrite this seam as a Builder-only promotion contract prompt, using external API/event assumptions, payload schemas, mocks, or fixtures rather than cross-repo edits.
@@ -145,7 +148,8 @@ Each finding uses:
 
 - **Severity:** moderate
 - **Location:** Prompt 15 — Existing Strategy Registry and Import
-- **Problem:** The prompt likely sits at the intersection of Builder-native strategies, Daedalus catalog entries, and raw NautilusTrader imports, but the current pack does not strongly distinguish read-only cataloging from safe import/fork behavior.
+- **Source basis:** `doc/nautilus_builder_existing_strategy_registry.md`
+- **Problem:** The prompt sits at the intersection of Builder-native strategies, Daedalus catalog entries, and raw NautilusTrader imports, but the current pack does not strongly distinguish read-only cataloging from safe import/fork behavior.
 - **Why it matters:** Without sharper boundaries, agents may broaden the feature into source scanning or direct editing workflows that conflict with the architecture docs.
 - **Recommended fix:** Split or sharpen this prompt so read-only registry, safe import, and incompatible-source handling are explicit and bounded.
 - **Affected downstream prompts/docs:** revised prompt pack; existing strategy registry seam
@@ -154,6 +158,7 @@ Each finding uses:
 
 - **Severity:** moderate
 - **Location:** Prompt 14 — Repository and Dependency Setup
+- **Source basis:** `doc/nautilus_builder_repo_dependency_architecture.md`
 - **Problem:** The prompt concerns repo/dependency policy but may be executed too late in the numbered sequence despite shaping package boundaries and dependency direction for the rest of the system.
 - **Why it matters:** Repo-boundary mistakes are expensive to unwind after implementation work begins.
 - **Recommended fix:** Move repo/dependency governance earlier as a governance seam or prerequisite reference for foundation work.
@@ -163,6 +168,7 @@ Each finding uses:
 
 - **Severity:** major
 - **Location:** Daedalus-related language across prompts and source docs references
+- **Source basis:** `doc/nautilus_builder_hardguards.md`; `doc/nautilus_builder_repo_dependency_architecture.md`; `doc/nautilus_builder_existing_strategy_registry.md`
 - **Problem:** The pack correctly treats Daedalus as part of the broader system context, but it does not consistently distinguish external integration targets from editable implementation surfaces.
 - **Why it matters:** This is the main route by which an agent could accidentally violate the Builder-only scope constraint.
 - **Recommended fix:** Add a global Builder-only rule at the top of the revised pack and repeat it in any prompt that references promotion, shadow, signal-preview, or existing Daedalus strategies.
