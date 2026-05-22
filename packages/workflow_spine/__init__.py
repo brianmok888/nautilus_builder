@@ -11,6 +11,14 @@ from packages.workflow_spine.models import (
 )
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
 from packages.workflow_spine.service import StrategyTestWorkflowService
+from packages.workflow_spine.storage_interfaces import (
+    FakePostgresWorkflowRepository,
+    FakeRedisWorkflowStream,
+    WorkflowRepositoryProtocol,
+    WorkflowStreamProtocol,
+    assert_postgres_repository_contract,
+    assert_redis_stream_contract,
+)
 
 __all__ = [
     "StrategyIdentity",
@@ -25,4 +33,10 @@ __all__ = [
     "StrategyTestWorkflowService",
     "TestJobRecord",
     "TestResultRecord",
+    "FakePostgresWorkflowRepository",
+    "FakeRedisWorkflowStream",
+    "WorkflowRepositoryProtocol",
+    "WorkflowStreamProtocol",
+    "assert_postgres_repository_contract",
+    "assert_redis_stream_contract",
 ]
