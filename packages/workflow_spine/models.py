@@ -77,3 +77,29 @@ class StrategyTestWorkflowOutcome(BaseModel):
     strategy: StrategyIdentity
     version: StrategyVersionIdentity
     job: TestJobRecord
+
+
+class TestResultRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    result_id: str = Field(min_length=1)
+    test_job_id: str = Field(min_length=1)
+    project_id: str = Field(min_length=1)
+    strategy_lineage_id: str = Field(min_length=1)
+    strategy_version_id: str = Field(min_length=1)
+    metrics: dict[str, float]
+    artifact_refs: dict[str, str]
+
+
+class AiSuggestionRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    suggestion_id: str = Field(min_length=1)
+    project_id: str = Field(min_length=1)
+    strategy_lineage_id: str = Field(min_length=1)
+    strategy_version_id: str = Field(min_length=1)
+    result_id: str = Field(min_length=1)
+    ai_thread_id: str = Field(min_length=1)
+    improvement_cycle_id: str = Field(min_length=1)
+    suggestion_type: str = Field(min_length=1)
+    message: str = Field(min_length=1)
