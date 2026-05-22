@@ -1,0 +1,396 @@
+{
+  "$defs": {
+    "CreatedFrom": {
+      "enum": [
+        "user",
+        "ai_builder",
+        "imported"
+      ],
+      "title": "CreatedFrom",
+      "type": "string"
+    },
+    "DataRange": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "DataRange",
+      "type": "object"
+    },
+    "IndicatorInput": {
+      "enum": [
+        "close"
+      ],
+      "title": "IndicatorInput",
+      "type": "string"
+    },
+    "IndicatorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/IndicatorType"
+        },
+        "input": {
+          "$ref": "#/$defs/IndicatorInput"
+        },
+        "period": {
+          "exclusiveMinimum": 0,
+          "title": "Period",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "input",
+        "period"
+      ],
+      "title": "IndicatorSpec",
+      "type": "object"
+    },
+    "IndicatorType": {
+      "enum": [
+        "EMA",
+        "RSI"
+      ],
+      "title": "IndicatorType",
+      "type": "string"
+    },
+    "OutputMode": {
+      "enum": [
+        "signal_preview_only"
+      ],
+      "title": "OutputMode",
+      "type": "string"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "created_by": {
+          "$ref": "#/$defs/CreatedFrom"
+        },
+        "parent_version_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Version Id"
+        }
+      },
+      "required": [
+        "created_by"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RiskBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "position_size_pct": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Position Size Pct",
+          "type": "number"
+        },
+        "stop_loss_pct": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Stop Loss Pct",
+          "type": "number"
+        },
+        "take_profit_pct": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Take Profit Pct",
+          "type": "number"
+        },
+        "max_hold_bars": {
+          "exclusiveMinimum": 0,
+          "title": "Max Hold Bars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "position_size_pct",
+        "stop_loss_pct",
+        "take_profit_pct",
+        "max_hold_bars"
+      ],
+      "title": "RiskBlock",
+      "type": "object"
+    },
+    "RuleBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RuleClause"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "All"
+        },
+        "any": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/RuleClause"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Any"
+        }
+      },
+      "title": "RuleBlock",
+      "type": "object"
+    },
+    "RuleClause": {
+      "additionalProperties": false,
+      "properties": {
+        "crossed_above": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crossed Above"
+        },
+        "crossed_below": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crossed Below"
+        },
+        "gt": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gt"
+        },
+        "lt": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lt"
+        }
+      },
+      "title": "RuleClause",
+      "type": "object"
+    },
+    "StrategyStage": {
+      "enum": [
+        "draft",
+        "testing",
+        "beta",
+        "final"
+      ],
+      "title": "StrategyStage",
+      "type": "string"
+    },
+    "StrategyStatus": {
+      "enum": [
+        "draft",
+        "validated",
+        "backtested",
+        "shadow_candidate"
+      ],
+      "title": "StrategyStatus",
+      "type": "string"
+    },
+    "ValidationFlags": {
+      "additionalProperties": false,
+      "properties": {
+        "bar_close_only": {
+          "title": "Bar Close Only",
+          "type": "boolean"
+        },
+        "no_lookahead_required": {
+          "title": "No Lookahead Required",
+          "type": "boolean"
+        },
+        "requires_backtest_before_shadow": {
+          "title": "Requires Backtest Before Shadow",
+          "type": "boolean"
+        },
+        "output_mode": {
+          "$ref": "#/$defs/OutputMode"
+        }
+      },
+      "required": [
+        "bar_close_only",
+        "no_lookahead_required",
+        "requires_backtest_before_shadow",
+        "output_mode"
+      ],
+      "title": "ValidationFlags",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "stage": {
+      "$ref": "#/$defs/StrategyStage"
+    },
+    "status": {
+      "$ref": "#/$defs/StrategyStatus"
+    },
+    "created_from": {
+      "$ref": "#/$defs/CreatedFrom"
+    },
+    "is_frozen": {
+      "default": false,
+      "title": "Is Frozen",
+      "type": "boolean"
+    },
+    "adapter_id": {
+      "title": "Adapter Id",
+      "type": "string"
+    },
+    "venue": {
+      "title": "Venue",
+      "type": "string"
+    },
+    "instrument_id": {
+      "title": "Instrument Id",
+      "type": "string"
+    },
+    "bar_type": {
+      "title": "Bar Type",
+      "type": "string"
+    },
+    "data_range": {
+      "$ref": "#/$defs/DataRange"
+    },
+    "indicators": {
+      "additionalProperties": {
+        "$ref": "#/$defs/IndicatorSpec"
+      },
+      "title": "Indicators",
+      "type": "object"
+    },
+    "rules": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RuleBlock"
+      },
+      "title": "Rules",
+      "type": "object"
+    },
+    "risk": {
+      "$ref": "#/$defs/RiskBlock"
+    },
+    "validation": {
+      "$ref": "#/$defs/ValidationFlags"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "schema_version",
+    "version",
+    "stage",
+    "status",
+    "created_from",
+    "adapter_id",
+    "venue",
+    "instrument_id",
+    "bar_type",
+    "data_range",
+    "indicators",
+    "rules",
+    "risk",
+    "validation",
+    "provenance"
+  ],
+  "title": "StrategySpec",
+  "type": "object"
+}
