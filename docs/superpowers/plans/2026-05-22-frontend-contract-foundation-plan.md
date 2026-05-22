@@ -6,7 +6,7 @@
 
 Implement the first contract-first frontend foundation slice from the approved frontend stack/adaptation design.
 
-This plan does **not** scaffold a real React or Vue app. It defines executable Python-backed contracts and matching placeholder frontend documentation so a later frontend scaffold can safely choose React/TSX + Vite or Vue 3 + Vite without weakening Builder hardguards.
+This plan does **not** scaffold a real Next.js app. It defines executable Python-backed contracts and matching placeholder frontend documentation so a later frontend scaffold can safely use Next.js + React + TypeScript without weakening Builder hardguards.
 
 ## Source Spec
 
@@ -16,7 +16,7 @@ This plan does **not** scaffold a real React or Vue app. It defines executable P
 
 - Work only in `nautilus_builder` or an isolated worktree created from it.
 - Do not touch the Nautilus-Daedalus repository.
-- Do not add a frontend package manifest, app shell, bundler config, or real framework runtime in this plan.
+- Do not add a frontend package manifest, Next.js app shell, bundler config, or real framework runtime in this plan.
 - Do not copy QuantDinger-Vue code.
 - Do not add quick-trade, broker credential, billing, live order, Daedalus control, or browser-side execution UI.
 - Frontend contracts may hide/show UI affordances, but backend API/auth remains authoritative.
@@ -153,7 +153,7 @@ This plan does **not** scaffold a real React or Vue app. It defines executable P
 
 - [ ] Create `apps/web/components/FRONTEND_CONTRACTS.md`.
 - [ ] State that QuantDinger-Vue is a pattern donor only.
-- [ ] State that the likely default is React/TSX + Vite, with Vue 3 possible only after explicit decision.
+- [ ] State that the selected target stack is Next.js + React + TypeScript.
 - [ ] List safe surfaces and forbidden surfaces.
 - [ ] State that Daedalus adaptation is backend-contract-only.
 
@@ -212,8 +212,7 @@ grep -R "quick_trade\|live_orders\|broker_credentials\|billing\|Daedalus\|Pyodid
 
 ## Do Not Implement In This Plan
 
-- real React app scaffold;
-- real Vue app scaffold;
+- real Next.js app scaffold;
 - package manifest;
 - frontend build/test runner;
 - copied QuantDinger-Vue code;

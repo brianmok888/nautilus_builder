@@ -1,8 +1,8 @@
 # Frontend Stack and Daedalus Adaptation Design
 
 **Date:** 2026-05-22  
-**Status:** draft for review  
-**Scope:** choose the next frontend direction for Nautilus Builder while using `brokermr810/QuantDinger-Vue` as a pattern donor only.
+**Status:** approved stack direction  
+**Scope:** define the Next.js + React + TypeScript frontend direction for Nautilus Builder while using `brokermr810/QuantDinger-Vue` as a pattern donor only.
 
 ## 1. Current Builder stack
 
@@ -17,16 +17,16 @@ Current implemented stack:
 - Pytest contract suite under `tests/*`.
 - Placeholder TSX components under `apps/web/components/*`.
 
-Current missing frontend stack:
+Current missing frontend implementation:
 
 - no `apps/web/package.json`;
-- no `App.tsx` or app shell;
+- no Next.js app shell;
 - no frontend router;
 - no frontend request client;
 - no frontend auth provider/store;
 - no frontend build or test toolchain.
 
-Therefore the frontend framework is not truly chosen yet. The existing TSX files are placeholders, not a committed React runtime.
+The frontend stack decision is now **Next.js + React + TypeScript**. The existing TSX files are placeholders that should be migrated into a real Next.js app structure later, not treated as a runnable frontend today.
 
 ## 2. QuantDinger-Vue donor role
 
@@ -63,7 +63,18 @@ Not useful as direct code:
 - live-execution UI affordances;
 - product branding/copy.
 
-## 3. Stack options
+## 3. Stack decision
+
+Nautilus Builder will use **Next.js + React + TypeScript** for the real frontend runtime.
+
+This decision means:
+
+- QuantDinger-Vue remains a pattern donor, not a framework donor;
+- frontend contracts should be shaped for typed React/Next clients;
+- future app scaffolding should use a Next.js app shell rather than Vue or plain Vite;
+- frontend routing/auth/session decisions should use Next.js-native patterns while preserving the same backend authority boundaries.
+
+## 4. Alternatives considered
 
 ### Option A — Vue 3 + Vite
 
@@ -81,7 +92,7 @@ Cons:
 - QuantDinger-Vue is Vue 2, so code is still pattern-only;
 - requires choosing Vue UI/store/testing conventions from scratch.
 
-### Option B — React/TSX + Vite
+### Option B — React/TSX + Vite or Next.js
 
 Preserve the current TSX direction and adapt QuantDinger-Vue concepts into React architecture.
 
@@ -90,6 +101,7 @@ Pros:
 - aligns with existing placeholder file type;
 - strong TypeScript and AI-assisted UI ecosystem;
 - good fit for typed API client and contract-first frontend work;
+- Next.js adds a more complete app/routing/deployment framework than plain Vite;
 - avoids Vue 2 legacy drag.
 
 Cons:
@@ -97,9 +109,11 @@ Cons:
 - less direct reuse from QuantDinger-Vue;
 - dashboard shell and route/store patterns need React-native design.
 
-### Option C — Contract-first, framework decision later
+Decision: choose **Next.js + React + TypeScript**, not plain Vite, as the target React stack.
 
-Define frontend contracts before final framework choice.
+### Option C — Contract-first before scaffolding
+
+Define frontend contracts before scaffolding the selected framework.
 
 Pros:
 
@@ -111,17 +125,17 @@ Pros:
 Cons:
 
 - slower visible UI progress;
-- still needs a later Vue vs React decision.
+- still delays visible app scaffolding.
 
-## 4. Recommendation
+## 5. Recommendation
 
-Use Option C immediately, with Option B as the likely implementation default.
+Use contract-first work immediately, with **Next.js + React + TypeScript** as the selected implementation stack.
 
 Recommended sequence:
 
 1. Define frontend contracts and hardguards first.
 2. Treat QuantDinger-Vue as a pattern donor, not a framework mandate.
-3. Default future implementation to React/TSX + Vite unless the user explicitly chooses Vue 3.
+3. Scaffold a real Next.js + React + TypeScript app only after the frontend contracts are implemented.
 4. Keep the Daedalus boundary backend-contract-only.
 
 Why:
@@ -129,14 +143,15 @@ Why:
 - Builder already has TSX placeholders but no actual frontend runtime.
 - The newly merged API/auth foundation should drive frontend integration shape.
 - QuantDinger-Vue is valuable, but its stack is Vue 2.7 and product-specific.
+- Next.js gives Builder a full frontend application framework without adopting Vue 2 legacy.
 - Daedalus adaptation depends on backend payloads, not UI framework choice.
 
-## 5. Target frontend architecture
+## 6. Target frontend architecture
 
 The frontend should be organized around stable boundaries:
 
 ```text
-Frontend App
+Next.js Frontend App
   -> API Client
   -> Auth Session State
   -> Route Guards
@@ -205,7 +220,7 @@ Initial safe surfaces:
 
 All feature surfaces must call the API client and must not import backend package internals.
 
-## 6. Forbidden frontend surfaces
+## 7. Forbidden frontend surfaces
 
 Do not copy or build these QuantDinger-Vue surfaces into Builder without a separate approved design:
 
@@ -217,7 +232,7 @@ Do not copy or build these QuantDinger-Vue surfaces into Builder without a separ
 - live execution dashboard;
 - browser-side Python execution / Pyodide strategy execution.
 
-## 7. Daedalus adaptation model
+## 8. Daedalus adaptation model
 
 Nautilus-Daedalus should adapt well if integration stays contract-only.
 
@@ -231,7 +246,7 @@ Daedalus should care about:
 
 Daedalus should not care about:
 
-- React vs Vue;
+- Next.js vs Vue;
 - frontend route guards;
 - frontend auth store;
 - UI component state;
@@ -245,7 +260,7 @@ Builder backend contracts
   -> external Daedalus boundary
 ```
 
-## 8. First follow-on implementation slice
+## 9. First follow-on implementation slice
 
 Before choosing the final frontend framework, implement or plan a small contract-first slice:
 
@@ -255,13 +270,14 @@ Before choosing the final frontend framework, implement or plan a small contract
 - map safe Builder feature surfaces to existing backend endpoints;
 - list forbidden QuantDinger-Vue screens explicitly.
 
-Only after that should Builder scaffold a real frontend app.
+Only after that should Builder scaffold the real Next.js app.
 
-## 9. Success criteria
+## 10. Success criteria
 
 This design succeeds if:
 
-- QuantDinger-Vue informs Builder frontend structure without forcing Vue 2 adoption;
+- QuantDinger-Vue informs Builder frontend structure without forcing Vue adoption;
+- Next.js + React + TypeScript is the explicit target stack for future frontend scaffolding;
 - Builder's API/auth foundation remains the integration source of truth;
 - Daedalus remains UI-framework independent;
 - forbidden live-trading and credential-management UI surfaces stay out of scope;
