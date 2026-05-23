@@ -15,13 +15,27 @@ def test_backtest_job_can_be_created_read_and_cancelled() -> None:
     }
 
     created = app.post("/api/backtest-jobs", json=payload)
-    detail = app.get("/api/backtest-jobs/bt_job_001")
-    cancelled = app.post("/api/backtest-jobs/bt_job_001/cancel", json={})
+    job_id = created.json()["job_id"]
+    detail = app.get(f"/api/backtest-jobs/{job_id}")
+    cancelled = app.post(f"/api/backtest-jobs/{job_id}/cancel", json={})
 
     assert created.status_code == 201
-    assert created.json()["job_id"] == "bt_job_001"
+    assert job_id == created.json()["backend_job_id"]
     assert detail.json()["status"] == "queued"
     assert cancelled.json()["status"] == "cancel_requested"
+    assert app.get(f"/api/backtest-jobs/{job_id}").json()["status"] == "cancel_requested"
+
+
+def test_backtest_job_unknown_ids_return_404_instead_of_static_payloads() -> None:
+    app = create_app()
+
+    detail = app.get("/api/backtest-jobs/missing-job")
+    cancelled = app.post("/api/backtest-jobs/missing-job/cancel", json={})
+
+    assert detail.status_code == 404
+    assert detail.json()["error"] == "backtest_job_not_found"
+    assert cancelled.status_code == 404
+    assert cancelled.json()["error"] == "backtest_job_not_found"
 
 
 def test_backtest_job_events_are_observable_without_nd_stream_ownership() -> None:
@@ -31,3 +45,5 @@ def test_backtest_job_events_are_observable_without_nd_stream_ownership() -> Non
     assert response.status_code == 200
     assert response.json()["stream_name"] == "builder:runtime:bt_job_001"
     assert response.json()["mode"] == "observational"
+    assert response.json()["status"] == "observing"
+    assert response.json()["events"] == []

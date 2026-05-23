@@ -15,17 +15,56 @@ def create_backtest_job_payload(service: BacktestJobService, payload: dict[str, 
             "validation_report_id": str(payload["validation_report_id"]),
         }
     )
-    return ApiResponse({"job_id": "bt_job_001", "backend_job_id": job.job_id, "status": "queued"}, status_code=201)
+    return ApiResponse(
+        {
+            "job_id": job.job_id,
+            "backend_job_id": job.job_id,
+            "status": _status_from_stage(job.stage),
+            "stage": job.stage,
+            "mode": "backend_owned",
+        },
+        status_code=201,
+    )
 
 
 def backtest_job_payload(service: BacktestJobService, job_id: str) -> ApiResponse:
-    return ApiResponse({"job_id": job_id, "status": "queued", "mode": "backend_owned"})
+    try:
+        job = service.get_job(job_id)
+    except KeyError:
+        return ApiResponse({"error": "backtest_job_not_found", "job_id": job_id}, status_code=404)
+    return ApiResponse(
+        {
+            "job_id": job.job_id,
+            "status": _status_from_stage(job.stage),
+            "stage": job.stage,
+            "cancel_requested": job.cancel_requested,
+            "mode": "backend_owned",
+        }
+    )
 
 
 def cancel_backtest_job_payload(service: BacktestJobService, job_id: str) -> ApiResponse:
-    return ApiResponse({"job_id": job_id, "status": "cancel_requested"})
+    try:
+        job = service.request_cancel(job_id)
+    except KeyError:
+        return ApiResponse({"error": "backtest_job_not_found", "job_id": job_id}, status_code=404)
+    return ApiResponse(
+        {
+            "job_id": job.job_id,
+            "status": _status_from_stage(job.stage),
+            "stage": job.stage,
+            "cancel_requested": job.cancel_requested,
+        }
+    )
 
 
 def backtest_job_events_payload(job_id: str) -> ApiResponse:
     stream_name = RedisRuntimeEventStream.STREAM_PATTERN.format(job_id=job_id)
-    return ApiResponse({"job_id": job_id, "stream_name": stream_name, "mode": "observational", "events": []})
+    return ApiResponse({"job_id": job_id, "stream_name": stream_name, "status": "observing", "mode": "observational", "events": []})
+
+
+def _status_from_stage(stage: str) -> str:
+    return {
+        "CREATED": "queued",
+        "CANCEL_REQUESTED": "cancel_requested",
+    }.get(stage, stage.lower())
