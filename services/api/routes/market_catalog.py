@@ -23,3 +23,18 @@ def data_availability_payload(adapter_id: str, instrument_id: str) -> ApiRespons
     except ValueError as exc:
         return ApiResponse({"error": str(exc)}, status_code=404)
     return ApiResponse(instrument.model_dump(mode="json"))
+
+
+def validate_backtest_profile_payload(payload: dict[str, object]) -> ApiResponse:
+    try:
+        instrument = InstrumentRegistryService().validate_selection(
+            adapter_id=str(payload.get("adapter_id", "")),
+            instrument_id=str(payload.get("instrument_id", "")),
+            data_type=str(payload.get("data_type", "")),
+            timeframe=str(payload.get("timeframe", "")),
+            market_type=str(payload.get("market_type", "")),
+            date_range=str(payload.get("date_range", "")),
+        )
+    except ValueError as exc:
+        return ApiResponse({"valid": False, "error": str(exc)}, status_code=422)
+    return ApiResponse({"valid": True, "instrument": instrument.model_dump(mode="json")})

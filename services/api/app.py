@@ -1,7 +1,7 @@
 from services.api.router import ApiApp
 from services.api.routes.ai_builder import generate_ai_draft_payload
 from services.api.routes.health import health_payload
-from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload
+from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.promotions import create_shadow_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
@@ -22,6 +22,7 @@ def create_app(
     app.route("GET", "/api/adapters", adapters_payload)
     app.route("GET", "/api/instruments/{adapter_id}/{query}", instruments_payload)
     app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", data_availability_payload)
+    app.route("POST", "/api/backtest-profiles/validate", validate_backtest_profile_payload)
     app.route("POST", "/api/strategies", lambda payload: create_strategy_payload(strategy_repository, payload))
     app.route("GET", "/api/strategies", lambda: list_strategies_payload(strategy_repository))
     app.route("GET", "/api/strategies/{strategy_id}", lambda strategy_id: strategy_detail_payload(strategy_repository, strategy_id))
