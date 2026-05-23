@@ -24,12 +24,16 @@ class WorkflowStreamProtocol(Protocol):
 
 class FakePostgresWorkflowRepository(InMemoryWorkflowRepository):
     def __init__(self, *, dsn_name: str) -> None:
+        if "://" in dsn_name:
+            raise ValueError("Postgres adapter guard requires an env var name, not a network DSN")
         super().__init__()
         self.dsn_name = dsn_name
 
 
 class FakeRedisWorkflowStream(InMemoryWorkflowStream):
     def __init__(self, *, namespace: str) -> None:
+        if "://" in namespace or namespace != "builder":
+            raise ValueError("Redis adapter guard requires a builder namespace, not a network URL")
         super().__init__()
         self.namespace = namespace
 
