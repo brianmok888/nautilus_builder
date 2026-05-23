@@ -6,6 +6,7 @@ from .result_normalizer import normalize_backtest_result
 
 def run_backtest_fixture(
     *,
+    backtest_job_id: str | None = None,
     strategy_spec_version: str,
     adapter_id: str,
     instrument_id: str,
@@ -29,6 +30,7 @@ def run_backtest_fixture(
     }
     return normalize_backtest_result(
         raw_result=raw_result,
+        backtest_job_id=backtest_job_id,
         strategy_spec_version=strategy_spec_version,
         compile_hash=compile_hash,
         worker_image=worker_image,

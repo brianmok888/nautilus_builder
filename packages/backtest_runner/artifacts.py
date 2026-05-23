@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 class BacktestResultArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    backtest_job_id: str | None = None
     strategy_spec_version: str
     compile_hash: str
     worker_image: str
