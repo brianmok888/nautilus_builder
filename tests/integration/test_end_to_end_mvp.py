@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from packages.system_verification.e2e import run_mvp_verification
+from packages.system_verification.e2e import render_verification_report, run_mvp_verification
 
 
 def test_visual_builder_to_strategy_spec_flow() -> None:
@@ -24,3 +24,15 @@ def test_shadow_promotion_boundary_is_preserved() -> None:
     assert report.builder_can_submit_orders is False
     assert report.promotion_signal_preview_only is True
     assert report.naming_consistency_ok is True
+
+
+def test_verification_report_is_generated_from_composed_checks() -> None:
+    report = run_mvp_verification()
+
+    markdown = render_verification_report(report)
+
+    assert "builder-to-spec flow: pass" in markdown
+    assert "runtime persists disconnect: pass" in markdown
+    assert "Builder order authority: denied" in markdown
+    assert "promotion profile: signal_preview_only" in markdown
+    assert "evidence source: composed runtime checks" in markdown
