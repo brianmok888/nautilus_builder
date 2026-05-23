@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nautilus_builder
+      POSTGRES_USER: builder
+      POSTGRES_PASSWORD: builder_local_only
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+
+  object-storage:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: builder
+      MINIO_ROOT_PASSWORD: builder_local_only
+    ports:
+      - "9000:9000"
+      - "9001:9001"
