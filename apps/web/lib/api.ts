@@ -1,4 +1,4 @@
-import type { AdapterSummary, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, ResultDashboardPayload, StrategySummary } from "./types";
+import type { AdapterSummary, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, PromotionRequestResult, ResultDashboardPayload, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -85,6 +85,10 @@ export async function applyAiDraftToBuilder(payload: AiDraftPayload): Promise<Ai
     throw new ApiError("AI draft must pass validation before Apply to Builder", 422, draft);
   }
   return draft;
+}
+
+export async function requestShadowPromotion(payload: { strategy_version_id: string; result_id: string; target: "shadow" | "signal-preview" }): Promise<PromotionRequestResult> {
+  return apiFetch<PromotionRequestResult>("/api/promotions/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
 }
 
 export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {

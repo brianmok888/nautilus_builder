@@ -11,6 +11,7 @@ from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
+from services.api.routes.promotions import request_promotion_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import (
@@ -107,6 +108,10 @@ def create_fastapi_app(
     @app.post("/api/promotions/shadow")
     def promotions_shadow(payload: dict[str, Any]) -> dict[str, object]:
         return _create_shadow_promotion(payload)
+
+    @app.post("/api/promotions/request")
+    def promotions_request(payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(request_promotion_payload(payload))
 
     @app.get("/api/workflow/results/{result_id}")
     def workflow_result(result_id: str) -> Any:

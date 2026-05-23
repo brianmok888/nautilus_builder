@@ -68,3 +68,10 @@ export type AiDraftResult = {
   validation_errors: string[];
   explanation: string;
 };
+
+export type PromotionRequestResult = {
+  strategy_version_id: string;
+  result_id: string;
+  target: "shadow" | "signal-preview";
+  manual_approval_required: boolean;
+};

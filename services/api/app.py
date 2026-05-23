@@ -3,7 +3,7 @@ from services.api.routes.ai_builder import generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
-from services.api.routes.promotions import create_shadow_payload
+from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
@@ -41,6 +41,7 @@ def create_app(
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/promotions/shadow", _create_shadow_promotion)
+    app.route("POST", "/api/promotions/request", request_promotion_payload)
     app.route("GET", "/api/workflow/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
     app.route("GET", "/api/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
     app.route(
