@@ -7,6 +7,8 @@ from packages.runtime_events.models import RuntimeEvent
 
 
 class RedisRuntimeEventStream:
+    STREAM_PATTERN = "builder:runtime:{job_id}"
+
     def __init__(self, *, client: Any, namespace: str = "builder") -> None:
         if namespace != "builder":
             raise ValueError("Builder runtime stream requires builder namespace")
@@ -20,7 +22,7 @@ class RedisRuntimeEventStream:
         return [RuntimeEvent(**payload) for _, payload in self._client.xrange(self._stream_name(job_id))]
 
     def _stream_name(self, job_id: str) -> str:
-        return f"{self._namespace}:runtime:{job_id}"
+        return self.STREAM_PATTERN.format(job_id=job_id)
 
 
 def connect_builder_redis(url_env: str = "BUILDER_REDIS_URL") -> Any:
