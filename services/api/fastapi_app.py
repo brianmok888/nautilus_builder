@@ -27,6 +27,7 @@ def create_fastapi_app(
     backtest_job_service: BacktestJobService | None = None,
 ):
     from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
@@ -55,23 +56,23 @@ def create_fastapi_app(
 
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any]) -> Any:
-        return validate_backtest_profile_payload(payload).json()
+        return _fastapi_response(validate_backtest_profile_payload(payload), JSONResponse)
 
     @app.post("/api/backtest-jobs")
     def create_backtest_job(payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(create_backtest_job_payload(backtest_job_service, payload))
+        return _fastapi_response(create_backtest_job_payload(backtest_job_service, payload), JSONResponse)
 
     @app.get("/api/backtest-jobs/{job_id}")
     def backtest_job(job_id: str) -> Any:
-        return _fastapi_payload(backtest_job_payload(backtest_job_service, job_id))
+        return _fastapi_response(backtest_job_payload(backtest_job_service, job_id), JSONResponse)
 
     @app.post("/api/backtest-jobs/{job_id}/cancel")
     def cancel_backtest_job(job_id: str, payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(cancel_backtest_job_payload(backtest_job_service, job_id))
+        return _fastapi_response(cancel_backtest_job_payload(backtest_job_service, job_id), JSONResponse)
 
     @app.get("/api/backtest-jobs/{job_id}/events")
     def backtest_job_events(job_id: str) -> Any:
-        return _fastapi_payload(backtest_job_events_payload(job_id))
+        return _fastapi_response(backtest_job_events_payload(job_id), JSONResponse)
 
     @app.get("/api/runtime-events/replay")
     def runtime_events_replay() -> list[dict[str, object]]:
@@ -83,7 +84,7 @@ def create_fastapi_app(
 
     @app.post("/api/strategies")
     def create_strategy(payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(create_strategy_payload(strategy_repository, payload))
+        return _fastapi_response(create_strategy_payload(strategy_repository, payload), JSONResponse)
 
     @app.get("/api/strategies")
     def list_strategies() -> list[dict[str, object]]:
@@ -91,15 +92,15 @@ def create_fastapi_app(
 
     @app.get("/api/strategies/{strategy_id}")
     def strategy_detail(strategy_id: str) -> Any:
-        return _fastapi_payload(strategy_detail_payload(strategy_repository, strategy_id))
+        return _fastapi_response(strategy_detail_payload(strategy_repository, strategy_id), JSONResponse)
 
     @app.post("/api/strategies/{strategy_id}/draft")
     def update_strategy_draft(strategy_id: str, payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(update_strategy_draft_payload(strategy_repository, strategy_id, payload))
+        return _fastapi_response(update_strategy_draft_payload(strategy_repository, strategy_id, payload), JSONResponse)
 
     @app.post("/api/strategies/{strategy_id}/versions")
     def create_strategy_version(strategy_id: str, payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(create_strategy_version_payload(strategy_repository, strategy_id, payload))
+        return _fastapi_response(create_strategy_version_payload(strategy_repository, strategy_id, payload), JSONResponse)
 
     @app.post("/api/ai-builder/draft")
     def ai_builder_draft(payload: dict[str, Any]) -> dict[str, object]:
@@ -111,7 +112,7 @@ def create_fastapi_app(
 
     @app.post("/api/promotions/request")
     def promotions_request(payload: dict[str, Any]) -> Any:
-        return _fastapi_payload(request_promotion_payload(payload))
+        return _fastapi_response(request_promotion_payload(payload), JSONResponse)
 
     @app.get("/api/workflow/results/{result_id}")
     def workflow_result(result_id: str) -> Any:
@@ -138,3 +139,7 @@ def create_fastapi_app(
 
 def _fastapi_payload(response: ApiResponse) -> Any:
     return response.json()
+
+
+def _fastapi_response(response: ApiResponse, response_class: Any) -> Any:
+    return response_class(content=response.json(), status_code=response.status_code)

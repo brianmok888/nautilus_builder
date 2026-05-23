@@ -1,10 +1,11 @@
-export default function StrategyDetailPage({ params }: { params: { strategyId: string } }) {
+export default async function StrategyDetailPage({ params }: { params: Promise<{ strategyId: string }> }) {
+  const { strategyId } = await params;
   return (
     <main>
-      <h1>Strategy {params.strategyId}</h1>
+      <h1>Strategy {strategyId}</h1>
       <h2>Version history</h2>
       <p>strategy_lineage_id is the backend identity anchor.</p>
-      <a href={`/builder/${params.strategyId}`}>Open in Builder</a>
+      <a href={`/builder/${strategyId}`}>Open in Builder</a>
       <p>Version history and validation state are observational until backend mutation is requested.</p>
     </main>
   );

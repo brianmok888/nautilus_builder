@@ -25,9 +25,20 @@ class _FakeFastAPI:
         return decorator
 
 
+class _FakeJSONResponse:
+    def __init__(self, *, content, status_code: int) -> None:
+        self.content = content
+        self.status_code = status_code
+
+    def json(self):
+        return self.content
+
+
+
 def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -46,6 +57,7 @@ def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
 def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -64,6 +76,7 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -73,6 +86,26 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
     listed = app.routes[("GET", "/api/strategies")]()
     detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001")
 
-    assert created["strategy_id"] == "strategy_001"
+    assert created.status_code == 201
+    assert created.json()["strategy_id"] == "strategy_001"
     assert listed[0]["strategy_id"] == "strategy_001"
-    assert detail["versions"][0]["spec"]["version"] == "0.1.0-draft.1"
+    assert detail.status_code == 200
+    assert detail.json()["versions"][0]["spec"]["version"] == "0.1.0-draft.1"
+
+
+def test_fastapi_bootstrap_preserves_error_status_codes(monkeypatch) -> None:
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    app = create_fastapi_app()
+
+    missing = app.routes[("GET", "/api/strategies/{strategy_id}")]("missing")
+    rejected = app.routes[("POST", "/api/promotions/request")](
+        {"strategy_version_id": "v1", "result_id": "res1", "target": "live"}
+    )
+
+    assert missing.status_code == 404
+    assert rejected.status_code == 422
