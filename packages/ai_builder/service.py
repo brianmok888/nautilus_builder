@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .models import AiDraftResult
-from .provider import AdvisoryDraftProvider, DraftProviderProtocol, RecordedAiDraftStore
+from .provider import AdvisoryDraftProvider, DraftAuditStoreProtocol, DraftProviderProtocol, RecordedAiDraftStore
 
 
 class AiBuilderService:
@@ -9,7 +9,7 @@ class AiBuilderService:
         self,
         *,
         provider: DraftProviderProtocol | None = None,
-        store: object | None = None,
+        store: DraftAuditStoreProtocol | None = None,
     ) -> None:
         self._provider = provider or AdvisoryDraftProvider()
         self._store = store or RecordedAiDraftStore()

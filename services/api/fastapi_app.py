@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.strategy_spec.repository import InMemoryStrategyRepository
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.app import _create_shadow_promotion, _generate_ai_draft
+from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
+from services.api.routes.strategies import create_strategy_payload, list_strategies_payload, strategy_detail_payload
 from services.api.routes.workflow_results import (
     workflow_lineage_status_payload,
     workflow_result_payload,
@@ -15,10 +18,14 @@ from services.api.routes.workflow_results import (
 )
 
 
-def create_fastapi_app(workflow_repository: InMemoryWorkflowRepository | None = None):
+def create_fastapi_app(
+    workflow_repository: InMemoryWorkflowRepository | None = None,
+    strategy_repository: InMemoryStrategyRepository | None = None,
+):
     from fastapi import FastAPI
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
+    strategy_repository = strategy_repository or InMemoryStrategyRepository()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
     @app.get("/health")
@@ -49,6 +56,18 @@ def create_fastapi_app(workflow_repository: InMemoryWorkflowRepository | None = 
     def strategy_registry_external() -> list[dict[str, object]]:
         return list_external_strategy_payloads()
 
+    @app.post("/api/strategies")
+    def create_strategy(payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(create_strategy_payload(strategy_repository, payload))
+
+    @app.get("/api/strategies")
+    def list_strategies() -> list[dict[str, object]]:
+        return list_strategies_payload(strategy_repository)
+
+    @app.get("/api/strategies/{strategy_id}")
+    def strategy_detail(strategy_id: str) -> Any:
+        return _fastapi_payload(strategy_detail_payload(strategy_repository, strategy_id))
+
     @app.post("/api/ai-builder/draft")
     def ai_builder_draft(payload: dict[str, Any]) -> dict[str, object]:
         return _generate_ai_draft(payload)
@@ -73,3 +92,7 @@ def create_fastapi_app(workflow_repository: InMemoryWorkflowRepository | None = 
         return response.json()
 
     return app
+
+
+def _fastapi_payload(response: ApiResponse) -> Any:
+    return response.json()

@@ -38,6 +38,9 @@ def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
     assert ("GET", "/api/runtime-events/replay") in app.routes
     assert ("POST", "/api/ai-builder/draft") in app.routes
     assert ("POST", "/api/promotions/shadow") in app.routes
+    assert ("POST", "/api/strategies") in app.routes
+    assert ("GET", "/api/strategies") in app.routes
+    assert ("GET", "/api/strategies/{strategy_id}") in app.routes
 
 
 def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
@@ -54,3 +57,22 @@ def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
     assert health_payload == {"status": "ok", "service": "nautilus_builder_api"}
     assert ai_payload["spec"]["stage"] == "draft"
     assert ai_payload["spec"]["output"] == "signal_preview_only"
+
+
+def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> None:
+    from tests.strategy_spec.test_schema_valid import make_valid_spec
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    app = create_fastapi_app()
+
+    created = app.routes[("POST", "/api/strategies")](make_valid_spec())
+    listed = app.routes[("GET", "/api/strategies")]()
+    detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001")
+
+    assert created["strategy_id"] == "strategy_001"
+    assert listed[0]["strategy_id"] == "strategy_001"
+    assert detail["versions"][0]["spec"]["version"] == "0.1.0-draft.1"

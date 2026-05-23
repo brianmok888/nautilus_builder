@@ -3,6 +3,16 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict
 
 
+def _list_of_dicts(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _dict_value(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
 STRATEGY_BUILDER_BLOCKS = [
     "EMA",
     "RSI",
@@ -39,8 +49,8 @@ def serialize_strategy_builder_state(state: StrategyBuilderDraftState) -> dict[s
 def deserialize_strategy_spec(spec: dict[str, object]) -> StrategyBuilderDraftState:
     return StrategyBuilderDraftState(
         name=str(spec["name"]),
-        indicators=list(spec.get("indicators", [])),
-        entry=dict(spec.get("entry", {})),
-        exit=dict(spec.get("exit", {})),
+        indicators=_list_of_dicts(spec.get("indicators", [])),
+        entry=_dict_value(spec.get("entry", {})),
+        exit=_dict_value(spec.get("exit", {})),
         validation_errors=[],
     )

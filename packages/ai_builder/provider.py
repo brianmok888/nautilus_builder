@@ -9,6 +9,10 @@ class DraftProviderProtocol(Protocol):
     def draft_spec(self, prompt: str) -> dict[str, object]: ...
 
 
+class DraftAuditStoreProtocol(Protocol):
+    def save(self, record: dict[str, object]) -> None: ...
+
+
 class AdvisoryDraftProvider:
     def draft_spec(self, prompt: str) -> dict[str, object]:
         return {

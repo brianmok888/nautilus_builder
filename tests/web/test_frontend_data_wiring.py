@@ -21,5 +21,7 @@ def test_strategy_builder_page_mounts_market_selection_and_spec_editor_surfaces(
 
     assert "MarketSelectionPanel" in component
     assert "StrategySpecEditor" in component
+    assert "fetchAdapters" in component
+    assert "validateBacktestProfile" in component
     assert "backend validation" in component
     assert "submit_order" not in component
