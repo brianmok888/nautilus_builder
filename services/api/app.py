@@ -1,5 +1,6 @@
 from services.api.router import ApiApp
 from services.api.routes.ai_builder import generate_ai_draft_payload
+from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.promotions import create_shadow_payload
@@ -8,15 +9,18 @@ from services.api.routes.strategy_registry import list_external_strategy_payload
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
+from packages.backtest_jobs.service import BacktestJobService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 
 
 def create_app(
     workflow_repository: InMemoryWorkflowRepository | None = None,
     strategy_repository: InMemoryStrategyRepository | None = None,
+    backtest_job_service: BacktestJobService | None = None,
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
+    backtest_job_service = backtest_job_service or BacktestJobService()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/adapters", adapters_payload)
@@ -24,6 +28,10 @@ def create_app(
     app.route("GET", "/api/instruments/{adapter_id}/{query}", instruments_payload)
     app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", data_availability_payload)
     app.route("POST", "/api/backtest-profiles/validate", validate_backtest_profile_payload)
+    app.route("POST", "/api/backtest-jobs", lambda payload: create_backtest_job_payload(backtest_job_service, payload))
+    app.route("GET", "/api/backtest-jobs/{job_id}", lambda job_id: backtest_job_payload(backtest_job_service, job_id))
+    app.route("POST", "/api/backtest-jobs/{job_id}/cancel", lambda job_id, payload: cancel_backtest_job_payload(backtest_job_service, job_id))
+    app.route("GET", "/api/backtest-jobs/{job_id}/events", backtest_job_events_payload)
     app.route("POST", "/api/strategies", lambda payload: create_strategy_payload(strategy_repository, payload))
     app.route("GET", "/api/strategies", lambda: list_strategies_payload(strategy_repository))
     app.route("GET", "/api/strategies/{strategy_id}", lambda strategy_id: strategy_detail_payload(strategy_repository, strategy_id))

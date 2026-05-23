@@ -33,3 +33,16 @@ export type DataAvailability = {
   adapter_id?: string;
   available_timeframes?: string[];
 };
+
+export type BacktestJobStatus = {
+  job_id: string;
+  status: string;
+  mode?: string;
+};
+
+export type BacktestJobEvents = {
+  job_id: string;
+  stream_name: string;
+  mode: "observational";
+  events: unknown[];
+};

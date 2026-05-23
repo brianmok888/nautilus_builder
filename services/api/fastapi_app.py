@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from packages.strategy_spec.repository import InMemoryStrategyRepository
+from packages.backtest_jobs.service import BacktestJobService
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.app import _create_shadow_promotion, _generate_ai_draft
+from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
@@ -21,11 +23,13 @@ from services.api.routes.workflow_results import (
 def create_fastapi_app(
     workflow_repository: InMemoryWorkflowRepository | None = None,
     strategy_repository: InMemoryStrategyRepository | None = None,
+    backtest_job_service: BacktestJobService | None = None,
 ):
     from fastapi import FastAPI
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
+    backtest_job_service = backtest_job_service or BacktestJobService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
     @app.get("/health")
@@ -51,6 +55,22 @@ def create_fastapi_app(
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any]) -> Any:
         return validate_backtest_profile_payload(payload).json()
+
+    @app.post("/api/backtest-jobs")
+    def create_backtest_job(payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(create_backtest_job_payload(backtest_job_service, payload))
+
+    @app.get("/api/backtest-jobs/{job_id}")
+    def backtest_job(job_id: str) -> Any:
+        return _fastapi_payload(backtest_job_payload(backtest_job_service, job_id))
+
+    @app.post("/api/backtest-jobs/{job_id}/cancel")
+    def cancel_backtest_job(job_id: str, payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(cancel_backtest_job_payload(backtest_job_service, job_id))
+
+    @app.get("/api/backtest-jobs/{job_id}/events")
+    def backtest_job_events(job_id: str) -> Any:
+        return _fastapi_payload(backtest_job_events_payload(job_id))
 
     @app.get("/api/runtime-events/replay")
     def runtime_events_replay() -> list[dict[str, object]]:

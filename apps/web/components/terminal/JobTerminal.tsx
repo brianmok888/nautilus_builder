@@ -1,3 +1,6 @@
+import { parseTerminalCommand } from "./commands";
+
 export const JobTerminal = () => {
-  return "JobTerminal: observational only, not a shell";
+  const command = parseTerminalCommand("status");
+  return `JobTerminal: observational only, not a shell (${command.reason})`;
 };

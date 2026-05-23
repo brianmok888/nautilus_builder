@@ -1,4 +1,4 @@
-import type { AdapterSummary, BackendHealth, BacktestProfileValidation, DataAvailability, InstrumentSummary, StrategySummary } from "./types";
+import type { AdapterSummary, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -41,6 +41,22 @@ export async function fetchInstruments(adapter_id: string, query: string): Promi
 export async function fetchDataAvailability(adapter_id: string, instrument_id: string): Promise<DataAvailability> {
   const params = new URLSearchParams({ adapter_id, instrument_id });
   return apiFetch<DataAvailability>(`/api/data-availability/${adapter_id}/${instrument_id}?${params.toString()}`);
+}
+
+export async function createBacktestJob(payload: Record<string, string>): Promise<BacktestJobStatus> {
+  return apiFetch<BacktestJobStatus>("/api/backtest-jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+}
+
+export async function fetchBacktestJob(jobId: string): Promise<BacktestJobStatus> {
+  return apiFetch<BacktestJobStatus>(`/api/backtest-jobs/${jobId}`);
+}
+
+export async function cancelBacktestJob(jobId: string): Promise<BacktestJobStatus> {
+  return apiFetch<BacktestJobStatus>(`/api/backtest-jobs/${jobId}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+}
+
+export async function fetchBacktestJobEvents(jobId: string): Promise<BacktestJobEvents> {
+  return apiFetch<BacktestJobEvents>(`/api/backtest-jobs/${jobId}/events`);
 }
 
 export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {
