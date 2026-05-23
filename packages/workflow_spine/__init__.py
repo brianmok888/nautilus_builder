@@ -11,6 +11,7 @@ from packages.workflow_spine.models import (
 )
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
 from packages.workflow_spine.projections import WorkflowReadModel
+from packages.workflow_spine.postgres_repository import PostgresWorkflowRepository, workflow_schema_statements
 from packages.workflow_spine.service import StrategyTestWorkflowService
 from packages.workflow_spine.storage_config import BuilderPostgresConfig, BuilderRedisConfig
 from packages.workflow_spine.storage_interfaces import (
@@ -31,6 +32,8 @@ __all__ = [
     "AiSuggestionRecord",
     "InMemoryWorkflowRepository",
     "WorkflowReadModel",
+    "PostgresWorkflowRepository",
+    "workflow_schema_statements",
     "StrategyTestParams",
     "StrategyTestWorkflowOutcome",
     "StrategyTestWorkflowService",
