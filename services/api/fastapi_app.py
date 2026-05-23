@@ -113,6 +113,11 @@ def create_fastapi_app(
         response = workflow_result_payload(workflow_repository, result_id)
         return response.json()
 
+    @app.get("/api/results/{result_id}")
+    def result_dashboard(result_id: str) -> Any:
+        response = workflow_result_payload(workflow_repository, result_id)
+        return response.json()
+
     @app.get("/api/workflow/results/{result_id}/suggestions")
     def workflow_result_suggestions(result_id: str) -> Any:
         response = workflow_result_suggestions_payload(workflow_repository, result_id)

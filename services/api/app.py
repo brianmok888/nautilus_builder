@@ -42,6 +42,7 @@ def create_app(
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/promotions/shadow", _create_shadow_promotion)
     app.route("GET", "/api/workflow/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
+    app.route("GET", "/api/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
     app.route(
         "GET",
         "/api/workflow/results/{result_id}/suggestions",

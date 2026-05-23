@@ -1,4 +1,4 @@
-import type { AdapterSummary, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, StrategySummary } from "./types";
+import type { AdapterSummary, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, ResultDashboardPayload, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -57,6 +57,22 @@ export async function cancelBacktestJob(jobId: string): Promise<BacktestJobStatu
 
 export async function fetchBacktestJobEvents(jobId: string): Promise<BacktestJobEvents> {
   return apiFetch<BacktestJobEvents>(`/api/backtest-jobs/${jobId}/events`);
+}
+
+export async function fetchResultSummary(resultId: string): Promise<ResultDashboardPayload> {
+  return apiFetch<ResultDashboardPayload>(`/api/results/${resultId}`);
+}
+
+export async function fetchResultArtifacts(resultId: string): Promise<Record<string, unknown>> {
+  return (await fetchResultSummary(resultId)).artifacts;
+}
+
+export async function fetchResultTrades(resultId: string): Promise<unknown[]> {
+  return (await fetchResultSummary(resultId)).trades;
+}
+
+export async function fetchResultFills(resultId: string): Promise<unknown[]> {
+  return (await fetchResultSummary(resultId)).fills;
 }
 
 export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {

@@ -46,3 +46,12 @@ export type BacktestJobEvents = {
   mode: "observational";
   events: unknown[];
 };
+
+export type ResultDashboardPayload = {
+  result_id: string;
+  metrics: Record<string, unknown>;
+  artifacts: Record<string, unknown>;
+  trades: unknown[];
+  fills: unknown[];
+  logs: unknown[];
+};

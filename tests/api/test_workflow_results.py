@@ -2,6 +2,18 @@ from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowReposito
 from services.api.app import create_app
 
 
+def test_result_dashboard_payload_includes_metrics_artifacts_trades_fills_and_logs() -> None:
+    response = create_app().get("/api/results/res_001")
+
+    assert response.status_code == 200
+    assert response.json()["result_id"] == "res_001"
+    assert "metrics" in response.json()
+    assert "artifacts" in response.json()
+    assert "trades" in response.json()
+    assert "fills" in response.json()
+    assert "logs" in response.json()
+
+
 def _repository_with_result_and_suggestion() -> InMemoryWorkflowRepository:
     repository = InMemoryWorkflowRepository()
     repository.save_result(
