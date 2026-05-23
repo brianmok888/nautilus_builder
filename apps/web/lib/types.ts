@@ -19,4 +19,17 @@ export type BacktestProfileValidation = {
   valid: boolean;
   instrument?: Record<string, unknown>;
   error?: string;
+  adapter_profile_id?: string;
+};
+
+export type InstrumentSummary = {
+  instrument_id: string;
+  adapter_id: string;
+  symbol: string;
+};
+
+export type DataAvailability = {
+  instrument_id: string;
+  adapter_id?: string;
+  available_timeframes?: string[];
 };

@@ -6,6 +6,7 @@ import { StrategyGraphCanvas } from "./StrategyGraphCanvas";
 import { StrategySpecEditor } from "./StrategySpecEditor";
 import { ValidationPanel } from "./ValidationPanel";
 import { fetchAdapters, fetchStrategies, validateBacktestProfile } from "../../lib/api";
+import { MarketProfilePanel } from "../market/MarketProfilePanel";
 
 const backendDataContracts = [fetchAdapters, fetchStrategies, validateBacktestProfile];
 
@@ -13,6 +14,7 @@ export const StrategyBuilderWorkspace = () => {
   return (
     <section>
       <MarketSelectionPanel />
+      <MarketProfilePanel />
       <BlockPalette />
       <StrategyBuilderCanvas />
       <StrategyGraphCanvas />

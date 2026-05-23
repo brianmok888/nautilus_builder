@@ -3,6 +3,13 @@ from __future__ import annotations
 from services.api.app import create_app
 
 
+def test_market_catalog_supports_query_friendly_instrument_lookup() -> None:
+    response = create_app().get("/api/instruments?adapter_id=BINANCE_PERP&query=BTC")
+
+    assert response.status_code == 200
+    assert response.json()[0]["instrument_id"] == "BTCUSDT-PERP"
+
+
 def test_adapters_endpoint_lists_only_backend_approved_profiles() -> None:
     response = create_app().get("/api/adapters")
 

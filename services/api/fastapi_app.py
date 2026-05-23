@@ -40,6 +40,10 @@ def create_fastapi_app(
     def instruments(adapter_id: str, query: str) -> Any:
         return instruments_payload(adapter_id, query).json()
 
+    @app.get("/api/instruments")
+    def instruments_query(adapter_id: str, query: str) -> Any:
+        return instruments_payload(adapter_id, query).json()
+
     @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
     def data_availability(adapter_id: str, instrument_id: str) -> Any:
         return data_availability_payload(adapter_id, instrument_id).json()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable
+from urllib.parse import parse_qsl
 
 
 RouteHandler = Callable[..., Any]
@@ -32,9 +33,10 @@ class ApiApp:
     def _dispatch(self, method: str, path: str, payload: dict[str, Any] | None = None) -> ApiResponse:
         route_key = (method.upper(), self._normalize_path(path))
         handler = self._routes.get(route_key)
-        params: dict[str, str] = {}
+        params: dict[str, str] = self._query_params(path)
         if handler is None:
-            handler, params = self._match_parameterized_route(method, path)
+            handler, route_params = self._match_parameterized_route(method, path)
+            params = {**params, **route_params}
         if handler is None:
             return ApiResponse({"error": "not_found", "path": path}, status_code=404)
 
@@ -52,6 +54,7 @@ class ApiApp:
 
     @staticmethod
     def _normalize_path(path: str) -> str:
+        path = path.split("?", 1)[0]
         if not path.startswith("/"):
             path = f"/{path}"
         return path.rstrip("/") or "/"
@@ -76,3 +79,7 @@ class ApiApp:
             if matched:
                 return handler, params
         return None, {}
+
+    @staticmethod
+    def _query_params(path: str) -> dict[str, str]:
+        return dict(parse_qsl(path.split("?", 1)[1])) if "?" in path else {}

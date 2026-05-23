@@ -1,4 +1,4 @@
-import type { AdapterSummary, BackendHealth, BacktestProfileValidation, StrategySummary } from "./types";
+import type { AdapterSummary, BackendHealth, BacktestProfileValidation, DataAvailability, InstrumentSummary, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -31,6 +31,16 @@ export async function fetchAdapters(): Promise<AdapterSummary[]> {
 
 export async function fetchStrategies(): Promise<StrategySummary[]> {
   return apiFetch<StrategySummary[]>("/api/strategies");
+}
+
+export async function fetchInstruments(adapter_id: string, query: string): Promise<InstrumentSummary[]> {
+  const params = new URLSearchParams({ adapter_id, query });
+  return apiFetch<InstrumentSummary[]>(`/api/instruments?${params.toString()}`);
+}
+
+export async function fetchDataAvailability(adapter_id: string, instrument_id: string): Promise<DataAvailability> {
+  const params = new URLSearchParams({ adapter_id, instrument_id });
+  return apiFetch<DataAvailability>(`/api/data-availability/${adapter_id}/${instrument_id}?${params.toString()}`);
 }
 
 export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {

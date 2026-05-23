@@ -20,6 +20,7 @@ def create_app(
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/adapters", adapters_payload)
+    app.route("GET", "/api/instruments", instruments_payload)
     app.route("GET", "/api/instruments/{adapter_id}/{query}", instruments_payload)
     app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", data_availability_payload)
     app.route("POST", "/api/backtest-profiles/validate", validate_backtest_profile_payload)
