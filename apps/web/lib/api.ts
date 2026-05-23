@@ -1,18 +1,42 @@
-export async function fetchAdapters() {
-  const response = await fetch("/api/adapters");
-  return response.json();
+import type { AdapterSummary, BackendHealth, BacktestProfileValidation, StrategySummary } from "./types";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly payload: unknown,
+  ) {
+    super(message);
+  }
 }
 
-export async function fetchStrategies() {
-  const response = await fetch("/api/strategies");
-  return response.json();
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new ApiError("Nautilus Builder API request failed", response.status, payload);
+  }
+  return payload as T;
 }
 
-export async function validateBacktestProfile(profile: Record<string, string>) {
-  const response = await fetch("/api/backtest-profiles/validate", {
+export async function fetchBackendHealth(): Promise<BackendHealth> {
+  return apiFetch<BackendHealth>("/health/backend");
+}
+
+export async function fetchAdapters(): Promise<AdapterSummary[]> {
+  return apiFetch<AdapterSummary[]>("/api/adapters");
+}
+
+export async function fetchStrategies(): Promise<StrategySummary[]> {
+  return apiFetch<StrategySummary[]>("/api/strategies");
+}
+
+export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {
+  return apiFetch<BacktestProfileValidation>("/api/backtest-profiles/validate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile),
   });
-  return response.json();
 }
