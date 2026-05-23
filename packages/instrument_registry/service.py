@@ -72,3 +72,19 @@ class InstrumentRegistryService:
             raise ValueError(f"date range unavailable: {date_range}")
 
         return instrument
+
+    def search_instruments(self, *, adapter_id: str, query: str) -> list[InstrumentSelection]:
+        self._adapters.get_adapter_profile(adapter_id)
+        normalized = query.upper()
+        return [
+            instrument
+            for instrument_id, instrument in _INSTRUMENTS.get(adapter_id, {}).items()
+            if normalized in instrument_id.upper()
+        ]
+
+    def data_availability(self, *, adapter_id: str, instrument_id: str) -> InstrumentSelection:
+        self._adapters.get_adapter_profile(adapter_id)
+        instrument = _INSTRUMENTS.get(adapter_id, {}).get(instrument_id)
+        if instrument is None:
+            raise ValueError(f"instrument unknown for adapter {adapter_id}: {instrument_id}")
+        return instrument

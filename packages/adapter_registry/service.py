@@ -39,6 +39,9 @@ _ADAPTERS: dict[str, AdapterProfile] = {
 
 
 class AdapterRegistryService:
+    def list_enabled_adapters(self) -> list[AdapterProfile]:
+        return [profile for profile in _ADAPTERS.values() if profile.enabled]
+
     def get_adapter_profile(self, adapter_id: str) -> AdapterProfile:
         profile = _ADAPTERS.get(adapter_id)
         if profile is None:

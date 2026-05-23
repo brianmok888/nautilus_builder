@@ -5,6 +5,7 @@ from typing import Any
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.app import _create_shadow_promotion, _generate_ai_draft
 from services.api.routes.health import health_payload
+from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.workflow_results import (
@@ -23,6 +24,18 @@ def create_fastapi_app(workflow_repository: InMemoryWorkflowRepository | None = 
     @app.get("/health")
     def health() -> dict[str, object]:
         return health_payload()
+
+    @app.get("/api/adapters")
+    def adapters() -> list[dict[str, object]]:
+        return adapters_payload()
+
+    @app.get("/api/instruments/{adapter_id}/{query}")
+    def instruments(adapter_id: str, query: str) -> Any:
+        return instruments_payload(adapter_id, query).json()
+
+    @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
+    def data_availability(adapter_id: str, instrument_id: str) -> Any:
+        return data_availability_payload(adapter_id, instrument_id).json()
 
     @app.get("/api/runtime-events/replay")
     def runtime_events_replay() -> list[dict[str, object]]:
