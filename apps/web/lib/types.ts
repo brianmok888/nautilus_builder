@@ -75,6 +75,8 @@ export type AiDraftPayload = {
   prompt: string;
   ai_thread_id: string;
   improvement_cycle_id?: string;
+  strategy_lineage_id?: string;
+  strategy_version_id?: string;
 };
 
 export type AiDraftResult = {
@@ -82,6 +84,16 @@ export type AiDraftResult = {
   accepted: boolean;
   validation_errors: string[];
   explanation: string;
+};
+
+export type AiDraftApplication = {
+  ai_thread_id: string;
+  improvement_cycle_id: string;
+  strategy_lineage_id: string;
+  strategy_version_id: string;
+  stage: "draft";
+  mode: "advisory_only";
+  spec: Record<string, unknown>;
 };
 
 export type PromotionRequestResult = {
