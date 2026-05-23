@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from itertools import count
 
-from packages.workflow_spine.event_stream import InMemoryWorkflowStream
 from packages.workflow_spine.models import (
     AiSuggestionRecord,
     StrategyIdentity,
@@ -13,11 +12,11 @@ from packages.workflow_spine.models import (
     TestResultRecord,
     WorkflowEvent,
 )
-from packages.workflow_spine.repository import InMemoryWorkflowRepository
+from packages.workflow_spine.storage_interfaces import WorkflowRepositoryProtocol, WorkflowStreamProtocol
 
 
 class StrategyTestWorkflowService:
-    def __init__(self, *, repository: InMemoryWorkflowRepository, stream: InMemoryWorkflowStream) -> None:
+    def __init__(self, *, repository: WorkflowRepositoryProtocol, stream: WorkflowStreamProtocol) -> None:
         self._repository = repository
         self._stream = stream
         self._counter = count(1)

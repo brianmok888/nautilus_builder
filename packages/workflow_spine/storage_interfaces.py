@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Protocol, runtime_checkable
 
 from packages.workflow_spine.event_stream import InMemoryWorkflowStream
@@ -14,6 +15,10 @@ class WorkflowRepositoryProtocol(Protocol):
     def save_job(self, job: TestJobRecord) -> None: ...
     def save_result(self, result: TestResultRecord) -> None: ...
     def save_ai_suggestion(self, suggestion: AiSuggestionRecord) -> None: ...
+    def strategy(self, strategy_id: str) -> StrategyIdentity | None: ...
+    def version(self, strategy_version_id: str) -> StrategyVersionIdentity | None: ...
+    def job(self, test_job_id: str) -> TestJobRecord | None: ...
+    def result(self, result_id: str) -> TestResultRecord | None: ...
 
 
 @runtime_checkable
@@ -24,7 +29,7 @@ class WorkflowStreamProtocol(Protocol):
 
 class FakePostgresWorkflowRepository(InMemoryWorkflowRepository):
     def __init__(self, *, dsn_name: str) -> None:
-        if "://" in dsn_name:
+        if re.fullmatch(r"[A-Z_][A-Z0-9_]*", dsn_name) is None:
             raise ValueError("Postgres adapter guard requires an env var name, not a network DSN")
         super().__init__()
         self.dsn_name = dsn_name
@@ -39,7 +44,17 @@ class FakeRedisWorkflowStream(InMemoryWorkflowStream):
 
 
 def assert_postgres_repository_contract(repository: WorkflowRepositoryProtocol) -> None:
-    required = ["save_strategy", "save_version", "save_job", "save_result", "save_ai_suggestion"]
+    required = [
+        "save_strategy",
+        "save_version",
+        "save_job",
+        "save_result",
+        "save_ai_suggestion",
+        "strategy",
+        "version",
+        "job",
+        "result",
+    ]
     for name in required:
         if not callable(getattr(repository, name, None)):
             raise AssertionError(f"repository missing {name}")
