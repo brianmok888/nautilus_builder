@@ -55,3 +55,27 @@ class AiBuilderService:
             }
         )
         return result
+
+    def apply_draft_to_strategy(
+        self,
+        prompt: str,
+        *,
+        ai_thread_id: str,
+        improvement_cycle_id: str,
+        strategy_lineage_id: str,
+        strategy_version_id: str,
+    ) -> dict[str, object]:
+        result = self.generate_draft(prompt, ai_thread_id=ai_thread_id)
+        if not result.accepted:
+            raise ValueError("AI draft must pass validation before apply")
+        record = {
+            "ai_thread_id": ai_thread_id,
+            "improvement_cycle_id": improvement_cycle_id,
+            "strategy_lineage_id": strategy_lineage_id,
+            "strategy_version_id": strategy_version_id,
+            "stage": "draft",
+            "mode": "advisory_only",
+            "spec": result.spec,
+        }
+        self._store.save(record)
+        return record

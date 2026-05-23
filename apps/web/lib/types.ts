@@ -55,3 +55,16 @@ export type ResultDashboardPayload = {
   fills: unknown[];
   logs: unknown[];
 };
+
+export type AiDraftPayload = {
+  prompt: string;
+  ai_thread_id: string;
+  improvement_cycle_id?: string;
+};
+
+export type AiDraftResult = {
+  spec: Record<string, unknown>;
+  accepted: boolean;
+  validation_errors: string[];
+  explanation: string;
+};

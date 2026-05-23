@@ -1,3 +1,13 @@
+import { applyAiDraftToBuilder, generateAiDraft } from "../../lib/api";
+
 export const AiStrategyCopilot = () => {
-  return "AiStrategyCopilot: advisory draft generation only";
+  const contracts = [generateAiDraft.name, applyAiDraftToBuilder.name];
+  return (
+    <section aria-label="advisory ai copilot">
+      <p>AiStrategyCopilot: advisory draft generation only</p>
+      <p>ai_thread_id and improvement_cycle_id are required lane identifiers.</p>
+      <button type="button">Apply to Builder</button>
+      <p>Contracts: {contracts.join(", ")}</p>
+    </section>
+  );
 };

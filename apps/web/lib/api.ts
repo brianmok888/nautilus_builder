@@ -1,4 +1,4 @@
-import type { AdapterSummary, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, ResultDashboardPayload, StrategySummary } from "./types";
+import type { AdapterSummary, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, ResultDashboardPayload, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -73,6 +73,18 @@ export async function fetchResultTrades(resultId: string): Promise<unknown[]> {
 
 export async function fetchResultFills(resultId: string): Promise<unknown[]> {
   return (await fetchResultSummary(resultId)).fills;
+}
+
+export async function generateAiDraft(payload: AiDraftPayload): Promise<AiDraftResult> {
+  return apiFetch<AiDraftResult>("/api/ai-builder/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+}
+
+export async function applyAiDraftToBuilder(payload: AiDraftPayload): Promise<AiDraftResult> {
+  const draft = await generateAiDraft(payload);
+  if (!draft.accepted) {
+    throw new ApiError("AI draft must pass validation before Apply to Builder", 422, draft);
+  }
+  return draft;
 }
 
 export async function validateBacktestProfile(profile: Record<string, string>): Promise<BacktestProfileValidation> {
