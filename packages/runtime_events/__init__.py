@@ -5,6 +5,7 @@ __all__ = ["RuntimeEvent", "RuntimeEventService"]
 from packages.runtime_events.models import RuntimeEvent
 from packages.runtime_events.service import RuntimeEventService
 from packages.runtime_events.stream import DurableRuntimeEventStream, InMemoryRuntimeEventStream, runtime_event_schema_statements
+from packages.runtime_events.redis_stream import RedisRuntimeEventStream, connect_builder_redis
 
 __all__ = [
     "RuntimeEvent",
@@ -12,4 +13,6 @@ __all__ = [
     "DurableRuntimeEventStream",
     "InMemoryRuntimeEventStream",
     "runtime_event_schema_statements",
+    "RedisRuntimeEventStream",
+    "connect_builder_redis",
 ]
