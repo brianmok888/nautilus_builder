@@ -1,3 +1,10 @@
+import { ValidationPanel } from "./ValidationPanel";
+
 export const StrategyBuilderCanvas = () => {
-  return "StrategyBuilderCanvas: draft authoring only";
+  return (
+    <section>
+      <p>StrategyBuilderCanvas: draft authoring only; graph state serializes to StrategySpec.</p>
+      <ValidationPanel errors={[]} />
+    </section>
+  );
 };
