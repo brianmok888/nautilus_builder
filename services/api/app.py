@@ -4,7 +4,7 @@ from services.api.routes.health import health_payload
 from services.api.routes.promotions import create_shadow_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
-from services.api.routes.workflow_results import workflow_result_payload, workflow_result_suggestions_payload
+from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 
 
@@ -21,6 +21,11 @@ def create_app(workflow_repository: InMemoryWorkflowRepository | None = None) ->
         "GET",
         "/api/workflow/results/{result_id}/suggestions",
         lambda result_id: workflow_result_suggestions_payload(workflow_repository, result_id),
+    )
+    app.route(
+        "GET",
+        "/api/workflow/lineages/{strategy_lineage_id}/status",
+        lambda strategy_lineage_id: workflow_lineage_status_payload(workflow_repository, strategy_lineage_id),
     )
     return app
 

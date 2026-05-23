@@ -62,3 +62,17 @@ def test_workflow_result_endpoint_returns_404_for_unknown_result() -> None:
 
     assert response.status_code == 404
     assert response.json()["error"] == "result_not_found"
+
+
+def test_workflow_lineage_status_endpoint_returns_read_projection() -> None:
+    app = create_app(workflow_repository=_repository_with_result_and_suggestion())
+
+    response = app.get("/api/workflow/lineages/lineage_alpha/status")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["strategy_lineage_id"] == "lineage_alpha"
+    assert payload["strategy_version_id"] == "sv_001"
+    assert payload["result_id"] == "res_001"
+    assert payload["suggestion_created"] is True
+    assert "display_name" not in payload

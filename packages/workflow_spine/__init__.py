@@ -10,6 +10,7 @@ from packages.workflow_spine.models import (
     WorkflowEvent,
 )
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
+from packages.workflow_spine.projections import WorkflowReadModel
 from packages.workflow_spine.service import StrategyTestWorkflowService
 from packages.workflow_spine.storage_config import BuilderPostgresConfig, BuilderRedisConfig
 from packages.workflow_spine.storage_interfaces import (
@@ -29,6 +30,7 @@ __all__ = [
     "InvalidStreamNamespaceError",
     "AiSuggestionRecord",
     "InMemoryWorkflowRepository",
+    "WorkflowReadModel",
     "StrategyTestParams",
     "StrategyTestWorkflowOutcome",
     "StrategyTestWorkflowService",
