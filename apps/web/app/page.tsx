@@ -1,4 +1,5 @@
 import { AiStrategyCopilot } from "../components/ai-builder/AiStrategyCopilot";
+import { PromotionRequestPanel } from "../components/promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../components/strategy-builder/StrategyBuilderWorkspace";
 import { JobTerminal } from "../components/terminal/JobTerminal";
 
@@ -17,6 +18,10 @@ export default function HomePage() {
       <section aria-label="advisory ai">
         <h2>Advisory AI drafting</h2>
         <AiStrategyCopilot />
+      </section>
+      <section aria-label="safe promotion">
+        <h2>Safe promotion request</h2>
+        <PromotionRequestPanel />
       </section>
     </main>
   );
