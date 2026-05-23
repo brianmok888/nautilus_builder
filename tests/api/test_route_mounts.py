@@ -33,6 +33,29 @@ def test_ai_builder_draft_route_is_advisory_only() -> None:
     assert payload["spec"]["output"] == "signal_preview_only"
 
 
+def test_ai_builder_apply_route_preserves_advisory_lineage_ids() -> None:
+    response = create_app().post(
+        "/api/ai-builder/apply",
+        json={
+            "prompt": "Draft an EMA RSI pullback strategy",
+            "ai_thread_id": "ai_thread_001",
+            "improvement_cycle_id": "cycle_001",
+            "strategy_lineage_id": "lineage_strategy_001",
+            "strategy_version_id": "strategy_001_v002",
+        },
+    )
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["ai_thread_id"] == "ai_thread_001"
+    assert payload["improvement_cycle_id"] == "cycle_001"
+    assert payload["strategy_lineage_id"] == "lineage_strategy_001"
+    assert payload["strategy_version_id"] == "strategy_001_v002"
+    assert payload["stage"] == "draft"
+    assert payload["mode"] == "advisory_only"
+    assert payload["spec"]["output"] == "signal_preview_only"
+
+
 def test_shadow_promotion_route_is_contract_only() -> None:
     response = create_app().post(
         "/api/promotions/shadow",
