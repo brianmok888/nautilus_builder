@@ -22,7 +22,7 @@ def test_next_app_shell_mounts_existing_placeholder_components_without_runtime_a
     page = (ROOT / "apps" / "web" / "app" / "page.tsx").read_text()
     layout = (ROOT / "apps" / "web" / "app" / "layout.tsx").read_text()
 
-    assert "StrategyBuilderCanvas" in page
+    assert "StrategyBuilderWorkspace" in page
     assert "JobTerminal" in page
     assert "AiStrategyCopilot" in page
     assert "draft authoring" in page
