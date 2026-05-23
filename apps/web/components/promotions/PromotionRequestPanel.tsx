@@ -9,6 +9,9 @@ export const PromotionRequestPanel = () => {
       <h3>Safe promotion request</h3>
       <p>Targets: shadow, signal-preview</p>
       <p>Requires manual approval before any downstream change.</p>
+      <p>approval_state: manual_approval_pending</p>
+      <p>may_submit_order: false</p>
+      <p>may_create_trade_action: false</p>
       <p>strategy_version_id: {strategy_version_id}</p>
       <p>result_id: {result_id}</p>
       <p>Contract: {requestShadowPromotion.name}</p>

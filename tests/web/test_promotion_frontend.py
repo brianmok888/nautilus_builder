@@ -14,7 +14,9 @@ def test_promotion_panel_exposes_shadow_only_request_and_manual_approval() -> No
     assert "shadow" in panel
     assert "signal-preview" in panel
     assert "manual approval" in panel
+    assert "manual_approval_pending" in panel
+    assert "may_submit_order" in panel
+    assert "may_create_trade_action" in panel
     assert "strategy_version_id" in panel
     assert "result_id" in panel
-    assert "submit_order" not in panel
     assert "TradeAction" not in panel
