@@ -10,7 +10,7 @@ from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
-from services.api.routes.strategies import create_strategy_payload, list_strategies_payload, strategy_detail_payload
+from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import (
     workflow_lineage_status_payload,
     workflow_result_payload,
@@ -67,6 +67,14 @@ def create_fastapi_app(
     @app.get("/api/strategies/{strategy_id}")
     def strategy_detail(strategy_id: str) -> Any:
         return _fastapi_payload(strategy_detail_payload(strategy_repository, strategy_id))
+
+    @app.post("/api/strategies/{strategy_id}/draft")
+    def update_strategy_draft(strategy_id: str, payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(update_strategy_draft_payload(strategy_repository, strategy_id, payload))
+
+    @app.post("/api/strategies/{strategy_id}/versions")
+    def create_strategy_version(strategy_id: str, payload: dict[str, Any]) -> Any:
+        return _fastapi_payload(create_strategy_version_payload(strategy_repository, strategy_id, payload))
 
     @app.post("/api/ai-builder/draft")
     def ai_builder_draft(payload: dict[str, Any]) -> dict[str, object]:

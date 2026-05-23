@@ -25,3 +25,14 @@ def test_strategy_builder_page_mounts_market_selection_and_spec_editor_surfaces(
     assert "validateBacktestProfile" in component
     assert "backend validation" in component
     assert "submit_order" not in component
+
+
+def test_strategy_pages_expose_list_detail_and_builder_entrypoints() -> None:
+    list_page = (ROOT / "apps" / "web" / "app" / "strategies" / "page.tsx").read_text()
+    detail_page = (ROOT / "apps" / "web" / "app" / "strategies" / "[strategyId]" / "page.tsx").read_text()
+
+    assert "fetchStrategies" in list_page
+    assert "Strategy list" in list_page
+    assert "Version history" in detail_page
+    assert "Open in Builder" in detail_page
+    assert "strategy_lineage_id" in detail_page

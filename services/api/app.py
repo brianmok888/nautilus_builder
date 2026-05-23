@@ -5,7 +5,7 @@ from services.api.routes.market_catalog import adapters_payload, data_availabili
 from services.api.routes.promotions import create_shadow_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
-from services.api.routes.strategies import create_strategy_payload, list_strategies_payload, strategy_detail_payload
+from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.strategy_spec.repository import InMemoryStrategyRepository
@@ -26,6 +26,8 @@ def create_app(
     app.route("POST", "/api/strategies", lambda payload: create_strategy_payload(strategy_repository, payload))
     app.route("GET", "/api/strategies", lambda: list_strategies_payload(strategy_repository))
     app.route("GET", "/api/strategies/{strategy_id}", lambda strategy_id: strategy_detail_payload(strategy_repository, strategy_id))
+    app.route("POST", "/api/strategies/{strategy_id}/draft", lambda strategy_id, payload: update_strategy_draft_payload(strategy_repository, strategy_id, payload))
+    app.route("POST", "/api/strategies/{strategy_id}/versions", lambda strategy_id, payload: create_strategy_version_payload(strategy_repository, strategy_id, payload))
     app.route("GET", "/api/runtime-events/replay", replay_runtime_events_payload)
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)

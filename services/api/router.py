@@ -38,7 +38,9 @@ class ApiApp:
         if handler is None:
             return ApiResponse({"error": "not_found", "path": path}, status_code=404)
 
-        if method.upper() == "POST":
+        if method.upper() == "POST" and params:
+            result = handler(**params, payload=payload or {})
+        elif method.upper() == "POST":
             result = handler(payload or {})
         elif params:
             result = handler(**params)
