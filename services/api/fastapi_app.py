@@ -44,15 +44,15 @@ def create_fastapi_app(
 
     @app.get("/api/instruments/{adapter_id}/{query}")
     def instruments(adapter_id: str, query: str) -> Any:
-        return instruments_payload(adapter_id, query).json()
+        return _fastapi_response(instruments_payload(adapter_id, query), JSONResponse)
 
     @app.get("/api/instruments")
     def instruments_query(adapter_id: str, query: str) -> Any:
-        return instruments_payload(adapter_id, query).json()
+        return _fastapi_response(instruments_payload(adapter_id, query), JSONResponse)
 
     @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
     def data_availability(adapter_id: str, instrument_id: str) -> Any:
-        return data_availability_payload(adapter_id, instrument_id).json()
+        return _fastapi_response(data_availability_payload(adapter_id, instrument_id), JSONResponse)
 
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any]) -> Any:
@@ -116,23 +116,19 @@ def create_fastapi_app(
 
     @app.get("/api/workflow/results/{result_id}")
     def workflow_result(result_id: str) -> Any:
-        response = workflow_result_payload(workflow_repository, result_id)
-        return response.json()
+        return _fastapi_response(workflow_result_payload(workflow_repository, result_id), JSONResponse)
 
     @app.get("/api/results/{result_id}")
     def result_dashboard(result_id: str) -> Any:
-        response = workflow_result_payload(workflow_repository, result_id)
-        return response.json()
+        return _fastapi_response(workflow_result_payload(workflow_repository, result_id), JSONResponse)
 
     @app.get("/api/workflow/results/{result_id}/suggestions")
     def workflow_result_suggestions(result_id: str) -> Any:
-        response = workflow_result_suggestions_payload(workflow_repository, result_id)
-        return response.json()
+        return _fastapi_response(workflow_result_suggestions_payload(workflow_repository, result_id), JSONResponse)
 
     @app.get("/api/workflow/lineages/{strategy_lineage_id}/status")
     def workflow_lineage_status(strategy_lineage_id: str) -> Any:
-        response = workflow_lineage_status_payload(workflow_repository, strategy_lineage_id)
-        return response.json()
+        return _fastapi_response(workflow_lineage_status_payload(workflow_repository, strategy_lineage_id), JSONResponse)
 
     return app
 
