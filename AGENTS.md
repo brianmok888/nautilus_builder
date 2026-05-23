@@ -4,7 +4,7 @@
 - Repo is no longer docs-only. Real code lives under `packages/`, `services/`, `tests/`, and placeholder UI stubs under `apps/web/components/`.
 - `doc/` is still source truth for product/runtime rules.
 - `docs/superpowers/` is still derived planning/execution output from `doc/`.
-- There is still no package manifest, CI workflow, or frontend toolchain config. Python/TSX structure exists without a full app bootstrap.
+- A minimal Python manifest, CI workflow template, local infra composition, and Next.js app shell now exist; CI activation and production integration remain incremental.
 
 ## Read first
 - `doc/README.md` for product identity.
@@ -18,11 +18,11 @@
 - `services/api/routes/` holds thin adapter-style route stubs over `packages/*`.
 - `services/workers/` holds worker entrypoint stubs.
 - `tests/` mirrors feature seams; tests are policy/contract-first.
-- `apps/web/components/` is placeholder UI only; no `App.tsx`, `main.tsx`, `package.json`, or real frontend runtime exists.
+- `apps/web/components/` is mounted by a minimal Next.js app shell; rich interactive runtime/data wiring remains incremental.
 
 ## What agents get wrong here
 - Do not trust older docs that say `apps/web`, `services/api`, `packages/*`, or `tests/` are only planned; they now exist, but many files are still minimal scaffolds.
-- Do not treat TSX placeholders as a runnable frontend.
+- Do not treat the minimal TSX shell as full production UX or runtime authority.
 - Do not treat Nautilus-Daedalus as editable from this repo; Builder-side contracts only.
 - Do not weaken `UX must not own runtime`.
 - Do not give Builder live order authority; `submit_order`, `TradeAction`, and execution-lane behavior stay external.
