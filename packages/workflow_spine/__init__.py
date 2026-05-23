@@ -11,6 +11,7 @@ from packages.workflow_spine.models import (
 )
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
 from packages.workflow_spine.service import StrategyTestWorkflowService
+from packages.workflow_spine.storage_config import BuilderPostgresConfig, BuilderRedisConfig
 from packages.workflow_spine.storage_interfaces import (
     FakePostgresWorkflowRepository,
     FakeRedisWorkflowStream,
@@ -37,6 +38,8 @@ __all__ = [
     "FakeRedisWorkflowStream",
     "WorkflowRepositoryProtocol",
     "WorkflowStreamProtocol",
+    "BuilderPostgresConfig",
+    "BuilderRedisConfig",
     "assert_postgres_repository_contract",
     "assert_redis_stream_contract",
 ]
