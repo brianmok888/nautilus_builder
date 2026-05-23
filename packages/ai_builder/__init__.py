@@ -3,7 +3,7 @@ from .service import AiBuilderService
 
 __all__ = ["AiDraftResult", "AiBuilderService"]
 from packages.ai_builder.models import AiDraftResult
-from packages.ai_builder.provider import AdvisoryDraftProvider, DraftProviderProtocol, RecordedAiDraftStore
+from packages.ai_builder.provider import AdvisoryDraftProvider, DraftProviderProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
 from packages.ai_builder.service import AiBuilderService
 
-__all__ = ["AiDraftResult", "AdvisoryDraftProvider", "DraftProviderProtocol", "RecordedAiDraftStore", "AiBuilderService"]
+__all__ = ["AiDraftResult", "AdvisoryDraftProvider", "DraftProviderProtocol", "RecordedAiDraftStore", "SqliteAiDraftAuditStore", "AiBuilderService"]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from sqlite3 import Connection
 from typing import Protocol
 
 
@@ -33,3 +35,32 @@ class RecordedAiDraftStore:
 
     def records_for_thread(self, ai_thread_id: str) -> list[dict[str, object]]:
         return [record for record in self._records if record["ai_thread_id"] == ai_thread_id]
+
+
+class SqliteAiDraftAuditStore:
+    def __init__(self, *, connection: Connection) -> None:
+        self._connection = connection
+        self._connection.execute(
+            """
+            create table if not exists builder_ai_draft_audit (
+                sequence integer primary key autoincrement,
+                ai_thread_id text not null,
+                payload text not null
+            )
+            """
+        )
+        self._connection.commit()
+
+    def save(self, record: dict[str, object]) -> None:
+        self._connection.execute(
+            "insert into builder_ai_draft_audit (ai_thread_id, payload) values (?, ?)",
+            (str(record["ai_thread_id"]), json.dumps(record, sort_keys=True, separators=(",", ":"))),
+        )
+        self._connection.commit()
+
+    def records_for_thread(self, ai_thread_id: str) -> list[dict[str, object]]:
+        rows = self._connection.execute(
+            "select payload from builder_ai_draft_audit where ai_thread_id = ? order by sequence",
+            (ai_thread_id,),
+        ).fetchall()
+        return [json.loads(row[0]) for row in rows]

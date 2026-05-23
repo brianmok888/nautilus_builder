@@ -9,7 +9,7 @@ class AiBuilderService:
         self,
         *,
         provider: DraftProviderProtocol | None = None,
-        store: RecordedAiDraftStore | None = None,
+        store: object | None = None,
     ) -> None:
         self._provider = provider or AdvisoryDraftProvider()
         self._store = store or RecordedAiDraftStore()
