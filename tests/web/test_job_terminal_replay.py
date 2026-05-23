@@ -19,3 +19,11 @@ def test_request_cancel_maps_to_backend_durable_state() -> None:
 
     assert response["action"] == "cancel_request"
     assert response["backend_owned"] is True
+
+
+def test_metrics_command_returns_observational_dashboard_link() -> None:
+    response = run_terminal_command("metrics", job_id="job_001", result_id="res_001")
+
+    assert response["mode"] == "observational"
+    assert response["result_id"] == "res_001"
+    assert response["dashboard_path"] == "/results/res_001"
