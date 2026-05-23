@@ -15,5 +15,6 @@
 - Do not let route code become the only place a policy is enforced.
 
 ## Current reality
-- There is no real API server bootstrap yet; these are route stubs and payload helpers.
+- `fastapi_app.py` provides the real FastAPI bootstrap when FastAPI is installed.
+- `app.py` keeps the lightweight in-process `ApiApp` for dependency-free contract tests.
 - `services/workers/` is separate and should stay backend-only.
