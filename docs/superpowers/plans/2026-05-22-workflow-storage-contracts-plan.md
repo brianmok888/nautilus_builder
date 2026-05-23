@@ -33,3 +33,21 @@ This prepares the future real Postgres interface while keeping this slice depend
 - AI suggestions attach to stable IDs and do not depend on display names.
 - Repository can query suggestions by lineage and result.
 - No real database or external service dependency is introduced.
+
+## Completion Reconciliation
+
+Status: **completed and merged to `origin/master`**.
+
+Implementation evidence:
+
+- `packages/workflow_spine/models.py` defines strict `TestResultRecord` and `AiSuggestionRecord` models.
+- `packages/workflow_spine/repository.py` stores results by `result_id` / `test_job_id` and suggestions by lineage, result, and AI thread.
+- `tests/workflow_spine/test_result_suggestion_storage.py` covers durable result/suggestion storage and display-name independence.
+- Commit evidence includes `05d8c09 add workflow result suggestion storage` on `master`.
+
+Verification evidence from the downstream workflow-spine tranche:
+
+```bash
+rtk pytest tests/workflow_spine tests/api tests/auth tests/backtest_jobs tests/runtime_events tests/strategy_compiler
+# Pytest: 51 passed
+```

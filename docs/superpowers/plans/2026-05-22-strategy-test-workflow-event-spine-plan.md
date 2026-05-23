@@ -146,6 +146,37 @@ rtk pytest tests/workflow_spine tests/api tests/auth tests/backtest_jobs tests/r
 - ND sharing is represented only through explicit Builder-owned bridge streams.
 - No real Redis/Postgres integration is introduced yet.
 
+## Completion Reconciliation
+
+Status: **completed and merged to `origin/master`**.
+
+Implementation evidence:
+
+- `packages/workflow_spine/models.py` defines lineage/version/job/result/event records with stable IDs.
+- `packages/workflow_spine/repository.py` provides the in-memory repository contract.
+- `packages/workflow_spine/event_stream.py` enforces Builder-owned stream namespaces.
+- `packages/workflow_spine/service.py` publishes `strategy.versioned`, `test.enqueued`, `result.completed`, and `suggestion.created` workflow events.
+- `packages/workflow_spine/storage_interfaces.py` keeps fake Postgres/Redis adapters dependency-free and rejects network-shaped configuration.
+- `packages/workflow_spine/nd_compat.py` maps Builder events to the explicit `builder:nd:advisory` bridge without importing or mutating Nautilus-Daedalus.
+
+Commit evidence on `master`:
+
+- `df954f0 add workflow storage interfaces`
+- `86ca3d8 add workflow storage interface tests`
+- `2bae3ef add workflow storage config skeletons`
+- `a8d5a63 add workflow storage config tests`
+- `19ed112 add workflow result API routes`
+- `9a996e0 add workflow result API tests`
+- `33d95c4 add workflow completion events`
+- `bbcbe68 guard workflow adapter boundaries`
+
+Verification evidence:
+
+```bash
+rtk pytest tests/workflow_spine tests/api tests/auth tests/backtest_jobs tests/runtime_events tests/strategy_compiler
+# Pytest: 51 passed
+```
+
 ## Follow-on Slice: ND AI Pipeline Compatibility Mapping
 
 Goal: add a small contract adapter that maps Builder workflow identity/events to ND-facing advisory bridge payloads without importing ND internals or writing to ND-owned streams.
@@ -169,3 +200,5 @@ Goal: add a small contract adapter that maps Builder workflow identity/events to
 - [ ] Run `rtk pytest tests/workflow_spine/test_nd_ai_compatibility.py`.
 - [ ] Run `rtk pytest tests/workflow_spine`.
 - [ ] Commit as `add ND AI compatibility mapping`.
+
+Follow-on status: **implemented before this reconciliation** in `packages/workflow_spine/nd_compat.py` and `tests/workflow_spine/test_nd_ai_compatibility.py`.
