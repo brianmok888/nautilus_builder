@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from packages.runtime_events.models import RuntimeEvent
+from packages.runtime_events.stream import InMemoryRuntimeEventStream
 
 
 class RuntimeEventService:
-    def __init__(self) -> None:
-        self._events: dict[str, list[RuntimeEvent]] = {}
+    def __init__(self, *, stream: InMemoryRuntimeEventStream | None = None) -> None:
+        self._stream = stream or InMemoryRuntimeEventStream()
 
     def append_event(
         self,
@@ -23,8 +24,8 @@ class RuntimeEventService:
             message=message,
             progress_pct=progress_pct,
         )
-        self._events.setdefault(job_id, []).append(event)
+        self._stream.append(event)
         return event
 
     def replay_events(self, job_id: str) -> list[RuntimeEvent]:
-        return list(self._events.get(job_id, []))
+        return self._stream.replay(job_id)
