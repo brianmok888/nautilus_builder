@@ -70,3 +70,30 @@ def test_shadow_promotion_route_is_contract_only() -> None:
     assert payload["profile"] == "signal_preview_only"
     assert payload["may_submit_order"] is False
     assert payload["may_create_trade_action"] is False
+
+
+def test_promotion_request_route_exposes_shadow_only_manual_approval_contract() -> None:
+    response = create_app().post(
+        "/api/promotions/request",
+        json={"strategy_version_id": "strategy_001_v002", "result_id": "res_001", "target": "shadow"},
+    )
+
+    payload = response.json()
+    assert response.status_code == 201
+    assert payload["strategy_version_id"] == "strategy_001_v002"
+    assert payload["result_id"] == "res_001"
+    assert payload["target"] == "shadow"
+    assert payload["approval_state"] == "manual_approval_pending"
+    assert payload["manual_approval_required"] is True
+    assert payload["may_submit_order"] is False
+    assert payload["may_create_trade_action"] is False
+
+
+def test_promotion_request_route_rejects_live_targets() -> None:
+    response = create_app().post(
+        "/api/promotions/request",
+        json={"strategy_version_id": "strategy_001_v002", "result_id": "res_001", "target": "live"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"] == "unsupported_promotion_target"

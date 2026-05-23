@@ -4,6 +4,27 @@ from .models import PromotionRequest
 
 
 class PromotionService:
+    def request_builder_promotion(
+        self,
+        *,
+        strategy_version_id: str,
+        result_id: str,
+        target: str,
+    ) -> dict[str, object]:
+        if target not in {"shadow", "signal-preview"}:
+            raise ValueError("unsupported_promotion_target")
+
+        return {
+            "strategy_version_id": strategy_version_id,
+            "result_id": result_id,
+            "target": target,
+            "approval_state": "manual_approval_pending",
+            "manual_approval_required": True,
+            "may_submit_order": False,
+            "may_create_trade_action": False,
+            "mode": "builder_safe_promotion_request",
+        }
+
     def create_shadow_request(
         self,
         *,

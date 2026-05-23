@@ -16,15 +16,12 @@ def create_shadow_payload(strategy_version: str, compile_hash: str) -> dict[str,
 
 def request_promotion_payload(payload: dict[str, object]) -> ApiResponse:
     target = str(payload.get("target", ""))
-    if target not in {"shadow", "signal-preview"}:
+    try:
+        request = PromotionService().request_builder_promotion(
+            strategy_version_id=str(payload["strategy_version_id"]),
+            result_id=str(payload["result_id"]),
+            target=target,
+        )
+    except ValueError:
         return ApiResponse({"error": "unsupported_promotion_target", "target": target}, status_code=422)
-    return ApiResponse(
-        {
-            "strategy_version_id": str(payload["strategy_version_id"]),
-            "result_id": str(payload["result_id"]),
-            "target": target,
-            "manual_approval_required": True,
-            "mode": "builder_safe_promotion_request",
-        },
-        status_code=201,
-    )
+    return ApiResponse(request, status_code=201)
