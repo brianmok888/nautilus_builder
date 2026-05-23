@@ -1,4 +1,4 @@
-import type { AdapterSummary, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, PromotionRequestResult, ResultDashboardPayload, StrategySummary } from "./types";
+import type { AdapterSummary, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, PromotionRequestResult, ResultDashboardPayload, StrategyDetail, StrategyRecord, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -31,6 +31,14 @@ export async function fetchAdapters(): Promise<AdapterSummary[]> {
 
 export async function fetchStrategies(): Promise<StrategySummary[]> {
   return apiFetch<StrategySummary[]>("/api/strategies");
+}
+
+export async function createStrategy(spec: Record<string, unknown>): Promise<StrategyRecord> {
+  return apiFetch<StrategyRecord>("/api/strategies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(spec) });
+}
+
+export async function fetchStrategyDetail(strategyId: string): Promise<StrategyDetail> {
+  return apiFetch<StrategyDetail>(`/api/strategies/${strategyId}`);
 }
 
 export async function fetchInstruments(adapter_id: string, query: string): Promise<InstrumentSummary[]> {

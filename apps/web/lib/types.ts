@@ -9,6 +9,19 @@ export type StrategySummary = {
   latest_spec: Record<string, unknown>;
 };
 
+export type StrategyRecord = {
+  strategy_id: string;
+  strategy_lineage_id: string;
+  strategy_version_id: string;
+  spec: Record<string, unknown>;
+};
+
+export type StrategyDetail = {
+  strategy_id: string;
+  strategy_lineage_id: string;
+  versions: Array<{ strategy_version_id: string; spec: Record<string, unknown> }>;
+};
+
 export type AdapterSummary = {
   adapter_id: string;
   name: string;

@@ -30,9 +30,13 @@ def test_strategy_builder_page_mounts_market_selection_and_spec_editor_surfaces(
 def test_strategy_pages_expose_list_detail_and_builder_entrypoints() -> None:
     list_page = (ROOT / "apps" / "web" / "app" / "strategies" / "page.tsx").read_text()
     detail_page = (ROOT / "apps" / "web" / "app" / "strategies" / "[strategyId]" / "page.tsx").read_text()
+    list_client = (ROOT / "apps" / "web" / "components" / "strategies" / "StrategyListClient.tsx").read_text()
+    detail_client = (ROOT / "apps" / "web" / "components" / "strategies" / "StrategyDetailClient.tsx").read_text()
 
-    assert "fetchStrategies" in list_page
+    assert "StrategyListClient" in list_page
+    assert "fetchStrategies" in list_client
     assert "Strategy list" in list_page
-    assert "Version history" in detail_page
-    assert "Open in Builder" in detail_page
-    assert "strategy_lineage_id" in detail_page
+    assert "StrategyDetailClient" in detail_page
+    assert "Version history" in detail_client
+    assert "Open in Builder" in detail_client
+    assert "strategy_lineage_id" in detail_client
