@@ -4,15 +4,24 @@ from services.api.routes.health import health_payload
 from services.api.routes.promotions import create_shadow_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
+from services.api.routes.workflow_results import workflow_result_payload, workflow_result_suggestions_payload
+from packages.workflow_spine import InMemoryWorkflowRepository
 
 
-def create_app() -> ApiApp:
+def create_app(workflow_repository: InMemoryWorkflowRepository | None = None) -> ApiApp:
+    workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/runtime-events/replay", replay_runtime_events_payload)
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/promotions/shadow", _create_shadow_promotion)
+    app.route("GET", "/api/workflow/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
+    app.route(
+        "GET",
+        "/api/workflow/results/{result_id}/suggestions",
+        lambda result_id: workflow_result_suggestions_payload(workflow_repository, result_id),
+    )
     return app
 
 
