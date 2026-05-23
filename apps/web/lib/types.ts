@@ -44,7 +44,9 @@ export type InstrumentSummary = {
 export type DataAvailability = {
   instrument_id: string;
   adapter_id?: string;
+  supported_timeframes?: string[];
   available_timeframes?: string[];
+  available_date_ranges?: Array<{ start: string; end: string }>;
 };
 
 export type BacktestJobStatus = {
