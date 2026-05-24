@@ -12,6 +12,8 @@ def test_backtest_job_can_be_created_read_and_cancelled() -> None:
         "instrument_id": "BTCUSDT-PERP",
         "validation_report_id": "validation_001",
         "compile_artifact_id": "compile_001",
+        "created_by": "operator_001",
+        "data_range": "2024-01-01:2024-03-01",
     }
 
     created = app.post("/api/backtest-jobs", json=payload)
@@ -22,6 +24,13 @@ def test_backtest_job_can_be_created_read_and_cancelled() -> None:
     assert created.status_code == 201
     assert job_id == created.json()["backend_job_id"]
     assert detail.json()["status"] == "queued"
+    assert detail.json()["created_by"] == "operator_001"
+    assert detail.json()["strategy_spec_version_id"] == "strategy_001_v001"
+    assert detail.json()["adapter_profile_id"] == "profile_001"
+    assert detail.json()["data_range"] == "2024-01-01:2024-03-01"
+    assert detail.json()["worker_id"] == "unassigned"
+    assert detail.json()["result_artifact_refs"] == {}
+    assert detail.json()["event_stream_id"] == f"builder:runtime:{job_id}"
     assert cancelled.json()["status"] == "cancel_requested"
     assert app.get(f"/api/backtest-jobs/{job_id}").json()["status"] == "cancel_requested"
 

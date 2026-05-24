@@ -197,3 +197,23 @@ cd apps/web && npm run typecheck && npm test -- components/market/MarketProfileP
 rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web -q
 # Pytest: 64 passed
 ```
+
+## Segment 3 completion guard — job/runtime audit fields
+
+Segment 3 is complete. Preserve these rules going forward:
+
+- `BacktestJob` must keep `job_id`, `status`, `stage`, `created_by`, `created_at`, `updated_at`, `strategy_spec_version_id`, `adapter_profile_id`, `instrument_id`, `data_range`, `worker_id`, `result_artifact_refs`, and `event_stream_id`.
+- API create/read/cancel responses must expose the backend-owned audit fields; frontend disconnects must not erase or cancel backend state.
+- `RuntimeEvent` must keep `event_id`, `job_id`, `actor_type`, `actor_id`, `stage`, `level`, `message`, `timestamp`, and `metadata`; `progress_pct` remains a compatibility field and is mirrored into metadata.
+- Worker success must use `SUCCEEDED`; do not reintroduce `COMPLETED` without updating source docs and tests.
+- Redis runtime event payloads must preserve nested metadata during append/replay.
+
+Segment 3 evidence:
+
+```bash
+rtk pytest tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_route_mounts.py tests/web/test_job_terminal_replay.py -q
+# Pytest: 36 passed
+
+python3 -m compileall -q packages/backtest_jobs packages/runtime_events services/workers services/api/routes/backtest_jobs.py
+# compileall passed
+```

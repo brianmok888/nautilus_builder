@@ -47,15 +47,14 @@ def test_replay_endpoint_reads_injected_durable_stream() -> None:
 
     payload = replay_runtime_events_payload(service=RuntimeEventService(stream=stream), job_id="bt_001")
 
-    assert payload == [
-        {
-            "job_id": "bt_001",
-            "stage": "RUNNING",
-            "level": "INFO",
-            "message": "persisted",
-            "progress_pct": 1.0,
-        }
-    ]
+    assert payload[0]["job_id"] == "bt_001"
+    assert payload[0]["stage"] == "RUNNING"
+    assert payload[0]["level"] == "INFO"
+    assert payload[0]["message"] == "persisted"
+    assert payload[0]["progress_pct"] == 1.0
+    assert payload[0]["event_id"] == "bt_001_evt_000001"
+    assert payload[0]["actor_type"] == "system"
+    assert payload[0]["metadata"]["progress_pct"] == 1.0
 
 
 def test_runtime_events_sse_payload_is_observational_only() -> None:

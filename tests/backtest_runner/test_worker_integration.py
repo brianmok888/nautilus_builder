@@ -20,10 +20,12 @@ def test_worker_loads_backend_job_emits_events_and_persists_result_identity() ->
 
     result = run_backtest_job(job_id=job.job_id, jobs=jobs, events=events, worker_image="nautilus-builder-worker:dev")
 
-    assert jobs.get_job(job.job_id).stage == "COMPLETED"
+    assert jobs.get_job(job.job_id).stage == "SUCCEEDED"
     assert result.backtest_job_id == job.job_id
     assert result.compile_hash == "abc123"
-    assert [event.stage for event in events.replay_events(job.job_id)] == ["RUNNING", "COMPLETED"]
+    assert [event.stage for event in events.replay_events(job.job_id)] == ["RUNNING", "SUCCEEDED"]
+    assert jobs.get_job(job.job_id).worker_id == "nautilus-builder-worker:dev"
+    assert jobs.get_job(job.job_id).result_artifact_refs == result.artifact_refs
 
 
 def test_worker_honors_cancel_requested_before_running() -> None:

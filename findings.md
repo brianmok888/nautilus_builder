@@ -250,3 +250,28 @@ rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web 
 ```
 
 Remaining open findings after Segment 2: audit-grade job/runtime fields, NautilusTrader dependency/backtest boundary, README/readiness drift, StrategySpec allowed-block doc/schema drift, and promotion evidence strictness.
+
+## Closure progress — Segment 3 audit-grade jobs and runtime events
+
+**Status:** completed on 2026-05-24.
+
+Closed/changed findings:
+
+- `HIGH-3` is remediated at code level for current Builder seams: `BacktestJob` now exposes the hardguard audit fields, route payloads return them, and worker transitions update `worker_id`, `result_artifact_refs`, and timestamps.
+- `RuntimeEvent` now carries `event_id`, `actor_type`, `actor_id`, `timestamp`, and `metadata` in addition to the existing stage/level/message/progress fields.
+- Worker success lifecycle now uses `SUCCEEDED` instead of `COMPLETED`.
+
+Evidence:
+
+```bash
+rtk pytest tests/backtest_jobs/test_create_job.py tests/runtime_events/test_replay.py tests/backtest_runner/test_worker_integration.py -q
+# RED captured expected failures before implementation; GREEN: Pytest: 6 passed
+
+rtk pytest tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_route_mounts.py tests/web/test_job_terminal_replay.py -q
+# Pytest: 36 passed
+
+python3 -m compileall -q packages/backtest_jobs packages/runtime_events services/workers services/api/routes/backtest_jobs.py
+# compileall passed
+```
+
+Remaining open findings after Segment 3: NautilusTrader dependency/backtest boundary, README/readiness drift, StrategySpec allowed-block doc/schema drift, and promotion evidence strictness.

@@ -25,7 +25,18 @@ class FakeRedisClient:
 def test_redis_stream_publishes_and_replays_builder_owned_runtime_events() -> None:
     client = FakeRedisClient()
     stream = RedisRuntimeEventStream(client=client, namespace="builder")
-    event = RuntimeEvent(job_id="bt_001", stage="RUNNING", level="INFO", message="started", progress_pct=1.0)
+    event = RuntimeEvent(
+        event_id="bt_001_evt_000001",
+        job_id="bt_001",
+        actor_type="worker",
+        actor_id="worker_001",
+        stage="RUNNING",
+        level="INFO",
+        message="started",
+        timestamp="2026-05-24T00:00:00Z",
+        metadata={"progress_pct": 1.0},
+        progress_pct=1.0,
+    )
 
     stream.append(event)
 
@@ -57,9 +68,21 @@ def test_redis_connection_requires_configured_url(monkeypatch) -> None:
 
 
 def test_sse_formats_runtime_event_for_observational_delivery() -> None:
-    event = RuntimeEvent(job_id="bt_001", stage="COMPLETED", level="INFO", message="finished", progress_pct=100.0)
+    event = RuntimeEvent(
+        event_id="bt_001_evt_000001",
+        job_id="bt_001",
+        actor_type="worker",
+        actor_id="worker_001",
+        stage="SUCCEEDED",
+        level="INFO",
+        message="finished",
+        timestamp="2026-05-24T00:00:00Z",
+        metadata={"progress_pct": 100.0},
+        progress_pct=100.0,
+    )
 
     formatted = format_runtime_event_sse(event)
 
     assert formatted.startswith("event: runtime_event\n")
-    assert '"stage":"COMPLETED"' in formatted
+    assert '"stage":"SUCCEEDED"' in formatted
+    assert '"event_id":"bt_001_evt_000001"' in formatted

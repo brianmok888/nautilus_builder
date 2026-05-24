@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -16,10 +17,17 @@ class RedisRuntimeEventStream:
         self._namespace = namespace
 
     def append(self, event: RuntimeEvent) -> None:
-        self._client.xadd(self._stream_name(event.job_id), event.model_dump(mode="json"))
+        payload = json.dumps(event.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        self._client.xadd(self._stream_name(event.job_id), {"payload": payload})
 
     def replay(self, job_id: str) -> list[RuntimeEvent]:
-        return [RuntimeEvent(**payload) for _, payload in self._client.xrange(self._stream_name(job_id))]
+        events: list[RuntimeEvent] = []
+        for _, payload in self._client.xrange(self._stream_name(job_id)):
+            if "payload" in payload:
+                events.append(RuntimeEvent(**json.loads(payload["payload"])))
+            else:
+                events.append(RuntimeEvent(**payload))
+        return events
 
     def _stream_name(self, job_id: str) -> str:
         return self.STREAM_PATTERN.format(job_id=job_id)

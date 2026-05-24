@@ -163,3 +163,33 @@ cd apps/web && npm run typecheck
 rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web -q
 # Pytest: 64 passed
 ```
+
+## Implementation progress — Segment 3 audit-grade jobs and runtime events
+
+**Completed:** 2026-05-24
+
+Files changed:
+
+- `packages/backtest_jobs/models.py` — `BacktestJob` now carries hardguard audit fields: `status`, timestamps, creator, strategy version ID, adapter profile ID, data range, worker ID, artifact refs, and event stream ID.
+- `packages/backtest_jobs/service.py` — job creation canonicalizes old/new payload names, preserves idempotency, sets audit defaults, updates timestamps, and records worker/artifact transitions.
+- `packages/runtime_events/models.py` and `packages/runtime_events/service.py` — runtime events now include event ID, actor identity, timestamp, metadata, and deterministic per-job event sequencing.
+- `packages/runtime_events/redis_stream.py` — Redis stream payloads are JSON-wrapped so nested metadata remains durable and replayable.
+- `services/api/routes/backtest_jobs.py` — create/read/cancel payloads expose backend-owned audit fields while preserving status labels.
+- `services/workers/nautilus_backtest_worker.py` — worker transitions successful jobs to canonical `SUCCEEDED`, records worker identity, persists artifact refs, and emits actor-attributed events.
+- Tests under `tests/backtest_jobs/`, `tests/runtime_events/`, `tests/backtest_runner/`, and `tests/api/test_backtest_job_routes.py` lock the audit contract.
+
+Verification:
+
+```bash
+rtk pytest tests/backtest_jobs/test_create_job.py tests/runtime_events/test_replay.py tests/backtest_runner/test_worker_integration.py -q
+# Initial RED: 3 passed, 3 failed for missing audit fields, actor fields, and COMPLETED/SUCCEEDED mismatch
+
+rtk pytest tests/backtest_jobs/test_create_job.py tests/runtime_events/test_replay.py tests/backtest_runner/test_worker_integration.py -q
+# GREEN: Pytest: 6 passed
+
+python3 -m compileall -q packages/backtest_jobs packages/runtime_events services/workers services/api/routes/backtest_jobs.py
+# compileall passed
+
+rtk pytest tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_route_mounts.py tests/web/test_job_terminal_replay.py -q
+# Pytest: 36 passed
+```
