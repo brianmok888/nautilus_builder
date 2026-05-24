@@ -40,7 +40,7 @@ def validate_strategy_spec(payload: dict[str, Any]) -> ValidationReport:
 
     risk = payload.get("risk")
     if not risk:
-        errors.append("risk block is required")
+        errors.append("risk block missing")
 
     validation = payload.get("validation") or {}
     if validation.get("bar_close_only") is not True:

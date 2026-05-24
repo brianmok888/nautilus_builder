@@ -111,3 +111,26 @@ Current implementation mostly preserves the no-live-order boundary:
 ## Current maturity assessment
 
 Nautilus Builder is a contract-heavy, scaffold-to-MVP repository. Its strongest areas are boundary language, no-live-order framing, and broad contract tests. The main readiness gaps are enforcement drift: AI draft validation, forbidden token coverage, frontend/backend DTO alignment, audit-grade job/event fields, and real NautilusTrader backtest dependency/wiring.
+
+## Implementation progress — Segment 1 validation hardening
+
+**Completed:** 2026-05-24
+
+Files changed:
+
+- `packages/strategy_validation/policy.py` — expanded canonical forbidden references to include hardguarded credential and broker/exchange-order terms.
+- `packages/strategy_validation/validators.py` — aligned missing-risk wording with existing UI contract language.
+- `packages/ai_builder/provider.py` — default advisory provider now emits a full StrategySpec-shaped draft.
+- `packages/ai_builder/service.py` — provider output now passes through recursive Builder validation before `accepted=True`.
+- `tests/strategy_validation/test_forbidden_execution_blocks.py` — added hardguard token coverage.
+- `tests/ai_builder/test_ai_output_must_validate.py` — added nested forbidden and malformed-provider regressions.
+
+Verification:
+
+```bash
+rtk pytest tests/strategy_validation/test_forbidden_execution_blocks.py tests/ai_builder/test_ai_output_must_validate.py -q
+# Pytest: 11 passed
+
+rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
+# Pytest: 26 passed
+```

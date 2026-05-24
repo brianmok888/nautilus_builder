@@ -16,17 +16,55 @@ class DraftAuditStoreProtocol(Protocol):
 class AdvisoryDraftProvider:
     def draft_spec(self, prompt: str) -> dict[str, object]:
         return {
-            "name": "EMA RSI Pullback Draft",
-            "status": "draft",
+            "schema_version": "1.0.0",
+            "version": "0.1.0-draft.1",
             "stage": "draft",
-            "output": "signal_preview_only",
-            "indicators": [
-                {"type": "EMA", "input": "close", "period": 20},
-                {"type": "RSI", "input": "close", "period": 14},
-            ],
-            "entry": {"all": [{"crossed_above": ["close", "EMA_20"]}]},
-            "exit": {"all": [{"gt": ["RSI_14", 70]}]},
-            "risk": {"max_position_size": 1.0},
+            "status": "draft",
+            "created_from": "ai_builder",
+            "is_frozen": False,
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "instrument_id": "BTCUSDT-PERP",
+            "bar_type": "BTCUSDT-PERP.BINANCE-5-MINUTE-LAST-EXTERNAL",
+            "data_range": {
+                "start": "2025-01-01T00:00:00Z",
+                "end": "2025-06-01T00:00:00Z",
+            },
+            "indicators": {
+                "ema_fast": {"type": "EMA", "input": "close", "period": 20},
+                "ema_slow": {"type": "EMA", "input": "close", "period": 50},
+                "rsi": {"type": "RSI", "input": "close", "period": 14},
+            },
+            "rules": {
+                "long_entry": {
+                    "all": [
+                        {"crossed_above": ["ema_fast", "ema_slow"]},
+                        {"gt": ["rsi", 52]},
+                    ]
+                },
+                "long_exit": {
+                    "any": [
+                        {"crossed_below": ["ema_fast", "ema_slow"]},
+                        {"lt": ["rsi", 45]},
+                    ]
+                },
+            },
+            "risk": {
+                "position_size_pct": 0.05,
+                "stop_loss_pct": 0.012,
+                "take_profit_pct": 0.024,
+                "max_hold_bars": 48,
+            },
+            "validation": {
+                "bar_close_only": True,
+                "no_lookahead_required": True,
+                "requires_backtest_before_shadow": True,
+                "output_mode": "signal_preview_only",
+            },
+            "provenance": {
+                "created_by": "ai_builder",
+                "parent_version_id": None,
+            },
         }
 
 

@@ -201,3 +201,24 @@ Human and agent contributors may incorrectly treat existing surfaces as absent o
 - No custom NautilusTrader adapter code exists in this repo, so `nt-adapters` DataTester/ExecTester gates are not directly applicable yet.
 - If Builder later owns adapter profiles that claim real data/execution adapter compatibility, official NautilusTrader DataTester/ExecTester evidence should become mandatory.
 - Live trading authority should remain outside Builder. Official NautilusTrader live docs emphasize research-to-live parity and live financial risk; Builder should continue to compile only to backtest or signal-preview paths.
+
+## Closure progress — Segment 1 validation hardening
+
+**Status:** completed on 2026-05-24.
+
+Closed/changed findings:
+
+- `CRITICAL-1` is remediated at code level: `AiBuilderService` now runs every provider draft through `validate_strategy_spec()` before returning `accepted=True`.
+- `HIGH-1` is remediated at code level: forbidden references now include `broker_order`, `exchange_order`, `api_key`, `secret_key`, and `credential` in addition to execution-order verbs and `TradeAction`.
+
+Evidence:
+
+```bash
+rtk pytest tests/strategy_validation/test_forbidden_execution_blocks.py tests/ai_builder/test_ai_output_must_validate.py -q
+# Pytest: 11 passed
+
+rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
+# Pytest: 26 passed
+```
+
+Remaining open findings after Segment 1: frontend/backend market-profile DTO drift, audit-grade job/runtime fields, NautilusTrader dependency/backtest boundary, README/readiness drift.

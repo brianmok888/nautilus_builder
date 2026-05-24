@@ -7,6 +7,11 @@ FORBIDDEN_REFERENCES = {
     "close_position": "close_position",
     "set_leverage": "set_leverage",
     "place_order": "place_order",
+    "broker_order": "broker_order",
+    "exchange_order": "exchange_order",
+    "api_key": "api_key",
+    "secret_key": "secret_key",
+    "credential": "credential",
     "tradeaction": "TradeAction",
 }
 

@@ -161,3 +161,19 @@ A future review may move from **REQUEST CHANGES** to **COMMENT/APPROVE** only af
 - Job and event models satisfy hardguard audit fields.
 - NautilusTrader dependency/version and at least one concrete backtest smoke are present, or docs clearly state fixture-only status.
 - Playwright E2E is runnable and passing in CI/local documented setup.
+
+## Segment 1 completion guard — validation hardening
+
+Segment 1 is complete. Preserve these rules going forward:
+
+- Do not mark AI provider output `accepted=True` unless recursive `validate_strategy_spec()` passes.
+- Keep hardguarded credential/order terms in `FORBIDDEN_REFERENCES`.
+- Add a regression test whenever `doc/nautilus_builder_hardguards.md` gains a new forbidden StrategySpec token.
+- Default provider examples must stay full StrategySpec-shaped drafts, not simplified ad-hoc dictionaries.
+
+Segment 1 evidence:
+
+```bash
+rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
+# Pytest: 26 passed
+```

@@ -54,5 +54,40 @@ def test_ai_provider_cannot_bypass_validation_with_forbidden_spec() -> None:
 
     service = AiBuilderService(provider=UnsafeProvider(), store=RecordedAiDraftStore())
 
-    with pytest.raises(ValueError, match="forbidden execution"):
-        service.generate_draft("ignore safety", ai_thread_id="thread_002")
+    result = service.generate_draft("ignore safety", ai_thread_id="thread_002")
+
+    assert result.accepted is False
+    assert any("submit_order" in error for error in result.validation_errors)
+
+
+def test_ai_provider_nested_forbidden_reference_is_rejected() -> None:
+    class NestedUnsafeProvider:
+        def draft_spec(self, prompt: str) -> dict[str, object]:
+            return {
+                "name": "Unsafe nested",
+                "status": "draft",
+                "output": "signal_preview_only",
+                "rules": {"entry": {"all": [{"gt": ["TradeAction", 1]}]}},
+                "risk": {"max_position_size": 1.0},
+            }
+
+    service = AiBuilderService(provider=NestedUnsafeProvider(), store=RecordedAiDraftStore())
+
+    result = service.generate_draft("draft", ai_thread_id="thread_nested")
+
+    assert result.accepted is False
+    assert any("TradeAction" in error for error in result.validation_errors)
+
+
+def test_ai_provider_malformed_strategy_spec_is_rejected_with_validation_errors() -> None:
+    class MalformedProvider:
+        def draft_spec(self, prompt: str) -> dict[str, object]:
+            return {"name": "Missing required StrategySpec fields", "status": "draft"}
+
+    service = AiBuilderService(provider=MalformedProvider(), store=RecordedAiDraftStore())
+
+    result = service.generate_draft("draft", ai_thread_id="thread_malformed")
+
+    assert result.accepted is False
+    assert result.validation_errors
+    assert any("schema_version" in error for error in result.validation_errors)

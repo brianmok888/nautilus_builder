@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from packages.strategy_validation.validators import validate_strategy_spec
+
 from .models import AiDraftResult
 from .provider import AdvisoryDraftProvider, DraftAuditStoreProtocol, DraftProviderProtocol, RecordedAiDraftStore
 
@@ -27,23 +29,23 @@ class AiBuilderService:
             raise ValueError("forbidden execution request")
 
         spec = self._provider.draft_spec(prompt)
-        if "submit_order" in spec or spec.get("output") not in {None, "signal_preview_only"}:
-            raise ValueError("forbidden execution request")
-
         if force_invalid:
             spec.pop("risk", None)
-            result = AiDraftResult(
-                spec=spec,
-                accepted=False,
-                validation_errors=["risk block missing"],
-                explanation="Draft rejected until required Builder risk block is present.",
-            )
-        else:
+
+        validation_report = validate_strategy_spec(spec)
+        if validation_report.is_valid:
             result = AiDraftResult(
                 spec=spec,
                 accepted=True,
                 validation_errors=[],
                 explanation="Draft generated in advisory mode and kept in Draft lifecycle stage.",
+            )
+        else:
+            result = AiDraftResult(
+                spec=spec,
+                accepted=False,
+                validation_errors=validation_report.errors,
+                explanation="Draft rejected until Builder schema and hard-rule validation pass.",
             )
         self._store.save(
             {
