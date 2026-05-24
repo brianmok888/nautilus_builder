@@ -1,0 +1,113 @@
+# Nautilus Builder Structure Review
+
+**Review date:** 2026-05-24  
+**Target repository:** `/home/mok/projects/nautilus_builder`  
+**Scope correction:** this review targets **Nautilus Builder**, not `/home/mok/projects/Nautilus-Daedalus`.
+
+## Authoritative references used
+
+Local source truth:
+
+- `AGENTS.md`
+- `doc/README.md`
+- `doc/nautilus_builder_spec.md`
+- `doc/nautilus_builder_hardguards.md`
+- `doc/nautilus_builder_repo_dependency_architecture.md`
+- `packages/`, `services/`, `apps/web/`, and `tests/`
+
+Official NautilusTrader references:
+
+- <https://github.com/nautechsystems/nautilus_trader>
+- <https://nautilustrader.io/docs/latest/developer_guide>
+- <https://nautilustrader.io/docs/latest/developer_guide/adapters/>
+- <https://nautilustrader.io/docs/latest/developer_guide/spec_data_testing/>
+- <https://nautilustrader.io/docs/latest/developer_guide/spec_exec_testing/>
+- <https://nautilustrader.io/docs/latest/concepts/backtesting/>
+- <https://nautilustrader.io/docs/latest/concepts/live/>
+
+## Repository shape
+
+```text
+nautilus_builder/
+├── doc/                    # Builder source-truth product, hardguard, lifecycle, dependency docs
+├── docs/                   # Derived superpowers/spec/audit/verification artifacts
+├── packages/               # Canonical Python domain layer
+├── services/api/           # Thin API adapters over packages/*
+├── services/workers/       # Backend-owned worker entrypoint stubs
+├── apps/web/               # Minimal Next.js app shell and TSX components
+├── tests/                  # Pytest contract suite mirrored by feature seam
+├── infra/                  # Local docker-compose, migrations, CI template
+├── README.md               # High-level current-shape summary
+└── pyproject.toml          # Python packaging/test manifest
+```
+
+## Builder authority boundary
+
+The local docs consistently define this product as Builder-only:
+
+```text
+UX / AI          -> authoring, drafting, explanation, observation
+Validator        -> hard safety enforcement
+Compiler         -> safe StrategySpec translation
+NautilusTrader   -> backtest/replay truth engine
+Daedalus gate    -> live gate authority
+Daedalus execution lane -> only live submit_order authority
+```
+
+Current implementation mostly preserves the no-live-order boundary:
+
+- `packages/strategy_compiler/compiler.py` sets `execution_authority=False` for both `backtest` and `signal_preview_only` profiles.
+- `packages/promotions/service.py` returns `may_submit_order=False` and `may_create_trade_action=False`.
+- `packages/lifecycle/models.py` exposes `live_trading_authority=False`.
+- `apps/web/components/*` text is observational/advisory rather than live-ordering UI.
+
+## Domain package map
+
+| Package | Role | Key files |
+|---|---|---|
+| `strategy_spec` | Strict Pydantic StrategySpec schema and in-memory repository | `models.py`, `repository.py`, `schema.py`, `examples/ema_rsi_pullback.yaml` |
+| `strategy_validation` | Hard-rule checks before compile/backtest | `policy.py`, `validators.py`, `reports.py` |
+| `strategy_compiler` | StrategySpec -> compile artifact/profile metadata | `compiler.py`, `artifacts.py` |
+| `nautilus_rule_graph` | Placeholder strategy classes/profiles | `config.py`, `strategy.py` |
+| `adapter_registry` | Backend-approved adapter profiles | `models.py`, `service.py` |
+| `instrument_registry` | Backend-approved instruments, data/timeframe/date checks | `service.py` |
+| `backtest_jobs` | Durable-job contract scaffold | `models.py`, `service.py` |
+| `backtest_runner` | Backtest config, engine boundary, fixture result normalization | `config_builder.py`, `nautilus_engine.py`, `runner.py`, `result_normalizer.py` |
+| `runtime_events` | In-memory, SQLite, and Redis event stream seams | `models.py`, `stream.py`, `redis_stream.py`, `service.py` |
+| `workflow_spine` | Strategy/test workflow lineage, persistence, projections, ND stream compatibility | `models.py`, `service.py`, `repository.py`, `postgres_repository.py`, `event_stream.py` |
+| `lifecycle` | Draft -> Testing -> Beta -> Final policy | `models.py`, `state_machine.py`, `promotion_policy.py`, `versioning.py` |
+| `promotions` | Builder-side promotion/shadow request contracts | `models.py`, `service.py` |
+| `ai_builder` | Advisory draft provider/service and audit stores | `models.py`, `provider.py`, `service.py` |
+| `strategy_registry` | Read-only external strategy registry/import-as-draft policy | `models.py`, `service.py` |
+| `ui_contracts` | Python-backed executable UI contract helpers | `strategy_builder.py`, `job_terminal.py`, `results_dashboard.py` |
+| `auth` | In-memory test token/project-scope model | `models.py`, `policy.py`, `service.py` |
+| `system_verification` | Composed MVP verification report | `e2e.py` |
+
+## API/service map
+
+- `services/api/app.py` mounts the dependency-free `ApiApp` contract routes used by tests.
+- `services/api/fastapi_app.py` mounts equivalent FastAPI routes when FastAPI is installed.
+- `services/api/routes/market_catalog.py` exposes adapter/instrument/profile validation payloads.
+- `services/api/routes/backtest_jobs.py` exposes job creation/status/cancel/event handles.
+- `services/api/routes/promotions.py` exposes shadow/promotion payloads.
+- `services/api/routes/ai_builder.py` exposes advisory draft/apply payloads.
+- `services/workers/nautilus_backtest_worker.py` is a worker stub using fixture backtest results.
+
+## Frontend map
+
+- `apps/web/app/` contains the Next.js app shell and route pages.
+- `apps/web/lib/api.ts` defines typed fetch wrappers and uses Next rewrites in `next.config.mjs`.
+- `apps/web/components/strategy-builder/` holds the draft graph/spec workspace.
+- `apps/web/components/market/` holds adapter/instrument/profile-selection UI.
+- `apps/web/components/terminal/` holds observational terminal command parsing.
+- `apps/web/components/results/`, `strategies/`, `ai-builder/`, and `promotions/` expose the operator MVP surfaces.
+
+## Test map
+
+- Python contract tests: `tests/**` — 188 tests currently pass.
+- Frontend type/unit tests: `apps/web` — `tsc --noEmit` and Vitest currently pass.
+- Playwright E2E exists at `apps/web/e2e/builder-shell.spec.ts`, but it could not run in this environment because the Playwright Chromium binary is not installed.
+
+## Current maturity assessment
+
+Nautilus Builder is a contract-heavy, scaffold-to-MVP repository. Its strongest areas are boundary language, no-live-order framing, and broad contract tests. The main readiness gaps are enforcement drift: AI draft validation, forbidden token coverage, frontend/backend DTO alignment, audit-grade job/event fields, and real NautilusTrader backtest dependency/wiring.
