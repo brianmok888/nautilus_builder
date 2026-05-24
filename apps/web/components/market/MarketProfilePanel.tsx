@@ -18,7 +18,7 @@ const AdapterSelector = ({
     <select aria-label="adapter" value={adapterId} onChange={(event) => onAdapterChange(event.target.value)}>
       {adapters.map((adapter) => (
         <option key={adapter.adapter_id} value={adapter.adapter_id}>
-          {adapter.name}
+          {adapter.adapter_id} — {adapter.venue}
         </option>
       ))}
     </select>
@@ -53,7 +53,7 @@ const InstrumentSearch = ({
     <ul aria-label="instrument results">
       {instruments.map((instrument) => (
         <li key={instrument.instrument_id}>
-          {instrument.symbol}
+          {instrument.instrument_id}
           <button type="button" onClick={() => onSelectInstrument(instrument.instrument_id)}>
             Select {instrument.instrument_id}
           </button>
@@ -64,8 +64,6 @@ const InstrumentSearch = ({
 );
 
 const DataAvailabilityPanel = ({ availability, instrumentId }: { availability: DataAvailability | null; instrumentId: string }) => {
-  const selectedTimeframes = availability?.supported_timeframes ?? availability?.available_timeframes ?? [];
-
   if (!availability) {
     return <section aria-label="data availability">Data availability must be confirmed before job creation.</section>;
   }
@@ -73,8 +71,10 @@ const DataAvailabilityPanel = ({ availability, instrumentId }: { availability: D
   return (
     <section aria-label="data availability">
       <p>Selected instrument: {instrumentId}</p>
-      <p>Timeframes: {selectedTimeframes.join(", ")}</p>
-      <p>Date ranges: {(availability.available_date_ranges ?? []).map((range) => `${range.start} to ${range.end}`).join(", ")}</p>
+      <p>Market type: {availability.market_type}</p>
+      <p>Data types: {availability.supported_data_types.join(", ")}</p>
+      <p>Timeframes: {availability.supported_timeframes.join(", ")}</p>
+      <p>Date ranges: {availability.available_date_ranges.join(", ")}</p>
     </section>
   );
 };
@@ -86,9 +86,10 @@ export const MarketProfilePanel = () => {
   const [instruments, setInstruments] = useState<InstrumentSummary[]>([]);
   const [instrumentId, setInstrumentId] = useState("");
   const [availability, setAvailability] = useState<DataAvailability | null>(null);
+  const [dataType, setDataType] = useState("historical_bars");
   const [timeframe, setTimeframe] = useState("1m");
   const [startDate, setStartDate] = useState("2024-01-01");
-  const [endDate, setEndDate] = useState("2024-01-31");
+  const [endDate, setEndDate] = useState("2024-03-01");
   const [validation, setValidation] = useState<BacktestProfileValidation | null>(null);
   const [loading, setLoading] = useState("Loading adapters");
   const [error, setError] = useState("");
@@ -132,7 +133,13 @@ export const MarketProfilePanel = () => {
     setInstrumentId(nextInstrumentId);
     setValidation(null);
     try {
-      setAvailability(await fetchDataAvailability(adapterId, nextInstrumentId));
+      const nextAvailability = await fetchDataAvailability(adapterId, nextInstrumentId);
+      setAvailability(nextAvailability);
+      setDataType(nextAvailability.supported_data_types[0] ?? "historical_bars");
+      setTimeframe(nextAvailability.supported_timeframes[0] ?? "1m");
+      const [start, end] = (nextAvailability.available_date_ranges[0] ?? "2024-01-01:2024-03-01").split(":");
+      setStartDate(start);
+      setEndDate(end);
     } catch (requestError) {
       setError((requestError as Error).message);
     } finally {
@@ -148,9 +155,10 @@ export const MarketProfilePanel = () => {
         await validateBacktestProfile({
           adapter_id: adapterId,
           instrument_id: instrumentId,
+          data_type: dataType,
           timeframe,
-          start_date: startDate,
-          end_date: endDate,
+          market_type: availability?.market_type ?? "",
+          date_range: `${startDate}:${endDate}`,
         }),
       );
     } catch (requestError) {
@@ -179,6 +187,10 @@ export const MarketProfilePanel = () => {
       <DataAvailabilityPanel availability={availability} instrumentId={instrumentId} />
 
       <label>
+        Data type
+        <input aria-label="data type" value={dataType} onChange={(event) => setDataType(event.target.value)} />
+      </label>
+      <label>
         Timeframe
         <input aria-label="timeframe" value={timeframe} onChange={(event) => setTimeframe(event.target.value)} />
       </label>
@@ -194,7 +206,7 @@ export const MarketProfilePanel = () => {
         Validate profile
       </button>
 
-      {validation?.valid && validation.adapter_profile_id ? <p>Validated profile: {validation.adapter_profile_id}</p> : null}
+      {validation?.valid && validation.instrument ? <p>Validated profile: {validation.instrument.instrument_id}</p> : null}
       {validation && !validation.valid ? <p role="alert">{validation.error ?? "Profile validation failed"}</p> : null}
     </section>
   );

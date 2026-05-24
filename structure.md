@@ -134,3 +134,32 @@ rtk pytest tests/strategy_validation/test_forbidden_execution_blocks.py tests/ai
 rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
 # Pytest: 26 passed
 ```
+
+## Implementation progress — Segment 2 market-profile contract alignment
+
+**Completed:** 2026-05-24
+
+Files changed:
+
+- `apps/web/lib/types.ts` — frontend DTO types now mirror backend adapter, instrument, availability, and profile-validation payloads.
+- `apps/web/components/market/MarketProfilePanel.tsx` — profile validation now submits backend-required `data_type`, `market_type`, and `date_range` fields and renders backend response identifiers.
+- `apps/web/components/market/MarketProfilePanel.test.tsx` — component test now mocks the real backend route shape instead of the old UI-only DTOs.
+- `tests/api/test_backtest_profiles.py` — API regression proves frontend-shaped validation payloads are accepted by `create_app()`.
+- `tests/web/test_market_profile_frontend.py` — contract scan now guards `date_range` and `validation.instrument` rather than removed `adapter_profile_id` output.
+- `tests/api/test_fastapi_app.py` and `tests/api/test_route_mounts.py` — API route assertions now align with the Segment 1 StrategySpec shape (`validation.output_mode`).
+
+Verification:
+
+```bash
+cd apps/web && npm test -- components/market/MarketProfilePanel.test.tsx
+# 1 passed
+
+rtk pytest tests/api/test_backtest_profiles.py -q
+# Pytest: 3 passed
+
+cd apps/web && npm run typecheck
+# tsc --noEmit passed
+
+rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web -q
+# Pytest: 64 passed
+```

@@ -36,3 +36,21 @@ def test_backtest_profile_validation_rejects_invalid_selection() -> None:
 
     assert response.status_code == 422
     assert response.json()["valid"] is False
+
+
+def test_backtest_profile_validation_accepts_frontend_payload_shape() -> None:
+    response = create_app().post(
+        "/api/backtest-profiles/validate",
+        json={
+            "adapter_id": "BINANCE_PERP",
+            "instrument_id": "BTCUSDT-PERP",
+            "data_type": "historical_bars",
+            "timeframe": "1m",
+            "market_type": "crypto_perp",
+            "date_range": "2024-01-01:2024-03-01",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is True
+    assert response.json()["instrument"]["market_type"] == "crypto_perp"

@@ -24,29 +24,27 @@ export type StrategyDetail = {
 
 export type AdapterSummary = {
   adapter_id: string;
-  name: string;
+  enabled: boolean;
   venue: string;
-};
-
-export type BacktestProfileValidation = {
-  valid: boolean;
-  instrument?: Record<string, unknown>;
-  error?: string;
-  adapter_profile_id?: string;
+  asset_class: string;
+  data_modes: string[];
+  execution_modes: Record<string, boolean>;
 };
 
 export type InstrumentSummary = {
   instrument_id: string;
-  adapter_id: string;
-  symbol: string;
+  market_type: string;
+  supported_data_types: string[];
+  supported_timeframes: string[];
+  available_date_ranges: string[];
 };
 
-export type DataAvailability = {
-  instrument_id: string;
-  adapter_id?: string;
-  supported_timeframes?: string[];
-  available_timeframes?: string[];
-  available_date_ranges?: Array<{ start: string; end: string }>;
+export type DataAvailability = InstrumentSummary;
+
+export type BacktestProfileValidation = {
+  valid: boolean;
+  instrument?: InstrumentSummary;
+  error?: string;
 };
 
 export type BacktestJobStatus = {

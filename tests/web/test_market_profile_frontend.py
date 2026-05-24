@@ -13,7 +13,8 @@ def test_market_profile_components_expose_selection_and_validation_surfaces() ->
     assert "InstrumentSearch" in panel
     assert "DataAvailabilityPanel" in panel
     assert "validateBacktestProfile" in panel
-    assert "adapter_profile_id" in panel
+    assert "date_range" in panel
+    assert "validation.instrument" in panel
 
 
 def test_market_api_client_hides_backend_route_shape() -> None:

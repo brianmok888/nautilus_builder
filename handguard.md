@@ -177,3 +177,23 @@ Segment 1 evidence:
 rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
 # Pytest: 26 passed
 ```
+
+## Segment 2 completion guard — market-profile DTO alignment
+
+Segment 2 is complete. Preserve these rules going forward:
+
+- Frontend market-profile validation payloads must include `adapter_id`, `instrument_id`, `data_type`, `timeframe`, `market_type`, and a backend-formatted `date_range` string.
+- Do not reintroduce `adapter_profile_id` as the frontend's validation success contract unless the backend intentionally exposes it again with tests.
+- Adapter UI labels must not depend on a non-existent backend `name` field.
+- Instrument availability UI must consume backend `supported_data_types`, `supported_timeframes`, and string `available_date_ranges`.
+- Keep at least one `services.api.app.create_app()` test proving the frontend payload shape validates.
+
+Segment 2 evidence:
+
+```bash
+cd apps/web && npm run typecheck && npm test -- components/market/MarketProfilePanel.test.tsx
+# tsc --noEmit passed; 1 Vitest test passed
+
+rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web -q
+# Pytest: 64 passed
+```

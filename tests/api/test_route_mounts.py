@@ -30,7 +30,7 @@ def test_ai_builder_draft_route_is_advisory_only() -> None:
     assert response.status_code == 200
     assert payload["spec"]["stage"] == "draft"
     assert payload["accepted"] is True
-    assert payload["spec"]["output"] == "signal_preview_only"
+    assert payload["spec"]["validation"]["output_mode"] == "signal_preview_only"
 
 
 def test_ai_builder_apply_route_preserves_advisory_lineage_ids() -> None:
@@ -53,7 +53,7 @@ def test_ai_builder_apply_route_preserves_advisory_lineage_ids() -> None:
     assert payload["strategy_version_id"] == "strategy_001_v002"
     assert payload["stage"] == "draft"
     assert payload["mode"] == "advisory_only"
-    assert payload["spec"]["output"] == "signal_preview_only"
+    assert payload["spec"]["validation"]["output_mode"] == "signal_preview_only"
 
 
 def test_shadow_promotion_route_is_contract_only() -> None:

@@ -68,7 +68,7 @@ def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
 
     assert health_payload == {"status": "ok", "service": "nautilus_builder_api"}
     assert ai_payload["spec"]["stage"] == "draft"
-    assert ai_payload["spec"]["output"] == "signal_preview_only"
+    assert ai_payload["spec"]["validation"]["output_mode"] == "signal_preview_only"
 
 
 def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> None:

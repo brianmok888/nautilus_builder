@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketProfilePanel } from "./MarketProfilePanel";
 
 const adapters = [
-  { adapter_id: "BINANCE_PERP", name: "Binance Perp", venue: "BINANCE" },
-  { adapter_id: "DATABENTO_US_EQUITY", name: "Databento US Equity", venue: "XNAS" },
+  { adapter_id: "BINANCE_PERP", enabled: true, venue: "BINANCE", asset_class: "crypto_perp", data_modes: ["historical_bars"], execution_modes: { backtest: true, paper: false, live: false } },
+  { adapter_id: "DATABENTO_US_EQUITY", enabled: true, venue: "DATABENTO", asset_class: "equity", data_modes: ["historical_bars"], execution_modes: { backtest: true, paper: false, live: false } },
 ];
 
 describe("MarketProfilePanel", () => {
@@ -17,14 +17,15 @@ describe("MarketProfilePanel", () => {
         return Response.json(adapters);
       }
       if (url.includes("/api/instruments?")) {
-        return Response.json([{ adapter_id: "BINANCE_PERP", instrument_id: "BTCUSDT-PERP", symbol: "BTCUSDT-PERP" }]);
+        return Response.json([{ instrument_id: "BTCUSDT-PERP", market_type: "crypto_perp", supported_data_types: ["historical_bars"], supported_timeframes: ["1m", "5m"], available_date_ranges: ["2024-01-01:2024-03-01"] }]);
       }
       if (url.includes("/api/data-availability/BINANCE_PERP/BTCUSDT-PERP")) {
         return Response.json({
-          adapter_id: "BINANCE_PERP",
           instrument_id: "BTCUSDT-PERP",
+          market_type: "crypto_perp",
+          supported_data_types: ["historical_bars"],
           supported_timeframes: ["1m", "5m"],
-          available_date_ranges: [{ start: "2024-01-01", end: "2024-01-31" }],
+          available_date_ranges: ["2024-01-01:2024-03-01"],
         });
       }
       if (url === "/api/backtest-profiles/validate") {
@@ -32,9 +33,12 @@ describe("MarketProfilePanel", () => {
         expect(JSON.parse(String(init?.body))).toMatchObject({
           adapter_id: "BINANCE_PERP",
           instrument_id: "BTCUSDT-PERP",
+          data_type: "historical_bars",
           timeframe: "1m",
+          market_type: "crypto_perp",
+          date_range: "2024-01-01:2024-03-01",
         });
-        return Response.json({ valid: true, adapter_profile_id: "profile_BINANCE_PERP_BTCUSDT-PERP_1m" });
+        return Response.json({ valid: true, instrument: { instrument_id: "BTCUSDT-PERP", market_type: "crypto_perp", supported_data_types: ["historical_bars"], supported_timeframes: ["1m"], available_date_ranges: ["2024-01-01:2024-03-01"] } });
       }
       return Response.json({ error: url }, { status: 404 });
     });
@@ -42,7 +46,7 @@ describe("MarketProfilePanel", () => {
 
     render(<MarketProfilePanel />);
 
-    expect(await screen.findByText("Binance Perp")).toBeInTheDocument();
+    expect(await screen.findByText("BINANCE_PERP — BINANCE")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("instrument search"), { target: { value: "BTC" } });
     fireEvent.click(screen.getByRole("button", { name: "Search instruments" }));
 
@@ -51,9 +55,9 @@ describe("MarketProfilePanel", () => {
 
     fireEvent.change(screen.getByLabelText("timeframe"), { target: { value: "1m" } });
     fireEvent.change(screen.getByLabelText("start date"), { target: { value: "2024-01-01" } });
-    fireEvent.change(screen.getByLabelText("end date"), { target: { value: "2024-01-31" } });
+    fireEvent.change(screen.getByLabelText("end date"), { target: { value: "2024-03-01" } });
     fireEvent.click(screen.getByRole("button", { name: "Validate profile" }));
 
-    await waitFor(() => expect(screen.getByText("Validated profile: profile_BINANCE_PERP_BTCUSDT-PERP_1m")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Validated profile: BTCUSDT-PERP")).toBeInTheDocument());
   });
 });

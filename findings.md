@@ -222,3 +222,31 @@ rtk pytest tests/strategy_validation tests/ai_builder tests/strategy_spec -q
 ```
 
 Remaining open findings after Segment 1: frontend/backend market-profile DTO drift, audit-grade job/runtime fields, NautilusTrader dependency/backtest boundary, README/readiness drift.
+
+## Closure progress — Segment 2 market-profile contract alignment
+
+**Status:** completed on 2026-05-24.
+
+Closed/changed findings:
+
+- `HIGH-2` is remediated at code level: the market-profile UI now uses backend-real adapter and instrument shapes, sends `data_type`, `market_type`, and `date_range`, and renders validation from `instrument.instrument_id` instead of the removed `adapter_profile_id` path.
+- Backend/API contract coverage now includes a `create_app()` regression for the same payload shape the frontend sends.
+- Broader API route assertions were reconciled with Segment 1's validated StrategySpec output shape by checking `spec.validation.output_mode`.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- components/market/MarketProfilePanel.test.tsx
+# 1 passed
+
+rtk pytest tests/api/test_backtest_profiles.py -q
+# Pytest: 3 passed
+
+cd apps/web && npm run typecheck
+# tsc --noEmit passed
+
+rtk pytest tests/api tests/instrument_registry tests/adapter_registry tests/web -q
+# Pytest: 64 passed
+```
+
+Remaining open findings after Segment 2: audit-grade job/runtime fields, NautilusTrader dependency/backtest boundary, README/readiness drift, StrategySpec allowed-block doc/schema drift, and promotion evidence strictness.
