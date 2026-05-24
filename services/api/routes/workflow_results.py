@@ -22,7 +22,10 @@ def _dashboard_result_payload(result_id: str) -> dict[str, object]:
     return {
         "result_id": result_id,
         "metrics": {"trade_count": 0, "fill_count": 0},
-        "artifacts": {"result": f"artifact://backtests/{result_id}/result.json"},
+        "artifacts": {
+            "result": f"artifact://backtests/{result_id}/result.json",
+            "strategy_version_id": "strategy_001_v001",
+        },
         "trades": [],
         "fills": [],
         "logs": [],

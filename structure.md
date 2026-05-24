@@ -221,3 +221,38 @@ rtk pytest tests/backtest_runner -q
 python3 -m compileall -q packages/backtest_runner tests/backtest_runner
 # compileall passed
 ```
+
+## Master reconciliation — findings closure
+
+**Completed:** 2026-05-24
+
+Additional reconciliation changes after Segment 4:
+
+- `packages/system_verification/e2e.py` now checks the validated StrategySpec shape (`validation.output_mode`) and canonical `SUCCEEDED` worker state.
+- `apps/web/lib/api.ts` resolves server-side API fetches through `BUILDER_API_BASE_URL` / `127.0.0.1:8000` while preserving browser-side relative rewrites.
+- `services/api/dev_server.py` adds a dependency-free local API server for Playwright and operator-shell smoke tests.
+- `apps/web/playwright.config.ts` now starts the local API dev server alongside Next.
+- `apps/web/components/strategies/StrategyListClient.tsx` posts a full StrategySpec-shaped draft, so real backend validation accepts the operator journey.
+- `services/api/routes/workflow_results.py` includes `strategy_version_id` in default result artifacts for result-route traceability.
+- `apps/web/e2e/builder-shell.spec.ts` now exercises the real create-draft path and backend-backed result route without strict-locator ambiguity.
+
+Master verification:
+
+```bash
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 197 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# tsc --noEmit passed; Vitest: 8 files / 12 tests passed; Next build passed
+
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+```
+
+Forbidden-authority reconciliation:
+
+- Diff grep for `submit_order`, `TradeAction`, `api_key`, `secret_key`, `credential`, `broker_order`, and `exchange_order` found only guard tables, negative/denied booleans, credential-rejection config, tests, and documentation references.
+- No Builder path gained live order authority, Daedalus imports, shell execution, or credential acceptance.

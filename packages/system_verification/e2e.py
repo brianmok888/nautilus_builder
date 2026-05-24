@@ -49,10 +49,10 @@ def run_mvp_verification() -> MvpVerificationReport:
 
     return MvpVerificationReport(
         builder_to_spec=spec["status"] == "draft",
-        ai_advisory_only=ai_result.spec["output"] == "signal_preview_only",
+        ai_advisory_only=ai_result.spec["validation"]["output_mode"] == "signal_preview_only",
         runtime_persists_disconnect=bool(events.replay_events(job.job_id)),
         replay_endpoint_ok=terminal_replay["action"] == "replay",
-        worker_integration_ok=jobs.get_job(job.job_id).stage == "COMPLETED",
+        worker_integration_ok=jobs.get_job(job.job_id).stage == "SUCCEEDED",
         builder_can_submit_orders=False,
         promotion_signal_preview_only=True,
         naming_consistency_ok=True,

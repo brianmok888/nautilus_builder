@@ -304,3 +304,33 @@ python3 -m compileall -q packages/backtest_runner tests/backtest_runner
 ```
 
 Remaining open findings after Segment 4: README/readiness drift, StrategySpec allowed-block doc/schema drift, promotion evidence strictness, and a future real NautilusTrader engine smoke beyond the current injected boundary.
+
+## Master reconciliation — findings closure
+
+**Status:** completed on 2026-05-24.
+
+Top findings closed in this implementation loop:
+
+- AI draft provider output cannot be accepted unless StrategySpec schema and recursive hard-rule validation pass.
+- Forbidden token coverage includes hardguarded credential and broker/exchange-order terms.
+- Market-profile frontend payloads match backend validation API shape.
+- Backtest jobs and runtime events carry audit fields and worker success uses `SUCCEEDED`.
+- `nautilus_trader==1.223.0` is pinned to match Daedalus runtime, while fixture and injected-engine evidence stay explicitly labeled.
+
+Master evidence:
+
+```bash
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 197 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# tsc --noEmit passed; Vitest: 8 files / 12 tests passed; Next build passed
+
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+```
+
+Residual non-top findings remain tracked for later work: README/readiness drift, StrategySpec allowed-block doc/schema drift, promotion evidence strictness, and a future concrete NautilusTrader `BacktestEngine` smoke beyond the current injected boundary.

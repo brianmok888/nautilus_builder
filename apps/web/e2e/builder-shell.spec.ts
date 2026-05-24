@@ -25,7 +25,7 @@ test("operator MVP routes expose strategies, backtest console, AI, and promotion
 
   await page.goto("/");
   await expect(page.getByText("Apply to Builder")).toBeVisible();
-  await expect(page.getByText("Safe promotion request")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Safe promotion request" }).first()).toBeVisible();
 });
 
 test("operator can traverse composed observational journey with stable IDs and no execution authority", async ({ page }) => {
@@ -34,8 +34,10 @@ test("operator can traverse composed observational journey with stable IDs and n
   await expect(page.getByRole("navigation", { name: "Operator workflow" })).toBeVisible();
   await page.getByRole("link", { name: "Strategies" }).click();
   await expect(page).toHaveURL(/\/strategies$/);
-  await expect(page.getByText("strategy_001")).toBeVisible();
-  await expect(page.getByText("lineage_001")).toBeVisible();
+  await expect(page.getByText("No saved strategies yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Create draft" }).click();
+  await expect(page.getByRole("link", { name: "strategy_001" })).toBeVisible();
+  await expect(page.getByText("lineage_strategy_001")).toBeVisible();
 
   await page.goto("/");
   await page.getByRole("link", { name: "Backtest job bt_job_001" }).click();

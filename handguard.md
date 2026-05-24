@@ -237,3 +237,29 @@ rtk pytest tests/backtest_runner -q
 python3 -m compileall -q packages/backtest_runner tests/backtest_runner
 # compileall passed
 ```
+
+## Master reconciliation guard — closed findings baseline
+
+The 2026-05-24 findings closure baseline is verified. Preserve these stop conditions:
+
+- Do not accept AI drafts without `validate_strategy_spec()` success.
+- Do not remove hardguard forbidden credential/order terms from recursive validation.
+- Do not let market-profile UI drift from backend fields: `adapter_id`, `instrument_id`, `data_type`, `timeframe`, `market_type`, `date_range`.
+- Do not remove job/event audit fields or regress worker success from `SUCCEEDED` to `COMPLETED`.
+- Do not change the Builder NautilusTrader pin without checking Daedalus runtime in lockstep.
+- Do not treat fixture backtests as real NautilusTrader engine proof.
+- Do not claim frontend readiness without Playwright passing against the local API + Next shell.
+
+Master evidence:
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 197 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck, Vitest, and build passed
+
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+```

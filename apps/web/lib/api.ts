@@ -1,6 +1,13 @@
 import type { AdapterSummary, AiDraftApplication, AiDraftPayload, AiDraftResult, BackendHealth, BacktestJobEvents, BacktestJobStatus, BacktestProfileValidation, DataAvailability, InstrumentSummary, PromotionRequestResult, ResultDashboardPayload, StrategyDetail, StrategyRecord, StrategySummary } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const DEFAULT_SERVER_API_BASE_URL = process.env.BUILDER_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+function apiUrl(path: string): string {
+  if (API_BASE_URL) return `${API_BASE_URL}${path}`;
+  if (typeof window === "undefined") return `${DEFAULT_SERVER_API_BASE_URL}${path}`;
+  return path;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -13,7 +20,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, init);
+  const response = await fetch(apiUrl(path), init);
   const payload = await response.json();
   if (!response.ok) {
     throw new ApiError("Nautilus Builder API request failed", response.status, payload);
