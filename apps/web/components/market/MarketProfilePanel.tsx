@@ -4,6 +4,81 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchAdapters, fetchDataAvailability, fetchInstruments, validateBacktestProfile } from "../../lib/api";
 import type { AdapterSummary, BacktestProfileValidation, DataAvailability, InstrumentSummary } from "../../lib/types";
 
+const AdapterSelector = ({
+  adapterId,
+  adapters,
+  onAdapterChange,
+}: {
+  adapterId: string;
+  adapters: AdapterSummary[];
+  onAdapterChange: (adapterId: string) => void;
+}) => (
+  <label>
+    Adapter
+    <select aria-label="adapter" value={adapterId} onChange={(event) => onAdapterChange(event.target.value)}>
+      {adapters.map((adapter) => (
+        <option key={adapter.adapter_id} value={adapter.adapter_id}>
+          {adapter.name}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
+const InstrumentSearch = ({
+  adapterId,
+  instruments,
+  loading,
+  query,
+  onQueryChange,
+  onSearch,
+  onSelectInstrument,
+}: {
+  adapterId: string;
+  instruments: InstrumentSummary[];
+  loading: string;
+  query: string;
+  onQueryChange: (query: string) => void;
+  onSearch: () => void;
+  onSelectInstrument: (instrumentId: string) => void;
+}) => (
+  <>
+    <label>
+      Instrument
+      <input aria-label="instrument search" value={query} onChange={(event) => onQueryChange(event.target.value)} />
+    </label>
+    <button type="button" disabled={!adapterId || loading !== ""} onClick={onSearch}>
+      Search instruments
+    </button>
+    <ul aria-label="instrument results">
+      {instruments.map((instrument) => (
+        <li key={instrument.instrument_id}>
+          {instrument.symbol}
+          <button type="button" onClick={() => onSelectInstrument(instrument.instrument_id)}>
+            Select {instrument.instrument_id}
+          </button>
+        </li>
+      ))}
+    </ul>
+  </>
+);
+
+const DataAvailabilityPanel = ({ availability, instrumentId }: { availability: DataAvailability | null; instrumentId: string }) => {
+  const selectedTimeframes = availability?.supported_timeframes ?? availability?.available_timeframes ?? [];
+
+  if (!availability) {
+    return <section aria-label="data availability">Data availability must be confirmed before job creation.</section>;
+  }
+
+  return (
+    <section aria-label="data availability">
+      <p>Selected instrument: {instrumentId}</p>
+      <p>Timeframes: {selectedTimeframes.join(", ")}</p>
+      <p>Date ranges: {(availability.available_date_ranges ?? []).map((range) => `${range.start} to ${range.end}`).join(", ")}</p>
+    </section>
+  );
+};
+
 export const MarketProfilePanel = () => {
   const [adapters, setAdapters] = useState<AdapterSummary[]>([]);
   const [adapterId, setAdapterId] = useState("");
@@ -36,11 +111,6 @@ export const MarketProfilePanel = () => {
       active = false;
     };
   }, []);
-
-  const selectedTimeframes = useMemo(
-    () => availability?.supported_timeframes ?? availability?.available_timeframes ?? [],
-    [availability],
-  );
 
   async function searchInstruments() {
     setError("");
@@ -92,47 +162,21 @@ export const MarketProfilePanel = () => {
 
   return (
     <section aria-label="market profile">
-      <label>
-        Adapter
-        <select aria-label="adapter" value={adapterId} onChange={(event) => setAdapterId(event.target.value)}>
-          {adapters.map((adapter) => (
-            <option key={adapter.adapter_id} value={adapter.adapter_id}>
-              {adapter.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Instrument
-        <input aria-label="instrument search" value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
-      <button type="button" disabled={!adapterId || loading !== ""} onClick={searchInstruments}>
-        Search instruments
-      </button>
+      <AdapterSelector adapterId={adapterId} adapters={adapters} onAdapterChange={setAdapterId} />
+      <InstrumentSearch
+        adapterId={adapterId}
+        instruments={instruments}
+        loading={loading}
+        query={query}
+        onQueryChange={setQuery}
+        onSearch={searchInstruments}
+        onSelectInstrument={selectInstrument}
+      />
 
       {loading ? <p role="status">{loading}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
 
-      <ul aria-label="instrument results">
-        {instruments.map((instrument) => (
-          <li key={instrument.instrument_id}>
-            {instrument.symbol}
-            <button type="button" onClick={() => selectInstrument(instrument.instrument_id)}>
-              Select {instrument.instrument_id}
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {availability ? (
-        <section aria-label="data availability">
-          <p>Selected instrument: {instrumentId}</p>
-          <p>Timeframes: {selectedTimeframes.join(", ")}</p>
-          <p>Date ranges: {(availability.available_date_ranges ?? []).map((range) => `${range.start} to ${range.end}`).join(", ")}</p>
-        </section>
-      ) : (
-        <section aria-label="data availability">Data availability must be confirmed before job creation.</section>
-      )}
+      <DataAvailabilityPanel availability={availability} instrumentId={instrumentId} />
 
       <label>
         Timeframe
