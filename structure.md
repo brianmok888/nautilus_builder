@@ -193,3 +193,31 @@ python3 -m compileall -q packages/backtest_jobs packages/runtime_events services
 rtk pytest tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_route_mounts.py tests/web/test_job_terminal_replay.py -q
 # Pytest: 36 passed
 ```
+
+## Implementation progress — Segment 4 NautilusTrader dependency and engine-boundary labeling
+
+**Completed:** 2026-05-24
+
+Files changed:
+
+- `pyproject.toml` — pins `nautilus_trader==1.223.0`, matching the read-only Daedalus runtime pin observed in `/home/mok/projects/Nautilus-Daedalus/pyproject.toml`.
+- `packages/backtest_runner/engine_contract.py` — centralizes the pinned NautilusTrader version and engine-mode labels.
+- `packages/backtest_runner/config_builder.py` — includes `nautilus_trader_version`, `engine_mode`, `live_trading_enabled=False`, and `execution_authority=False` in backtest configs.
+- `packages/backtest_runner/artifacts.py` and `result_normalizer.py` — result artifacts now record NautilusTrader version and fixture/injected-engine evidence mode.
+- `packages/backtest_runner/runner.py` — fixture backtests are explicitly labeled `fixture`.
+- `packages/backtest_runner/nautilus_engine.py` — injected engine boundary results are explicitly labeled `injected_engine`, separate from fixture evidence.
+- `tests/backtest_runner/test_nautilus_dependency_contract.py` — locks the exact dependency pin and fixture-vs-injected boundary labels.
+
+Verification:
+
+```bash
+rtk pytest tests/backtest_runner/test_nautilus_dependency_contract.py -q
+# Initial RED: 0 passed, 3 failed for missing dependency pin and engine labels
+# GREEN: Pytest: 3 passed
+
+rtk pytest tests/backtest_runner -q
+# Pytest: 10 passed
+
+python3 -m compileall -q packages/backtest_runner tests/backtest_runner
+# compileall passed
+```

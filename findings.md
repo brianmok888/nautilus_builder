@@ -275,3 +275,32 @@ python3 -m compileall -q packages/backtest_jobs packages/runtime_events services
 ```
 
 Remaining open findings after Segment 3: NautilusTrader dependency/backtest boundary, README/readiness drift, StrategySpec allowed-block doc/schema drift, and promotion evidence strictness.
+
+## Closure progress — Segment 4 NautilusTrader dependency and backtest boundary
+
+**Status:** completed on 2026-05-24.
+
+Closed/changed findings:
+
+- `MEDIUM-1` is partially remediated at code level: Builder now pins `nautilus_trader==1.223.0`, matching the Daedalus runtime pin found read-only in `/home/mok/projects/Nautilus-Daedalus/pyproject.toml`.
+- Fixture runner results and injected engine boundary results are now explicitly labeled by `engine_mode`, and both carry the pinned NautilusTrader version.
+- Backtest configs continue to reject credentials and now also state `live_trading_enabled=False` and `execution_authority=False`.
+
+Remaining limitation:
+
+- This segment does not install or execute a concrete NautilusTrader `BacktestEngine`; it prevents hidden fixture-overclaiming while preserving the injected engine seam for future real-engine wiring.
+
+Evidence:
+
+```bash
+rtk pytest tests/backtest_runner/test_nautilus_dependency_contract.py -q
+# RED captured missing pin/labels; GREEN: Pytest: 3 passed
+
+rtk pytest tests/backtest_runner -q
+# Pytest: 10 passed
+
+python3 -m compileall -q packages/backtest_runner tests/backtest_runner
+# compileall passed
+```
+
+Remaining open findings after Segment 4: README/readiness drift, StrategySpec allowed-block doc/schema drift, promotion evidence strictness, and a future real NautilusTrader engine smoke beyond the current injected boundary.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .artifacts import BacktestResultArtifact
+from .engine_contract import FIXTURE_ENGINE_MODE, NAUTILUS_TRADER_VERSION
 
 
 def _list_value(value: object) -> list[object]:
@@ -14,6 +15,7 @@ def normalize_backtest_result(
     compile_hash: str,
     worker_image: str,
     backtest_job_id: str | None = None,
+    engine_mode: str = FIXTURE_ENGINE_MODE,
 ) -> BacktestResultArtifact:
     trades = _list_value(raw_result.get("trades", []))
     fills = _list_value(raw_result.get("fills", []))
@@ -24,6 +26,8 @@ def normalize_backtest_result(
         strategy_spec_version=strategy_spec_version,
         compile_hash=compile_hash,
         worker_image=worker_image,
+        engine_mode=engine_mode,
+        nautilus_trader_version=NAUTILUS_TRADER_VERSION,
         summary_metrics={
             "trade_count": len(trades),
             "fill_count": len(fills),
@@ -33,6 +37,7 @@ def normalize_backtest_result(
             "equity_curve": "equity_curve.parquet",
             "trades": "trades.parquet",
             "fills": "fills.parquet",
+            "evidence_mode": engine_mode,
         },
         logs=[str(entry) for entry in logs],
     )

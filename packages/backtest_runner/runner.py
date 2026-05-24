@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .config_builder import build_backtest_config
+from .engine_contract import FIXTURE_ENGINE_MODE
 from .result_normalizer import normalize_backtest_result
 
 
@@ -20,6 +21,7 @@ def run_backtest_fixture(
         compile_hash=compile_hash,
         validation_report_id="vr_fixture",
         worker_image=worker_image,
+        engine_mode=FIXTURE_ENGINE_MODE,
     )
 
     raw_result = {
@@ -34,4 +36,5 @@ def run_backtest_fixture(
         strategy_spec_version=strategy_spec_version,
         compile_hash=compile_hash,
         worker_image=worker_image,
+        engine_mode=FIXTURE_ENGINE_MODE,
     )

@@ -217,3 +217,23 @@ rtk pytest tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/
 python3 -m compileall -q packages/backtest_jobs packages/runtime_events services/workers services/api/routes/backtest_jobs.py
 # compileall passed
 ```
+
+## Segment 4 completion guard — NautilusTrader pin and fixture boundary
+
+Segment 4 is complete. Preserve these rules going forward:
+
+- `pyproject.toml` must keep `nautilus_trader==1.223.0` unless Daedalus runtime pin changes and Builder is updated in lockstep.
+- Backtest configs and result artifacts must carry `nautilus_trader_version` and `engine_mode`.
+- Fixture evidence must remain labeled `fixture`; injected engine evidence must remain labeled `injected_engine` until a concrete NautilusTrader engine adapter exists.
+- Backtest configs must continue to reject credentials and expose `live_trading_enabled=False` and `execution_authority=False`.
+- Do not claim real NautilusTrader backtest readiness from fixture results alone.
+
+Segment 4 evidence:
+
+```bash
+rtk pytest tests/backtest_runner -q
+# Pytest: 10 passed
+
+python3 -m compileall -q packages/backtest_runner tests/backtest_runner
+# compileall passed
+```

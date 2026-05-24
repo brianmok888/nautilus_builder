@@ -10,6 +10,8 @@ class BacktestResultArtifact(BaseModel):
     strategy_spec_version: str
     compile_hash: str
     worker_image: str
+    engine_mode: str
+    nautilus_trader_version: str
     summary_metrics: dict[str, float | int]
     artifact_refs: dict[str, str]
     logs: list[str]

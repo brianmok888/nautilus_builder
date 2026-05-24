@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from packages.backtest_runner.config_builder import build_backtest_config
+from packages.backtest_runner.engine_contract import INJECTED_ENGINE_MODE
 from packages.backtest_runner.result_normalizer import normalize_backtest_result
 from packages.backtest_runner.artifacts import BacktestResultArtifact
 
@@ -33,6 +34,7 @@ class NautilusBacktestEngineBoundary:
             compile_hash=compile_hash,
             validation_report_id=validation_report_id,
             worker_image=worker_image,
+            engine_mode=INJECTED_ENGINE_MODE,
         )
         raw_result = self._engine.run(config)
         return normalize_backtest_result(
@@ -41,4 +43,5 @@ class NautilusBacktestEngineBoundary:
             strategy_spec_version=strategy_spec_version,
             compile_hash=compile_hash,
             worker_image=worker_image,
+            engine_mode=INJECTED_ENGINE_MODE,
         )
