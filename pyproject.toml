@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest>=9.0",
+    "PyYAML>=6.0",
 ]
 
 [tool.setuptools.packages.find]

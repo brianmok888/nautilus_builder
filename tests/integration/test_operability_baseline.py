@@ -17,6 +17,7 @@ def test_python_project_declares_runtime_and_test_dependencies() -> None:
     assert any(dependency.startswith("uvicorn") for dependency in dependencies)
     assert any(dependency.startswith("pydantic") for dependency in dependencies)
     assert any(dependency.startswith("pytest") for dependency in optional_test)
+    assert any(dependency.startswith("PyYAML") for dependency in optional_test)
 
 
 def test_ci_template_runs_python_contract_suite_pending_repository_activation() -> None:

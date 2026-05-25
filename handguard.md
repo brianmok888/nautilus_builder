@@ -931,3 +931,20 @@ The 2026-05-25 frontend UI/API hardening diff was reviewed as **APPROVE / CLEAR*
 - Non-JSON HTML/text failures must stay actionable for VM proxy/API-base debugging.
 - Visual shell changes must remain dependency-free and must not imply live order authority.
 - Treat Playwright/browser E2E as the remaining readiness watch item for frontend deployment claims.
+
+## 15. Test dependency reproducibility guard
+
+Clean VM/CI environments must be able to run the documented Python contract suite with repository-declared dependencies only.
+
+- Keep test-only parser/tooling dependencies in `[project.optional-dependencies].test`, not as ad-hoc VM installs.
+- Keep `uv.lock` synchronized after changing `pyproject.toml` dependency metadata.
+- `tests/strategy_spec/test_schema_valid.py` validates a packaged YAML StrategySpec example, so the test extra must include PyYAML while that test remains YAML-backed.
+- Do not move PyYAML into runtime dependencies unless production Builder code begins importing `yaml`.
+- Prefer manifest/lock fixes over remote-VM one-off package installs.
+
+Minimum regression commands:
+
+```bash
+uv sync --extra test
+rtk pytest tests/integration/test_operability_baseline.py::test_python_project_declares_runtime_and_test_dependencies tests/strategy_spec/test_schema_valid.py::test_example_yaml_loads_as_valid_strategy_spec -q
+```

@@ -1402,3 +1402,40 @@ cd apps/web && npm run typecheck && npm test && npm run build
 git diff --check
 # passed
 ```
+
+## Closure update — Segment DEP-1 PyYAML test-extra closure
+
+**Status:** CLOSED for the VM02 `ModuleNotFoundError: No module named 'yaml'` failures observed after `uv sync --extra test`.
+
+### Finding
+
+- **MEDIUM-DEP-2026-05-25-1:** The test environment was not reproducible because StrategySpec YAML example tests import `yaml`, and API contract tests indirectly import that module via `make_valid_spec`, but the repo test extra/lockfile did not declare PyYAML.
+
+### Resolution
+
+- Added `PyYAML>=6.0` to `[project.optional-dependencies].test` in `pyproject.toml`.
+- Regenerated `uv.lock`, locking `pyyaml==6.0.3`.
+- Added an operability baseline assertion that the test extra declares PyYAML so future clean VM/CI syncs do not regress.
+
+### Review verdict
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR.
+
+The change is test/deployment-environment scoped only. It does not add runtime YAML parsing, live order authority, Daedalus coupling, LangChain/LangGraph/EvoMap runtime dependencies, or frontend UI dependencies.
+
+### Evidence
+
+```bash
+uv sync --extra test
+# Installed pyyaml==6.0.3
+
+rtk pytest tests/integration/test_operability_baseline.py::test_python_project_declares_runtime_and_test_dependencies tests/api/test_fastapi_app.py::test_fastapi_bootstrap_reuses_strategy_repository_helpers tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project tests/strategy_spec/test_schema_valid.py::test_example_yaml_loads_as_valid_strategy_spec -q
+# Pytest: 4 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 271 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest: 17 passed; Next build passed
+```

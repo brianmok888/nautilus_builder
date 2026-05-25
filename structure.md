@@ -1159,3 +1159,50 @@ Remaining watch item: Playwright browser execution was not rerun in this pass; p
 Review verdict: **APPROVE / CLEAR** for the local diff. The review found no open critical/high/medium findings after adding the JSON error-payload regression. The implementation remains limited to frontend API diagnostics, no-dependency visual shell styling, tests, and review artifacts.
 
 Review evidence is recorded in `findings.md` under `Post-implementation code review — 2026-05-25 frontend UI/API hardening`.
+
+## Brainstorming implementation plan — Segment DEP-1 PyYAML test-extra closure
+
+**Completed:** 2026-05-25
+
+Context: VM02 reproduced two FastAPI contract-test failures after `uv sync --extra test` because `tests/api/test_fastapi_app.py` imports `make_valid_spec` from `tests/strategy_spec/test_schema_valid.py`, and that module imports `yaml` to validate the packaged StrategySpec YAML example. The repo manifest did not declare PyYAML in the test extra or lockfile, so a fresh synced VM environment could miss the parser.
+
+Approaches considered:
+
+1. **Recommended / implemented — declare PyYAML in the test extra and lock it.** This keeps YAML parsing a test/development dependency, matches the actual usage surface, and makes `uv sync --extra test` reproducible.
+2. Add PyYAML to runtime dependencies. Rejected because production API/runtime code does not import `yaml`; only tests do.
+3. Install PyYAML manually on VM02. Rejected because it would leave the repo manifest/lock unreproducible and fail on the next clean VM or CI sync.
+
+Segment plan and outcome:
+
+1. Inventory dependency surface — `rg` confirmed only `tests/strategy_spec/test_schema_valid.py` imports `yaml`; `pyproject.toml`/`uv.lock` had no PyYAML declaration.
+2. TDD RED — added an operability manifest assertion that the test extra declares PyYAML, then confirmed it failed before the manifest change.
+3. GREEN — added `PyYAML>=6.0` to `[project.optional-dependencies].test` and regenerated `uv.lock`, resolving `pyyaml==6.0.3`.
+4. Reconciliation — verified fresh `uv sync --extra test`, targeted FastAPI/YAML tests, full Python contract suite, and frontend type/unit/build checks.
+
+Files changed:
+
+- `pyproject.toml` — declares `PyYAML>=6.0` under the test extra only.
+- `uv.lock` — locks `pyyaml==6.0.3` for reproducible VM/CI test syncs.
+- `tests/integration/test_operability_baseline.py` — guards the dependency contract so future clean environments keep YAML example tests installable.
+
+Verification:
+
+```bash
+rtk pytest tests/integration/test_operability_baseline.py::test_python_project_declares_runtime_and_test_dependencies -q
+# RED before manifest change: missing PyYAML assertion failed
+
+uv sync --extra test
+# Installed pyyaml==6.0.3 with the test extra
+
+rtk pytest tests/integration/test_operability_baseline.py::test_python_project_declares_runtime_and_test_dependencies tests/api/test_fastapi_app.py::test_fastapi_bootstrap_reuses_strategy_repository_helpers tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project tests/strategy_spec/test_schema_valid.py::test_example_yaml_loads_as_valid_strategy_spec -q
+# Pytest: 4 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 271 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest: 9 files / 17 tests passed; Next build passed
+```
+
+Master reconciliation: the VM02 `ModuleNotFoundError: No module named 'yaml'` deployment-test finding is closed at repo manifest/lock level without changing Builder runtime authority, NautilusTrader pinning, frontend behavior, or Daedalus boundaries.
