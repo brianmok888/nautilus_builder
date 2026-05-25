@@ -43,7 +43,7 @@ def create_fastapi_app(
     backtest_job_service = backtest_job_service or BacktestJobService()
     auth_token_service = auth_token_service or AuthTokenService()
     catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
-    ai_builder_service = AiBuilderService(store=ai_audit_store or RecordedAiDraftStore())
+    ai_builder_service = AiBuilderService.from_env(store=ai_audit_store or RecordedAiDraftStore())
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
     def require_context(authorization: str | None) -> tuple[UserProjectContext | None, ApiResponse | None]:

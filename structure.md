@@ -1206,3 +1206,71 @@ cd apps/web && npm run typecheck && npm test && npm run build
 ```
 
 Master reconciliation: the VM02 `ModuleNotFoundError: No module named 'yaml'` deployment-test finding is closed at repo manifest/lock level without changing Builder runtime authority, NautilusTrader pinning, frontend behavior, or Daedalus boundaries.
+
+## Brainstorming implementation plan — Segment AI-2 OpenAI-compatible StrategySpec draft provider
+
+**Started:** 2026-05-25
+
+Context: the product workflow is user words -> AI draft -> strict Builder `StrategySpec` -> validation -> backtest -> manual promotion. The current `AdvisoryDraftProvider` is deterministic fixture-like scaffolding only, so this segment adds an optional OpenAI-compatible chat-completions provider without changing Builder's no-live-order boundary.
+
+Approaches considered:
+
+1. **Recommended / implementing — stdlib HTTP OpenAI-compatible provider behind env.** Use `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` to opt into a provider that calls `/v1/chat/completions`, requests JSON output, parses the model content as strict JSON, and relies on `validate_strategy_spec()` before acceptance. This avoids a new SDK dependency and keeps provider activation explicit.
+2. Add the OpenAI Python SDK. Rejected for this segment because the repo already avoids unnecessary dependencies, the user requested an OpenAI-compatible URL/API rather than OpenAI-only SDK coupling, and stdlib HTTP is enough for the provider seam.
+3. Replace the advisory provider globally. Rejected because local/dev/test environments must keep deterministic behavior when OpenAI env vars are absent.
+
+Segment plan:
+
+1. TDD RED: add provider tests proving env activation, chat-completions payload shape, strict JSON parsing, audit metadata redaction, and validation rejection for forbidden model output.
+2. GREEN: implement `OpenAICompatibleProviderConfig`, `OpenAICompatibleDraftProvider`, env-based provider selection, prompt/response metadata capture, and service audit wiring.
+3. Reconciliation: verify the new AI provider tests plus existing AI/API contract tests; confirm no API key is stored and no live order/`TradeAction` authority is introduced.
+4. Review: run a focused post-implementation code review for security, boundary, maintainability, and Nautilus Builder hardguard alignment.
+
+Expected files:
+
+- `packages/ai_builder/provider.py`
+- `packages/ai_builder/service.py`
+- `packages/ai_builder/__init__.py`
+- `tests/ai_builder/test_openai_compatible_provider.py`
+- `structure.md`, `findings.md`, `handguard.md`
+
+## Implementation progress — Segment AI-2 OpenAI-compatible StrategySpec draft provider
+
+**Completed:** 2026-05-25
+
+Files changed:
+
+- `packages/ai_builder/provider.py` — added `OpenAICompatibleProviderConfig`, `OpenAICompatibleDraftProvider`, env-based provider selection, stdlib chat-completions transport, strict JSON content parsing, response metadata capture, and advisory-provider metadata.
+- `packages/ai_builder/service.py` — added `AiBuilderService.from_env()`, provider-error handling, prompt/metadata/validation audit records, and credential-prompt rejection before audit persistence.
+- `services/api/fastapi_app.py` — FastAPI bootstrap now builds the AI service from env, so `OPENAI_API_KEY` + `OPENAI_BASE_URL` + `OPENAI_MODEL` opt into the OpenAI-compatible provider while missing env falls back to advisory mode.
+- `packages/ai_builder/__init__.py` — exports the OpenAI-compatible provider/config and provider-builder helper.
+- `tests/ai_builder/test_openai_compatible_provider.py` — locks env activation, payload shape, metadata redaction, malformed JSON rejection, validation of forbidden model output, and credential-prompt rejection.
+
+Reconciliation:
+
+- The provider remains advisory-only and returns only StrategySpec JSON for validation.
+- No OpenAI SDK or frontend dependency was added; stdlib `urllib` keeps the dependency surface narrow.
+- API keys are used only in the outbound `Authorization` header and are not persisted in audit records.
+- `validate_strategy_spec()` remains the acceptance gate, so `submit_order`, `TradeAction`, credential references, malformed JSON, and missing fields are not accepted.
+- Backtest and promotion flow remains unchanged: generated drafts still require validation/backtest evidence and manual promotion.
+
+Verification:
+
+```bash
+rtk pytest tests/ai_builder/test_openai_compatible_provider.py -q
+# RED before implementation: ImportError for missing OpenAICompatibleDraftProvider
+# GREEN after implementation: Pytest: 7 passed
+
+rtk pytest tests/ai_builder -q
+# Pytest: 17 passed
+
+rtk pytest tests/api/test_fastapi_app.py tests/api/test_route_mounts.py -q
+# Pytest: 18 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 278 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest: 9 files / 17 tests passed; Next build passed
+```

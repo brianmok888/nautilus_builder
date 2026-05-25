@@ -948,3 +948,44 @@ Minimum regression commands:
 uv sync --extra test
 rtk pytest tests/integration/test_operability_baseline.py::test_python_project_declares_runtime_and_test_dependencies tests/strategy_spec/test_schema_valid.py::test_example_yaml_loads_as_valid_strategy_spec -q
 ```
+
+## 16. OpenAI-compatible AI draft provider guard
+
+The OpenAI-compatible draft provider is optional and advisory-only.
+
+- Activate it only when `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` are all set.
+- Treat `OPENAI_BASE_URL` as an OpenAI-compatible API root; normalize it to a chat-completions endpoint without hardcoding a single vendor.
+- Never store or echo `OPENAI_API_KEY` in audit records, errors, logs, docs, or tests.
+- Store prompt text and response metadata needed for auditability, such as provider name, model, endpoint URL without credentials, response ID, finish reason, and usage.
+- Model output must be parsed as a JSON object and passed through `validate_strategy_spec()` before any draft is accepted or applied.
+- Reject malformed JSON, non-object content, missing StrategySpec fields, forbidden `submit_order` / `TradeAction` references, and credential references.
+- Keep `validation.output_mode` as `signal_preview_only`; the provider must not add live trading authority, Daedalus coupling, automatic promotion, or order submission APIs.
+
+Minimum regression command:
+
+```bash
+rtk pytest tests/ai_builder/test_openai_compatible_provider.py tests/ai_builder/test_ai_output_must_validate.py tests/ai_builder/test_persistent_audit_store.py -q
+```
+
+## Segment AI-2 completion guard — OpenAI-compatible draft provider
+
+Segment AI-2 is complete. Preserve these rules going forward:
+
+- FastAPI AI drafting may opt into an OpenAI-compatible provider only through complete `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` env configuration.
+- Missing OpenAI env must keep deterministic advisory drafting available for local/dev/test workflows.
+- Do not introduce an OpenAI SDK dependency unless a future task explicitly accepts the dependency and adds tests for provider compatibility.
+- Keep audit records free of API keys and authorization headers; response metadata is enough for lineage.
+- Keep malformed provider responses as rejected drafts, not accepted specs and not uncaught API crashes.
+- Keep credential-bearing prompts rejected before audit persistence.
+- Keep `validate_strategy_spec()` as the final acceptance gate for every provider output.
+
+Segment AI-2 evidence:
+
+```bash
+rtk pytest tests/ai_builder -q
+# Pytest: 17 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 278 passed
+```

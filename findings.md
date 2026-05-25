@@ -1439,3 +1439,61 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build
 # typecheck passed; Vitest: 17 passed; Next build passed
 ```
+
+## Planned closure — Segment AI-2 OpenAI-compatible StrategySpec draft provider
+
+**Status:** IN PROGRESS on 2026-05-25.
+
+### Finding
+
+- **MEDIUM-AI-2026-05-25-2:** Builder can validate AI-shaped drafts, but there is no real OpenAI-compatible draft provider behind `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL`. The app therefore cannot yet perform the intended user-prompt-to-StrategySpec workflow except through the deterministic advisory scaffold.
+
+### Required closure criteria
+
+- Provider is activated only when the three env vars are present; otherwise existing deterministic advisory drafting remains the default.
+- Provider sends an OpenAI-compatible chat-completions request and accepts only a JSON object StrategySpec from the model content.
+- `AiBuilderService` still runs `validate_strategy_spec()` before `accepted=True`.
+- Audit records include the user prompt and response metadata, but never the API key or full credential-bearing request headers.
+- Forbidden `submit_order`, `TradeAction`, and credential references remain rejected.
+
+## Closure update — Segment AI-2 OpenAI-compatible StrategySpec draft provider
+
+**Status:** CLOSED on 2026-05-25.
+
+### Resolution
+
+- Added an optional OpenAI-compatible chat-completions draft provider activated by complete `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL` env configuration.
+- Kept deterministic advisory drafting as the fallback when env is incomplete.
+- The provider requests JSON output, parses only JSON-object model content, and returns that object to the existing Builder validation gate.
+- `AiBuilderService` now audits prompt text, provider identity, provider response metadata, validation errors, and spec payloads without persisting API keys.
+- Prompt inputs mentioning credentials are rejected before audit persistence; model outputs containing `api_key`, `submit_order`, `TradeAction`, or other forbidden references remain rejected by `validate_strategy_spec()`.
+- FastAPI app construction now wires the service through `AiBuilderService.from_env()` while preserving injected audit stores.
+
+### Review verdict
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR.
+
+The diff is narrow to the AI draft provider seam, FastAPI bootstrap wiring, tests, and guard docs. It does not add live order authority, Daedalus execution coupling, OpenAI SDK dependency, LangChain/LangGraph/EvoMap runtime dependency, automatic promotion, or frontend dependency changes.
+
+### Evidence
+
+```bash
+rtk pytest tests/ai_builder/test_openai_compatible_provider.py -q
+# Pytest: 7 passed
+
+rtk pytest tests/ai_builder -q
+# Pytest: 17 passed
+
+rtk pytest tests/api/test_fastapi_app.py tests/api/test_route_mounts.py -q
+# Pytest: 18 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 278 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest: 17 passed; Next build passed
+
+git diff --check
+# passed
+```

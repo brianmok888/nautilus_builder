@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from packages.strategy_validation.validators import validate_strategy_spec
 
 from .models import AiDraftResult
-from .provider import AdvisoryDraftProvider, DraftAuditStoreProtocol, DraftProviderProtocol, RecordedAiDraftStore
+from .provider import (
+    AdvisoryDraftProvider,
+    DraftAuditStoreProtocol,
+    DraftProviderProtocol,
+    RecordedAiDraftStore,
+    build_default_draft_provider,
+)
 
 
 class AiBuilderService:
@@ -16,6 +24,15 @@ class AiBuilderService:
         self._provider = provider or AdvisoryDraftProvider()
         self._store = store or RecordedAiDraftStore()
 
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        store: DraftAuditStoreProtocol | None = None,
+        environ: Mapping[str, str] | None = None,
+    ) -> "AiBuilderService":
+        return cls(provider=build_default_draft_provider(environ), store=store)
+
     def generate_draft(
         self,
         prompt: str,
@@ -24,16 +41,24 @@ class AiBuilderService:
         include_forbidden_execution: bool = False,
         ai_thread_id: str = "anonymous_thread",
     ) -> AiDraftResult:
-        lowered = prompt.lower()
-        if include_forbidden_execution or "submit order" in lowered or "submit orders" in lowered:
-            raise ValueError("forbidden execution request")
+        _reject_forbidden_prompt(prompt, include_forbidden_execution=include_forbidden_execution)
 
-        spec = self._provider.draft_spec(prompt)
+        provider_error: str | None = None
+        try:
+            spec = self._provider.draft_spec(prompt)
+        except ValueError as exc:
+            spec = {}
+            provider_error = str(exc)
         if force_invalid:
             spec.pop("risk", None)
 
-        validation_report = validate_strategy_spec(spec)
-        if validation_report.is_valid:
+        if provider_error is None:
+            validation_report = validate_strategy_spec(spec)
+            validation_errors = validation_report.errors
+        else:
+            validation_errors = [provider_error]
+
+        if not validation_errors:
             result = AiDraftResult(
                 spec=spec,
                 accepted=True,
@@ -44,15 +69,20 @@ class AiBuilderService:
             result = AiDraftResult(
                 spec=spec,
                 accepted=False,
-                validation_errors=validation_report.errors,
+                validation_errors=validation_errors,
                 explanation="Draft rejected until Builder schema and hard-rule validation pass.",
             )
+        provider_metadata = _provider_metadata(self._provider)
         self._store.save(
             {
                 "ai_thread_id": ai_thread_id,
                 "mode": "advisory_only",
                 "stage": "draft",
                 "accepted": result.accepted,
+                "prompt": prompt,
+                "provider": provider_metadata.get("provider", type(self._provider).__name__),
+                "provider_metadata": provider_metadata,
+                "validation_errors": result.validation_errors,
                 "spec": result.spec,
             }
         )
@@ -90,3 +120,22 @@ class AiBuilderService:
 def _require_non_empty(field_name: str, value: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} is required")
+
+
+def _provider_metadata(provider: DraftProviderProtocol) -> dict[str, object]:
+    metadata_reader = getattr(provider, "last_metadata", None)
+    if not callable(metadata_reader):
+        return {"provider": type(provider).__name__}
+    metadata = metadata_reader()
+    if not isinstance(metadata, dict):
+        return {"provider": type(provider).__name__}
+    return dict(metadata)
+
+
+def _reject_forbidden_prompt(prompt: str, *, include_forbidden_execution: bool) -> None:
+    lowered = prompt.lower()
+    if include_forbidden_execution or "submit order" in lowered or "submit orders" in lowered:
+        raise ValueError("forbidden execution request")
+    credential_terms = ("api_key", "api key", "secret_key", "secret key", "credential")
+    if any(term in lowered for term in credential_terms):
+        raise ValueError("forbidden credential request")
