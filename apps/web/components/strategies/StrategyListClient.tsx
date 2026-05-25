@@ -22,10 +22,19 @@ const draftSpec = {
     rsi: { type: "RSI", input: "close", period: 14 },
   },
   rules: {
-    long_entry: { all: [{ crossed_above: ["ema_fast", "ema_slow"] }, { gt: ["rsi", 52] }] },
-    long_exit: { any: [{ crossed_below: ["ema_fast", "ema_slow"] }, { lt: ["rsi", 45] }] },
+    long_entry: {
+      all: [{ crossed_above: ["ema_fast", "ema_slow"] }, { gt: ["rsi", 52] }],
+    },
+    long_exit: {
+      any: [{ crossed_below: ["ema_fast", "ema_slow"] }, { lt: ["rsi", 45] }],
+    },
   },
-  risk: { position_size_pct: 0.05, stop_loss_pct: 0.012, take_profit_pct: 0.024, max_hold_bars: 48 },
+  risk: {
+    position_size_pct: 0.05,
+    stop_loss_pct: 0.012,
+    take_profit_pct: 0.024,
+    max_hold_bars: 48,
+  },
   validation: {
     bar_close_only: true,
     no_lookahead_required: true,
@@ -41,7 +50,9 @@ export function StrategyListClient() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchStrategies().then(setStrategies).catch(() => setError("Unable to load strategies."));
+    fetchStrategies()
+      .then(setStrategies)
+      .catch(() => setError("Unable to load strategies."));
   }, []);
 
   async function handleCreateDraft() {
@@ -51,7 +62,11 @@ export function StrategyListClient() {
       const created = await createStrategy(draftSpec);
       setStrategies((current) => [
         ...(current ?? []),
-        { strategy_id: created.strategy_id, strategy_lineage_id: created.strategy_lineage_id, latest_spec: created.spec },
+        {
+          strategy_id: created.strategy_id,
+          strategy_lineage_id: created.strategy_lineage_id,
+          latest_spec: created.spec,
+        },
       ]);
     } catch {
       setError("Unable to create draft.");
@@ -61,15 +76,24 @@ export function StrategyListClient() {
   }
 
   return (
-    <section>
-      <button type="button" onClick={handleCreateDraft} disabled={saving}>{saving ? "Creating…" : "Create draft"}</button>
-      {error ? <p role="alert">{error}</p> : null}
+    <section className="card list-card">
+      <button type="button" onClick={handleCreateDraft} disabled={saving}>
+        {saving ? "Creating…" : "Create draft"}
+      </button>
+      {error ? (
+        <p className="alert" role="alert">
+          {error}
+        </p>
+      ) : null}
       {strategies === null ? <p>Loading strategies…</p> : null}
       {strategies?.length === 0 ? <p>No saved strategies yet.</p> : null}
       <ul>
         {strategies?.map((strategy) => (
           <li key={strategy.strategy_id}>
-            <a href={`/strategies/${strategy.strategy_id}`}>{strategy.strategy_id}</a> <span>{strategy.strategy_lineage_id}</span>
+            <a href={`/strategies/${strategy.strategy_id}`}>
+              {strategy.strategy_id}
+            </a>{" "}
+            <span>{strategy.strategy_lineage_id}</span>
           </li>
         ))}
       </ul>

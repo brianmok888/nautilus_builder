@@ -1,10 +1,15 @@
 export const ValidationPanel = ({ errors }: { errors: string[] }) => {
   if (errors.length === 0) {
-    return <p>Validation: ready for backend checks</p>;
+    return (
+      <p>
+        <span className="status-badge">Validation</span> ready for backend
+        checks
+      </p>
+    );
   }
 
   return (
-    <aside aria-label="inline validation errors">
+    <aside className="panel" aria-label="inline validation errors">
       <h3>Validation feedback</h3>
       <ul>
         {errors.map((error) => (

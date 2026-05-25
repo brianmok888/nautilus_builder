@@ -1,8 +1,12 @@
 import { ALLOWED_STRATEGY_BLOCKS } from "../../lib/strategySpec";
 
-export const BlockPalette = ({ onAddBlock }: { onAddBlock?: (block: string) => void }) => {
+export const BlockPalette = ({
+  onAddBlock,
+}: {
+  onAddBlock?: (block: string) => void;
+}) => {
   return (
-    <aside aria-label="block palette">
+    <aside className="panel list-card" aria-label="block palette">
       <h3>Blocks</h3>
       <ul>
         {ALLOWED_STRATEGY_BLOCKS.map((block) => (

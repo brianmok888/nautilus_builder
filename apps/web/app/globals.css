@@ -1,0 +1,331 @@
+/* Nautilus Builder no-dependency operator shell: no live order authority lives in CSS or UI. */
+:root {
+  --builder-bg: #08111f;
+  --builder-bg-soft: #0f1b2d;
+  --builder-card: rgba(15, 27, 45, 0.88);
+  --builder-card-strong: rgba(20, 34, 55, 0.96);
+  --builder-border: rgba(148, 163, 184, 0.22);
+  --builder-text: #e5edf7;
+  --builder-muted: #93a4b8;
+  --builder-accent: #38bdf8;
+  --builder-accent-strong: #22d3ee;
+  --builder-green: #34d399;
+  --builder-amber: #fbbf24;
+  --builder-red: #fb7185;
+  --builder-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+  --builder-radius: 22px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--builder-bg);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  color: var(--builder-text);
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(56, 189, 248, 0.2),
+      transparent 32rem
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(52, 211, 153, 0.12),
+      transparent 28rem
+    ),
+    linear-gradient(135deg, #08111f 0%, #0b1424 48%, #050912 100%);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--builder-accent-strong);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+.button-link {
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.16),
+    rgba(34, 211, 238, 0.09)
+  );
+  color: var(--builder-text);
+  cursor: pointer;
+  padding: 0.62rem 0.95rem;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+button:hover:not(:disabled),
+.button-link:hover {
+  border-color: var(--builder-accent-strong);
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid var(--builder-border);
+  border-radius: 14px;
+  background: rgba(8, 17, 31, 0.74);
+  color: var(--builder-text);
+  margin-top: 0.35rem;
+  padding: 0.65rem 0.75rem;
+}
+
+label {
+  color: var(--builder-muted);
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+pre {
+  max-height: 30rem;
+  overflow: auto;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 18px;
+  background: rgba(2, 6, 23, 0.78);
+  color: #dbeafe;
+  padding: 1rem;
+}
+
+.app-shell {
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+
+.hero-card,
+.card,
+.panel,
+.terminal-card {
+  border: 1px solid var(--builder-border);
+  border-radius: var(--builder-radius);
+  background: var(--builder-card);
+  box-shadow: var(--builder-shadow);
+}
+
+.hero-card {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  overflow: hidden;
+  padding: clamp(1.4rem, 3vw, 2.4rem);
+  position: relative;
+}
+
+.hero-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -48% 45%;
+  height: 16rem;
+  background: radial-gradient(
+    circle,
+    rgba(56, 189, 248, 0.18),
+    transparent 65%
+  );
+  pointer-events: none;
+}
+
+.hero-kicker {
+  color: var(--builder-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-card h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 5vw, 4.4rem);
+  letter-spacing: -0.06em;
+}
+
+.hero-card p {
+  max-width: 68rem;
+  color: var(--builder-muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.workflow-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.workflow-nav a {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--builder-text);
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+}
+
+.dashboard-grid,
+.panel-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.card,
+.panel,
+.terminal-card {
+  padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.card h2,
+.card h3,
+.panel h2,
+.panel h3,
+.terminal-card h2,
+.terminal-card h3 {
+  margin-top: 0;
+}
+
+.card p,
+.panel p,
+.terminal-card p,
+.card li,
+.panel li {
+  color: var(--builder-muted);
+  line-height: 1.6;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 1rem 0;
+}
+
+.action-row,
+.result-tabs {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.status-badge {
+  align-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 999px;
+  color: var(--builder-green);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 0.65rem;
+  text-transform: uppercase;
+}
+
+.status-badge.warning {
+  border-color: rgba(251, 191, 36, 0.34);
+  color: var(--builder-amber);
+}
+
+.status-badge.danger {
+  border-color: rgba(251, 113, 133, 0.4);
+  color: var(--builder-red);
+}
+
+.terminal-card {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 23, 0.94),
+    rgba(8, 17, 31, 0.88)
+  );
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.terminal-card p {
+  color: #b6c7dd;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.metric-grid div,
+.artifact-row,
+.list-card li {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.58);
+  padding: 0.8rem;
+}
+
+.list-card ul,
+.clean-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list-card li + li,
+.clean-list li + li {
+  margin-top: 0.65rem;
+}
+
+.alert {
+  border: 1px solid rgba(251, 113, 133, 0.38);
+  border-radius: 16px;
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecdd3;
+  padding: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: min(100% - 1rem, 1440px);
+    padding-top: 0.5rem;
+  }
+
+  .dashboard-grid,
+  .panel-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1081,3 +1081,81 @@ git diff --check
 ```
 
 Remaining watch items are deployment/integration concerns, not open repo-contract findings: production token issuer integration, production object-store deployment, catalog ingestion/curation operations, and downstream Daedalus consumption of strict promotion artifacts.
+
+## Implementation progress — Segment UI-1 API JSON/proxy hardening
+
+**Completed:** 2026-05-25
+
+Files changed:
+
+- `apps/web/lib/api.test.ts` — added Vitest coverage for JSON success, non-JSON proxy/HTTP failures, empty error bodies, and network failures.
+- `apps/web/lib/api.ts` — `apiFetch()` now reads the response body once, parses JSON only for JSON content types, wraps network failures, and raises `ApiError` with status, URL, content type, and payload/snippet diagnostics.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run lib/api.test.ts
+# Result: 5 passed
+```
+
+## Implementation progress — Segment UI-2 no-dependency polished shell
+
+**Completed:** 2026-05-25
+
+Files changed:
+
+- `apps/web/app/globals.css` — added dependency-free Builder design tokens, dashboard layout, cards, panels, forms, status badges, terminal styling, and responsive rules.
+- `apps/web/app/layout.tsx` — imports the global operator shell styles.
+- `apps/web/app/page.tsx` and selected route/component TSX files — added semantic class names around existing Builder-only, observational/advisory surfaces.
+- `tests/web/test_app_shell_contract.py` — locks the global CSS import and visual shell tokens.
+- `tests/web/test_frontend_infrastructure.py` — locks the no-Tailwind/no-UI-library dependency boundary and required visual shell classes.
+
+Verification:
+
+```bash
+rtk pytest tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py -q
+# Result: 9 passed
+
+cd apps/web && npm test -- --run lib/api.test.ts components/market/MarketProfilePanel.test.tsx components/strategies/StrategyListClient.test.tsx components/strategies/StrategyDetailClient.test.tsx
+# Result: 9 passed
+```
+
+## Master reconciliation — VM frontend UI/API readiness pass
+
+**Completed:** 2026-05-25
+
+Segments reconciled:
+
+1. API JSON/proxy hardening — closed `JSON.parse` failures from HTML/text/empty/proxy responses by centralizing safe parsing in `apps/web/lib/api.ts`.
+2. No-dependency visual shell — closed plain-text VM demo presentation by importing global CSS and styling the operator dashboard without adding frontend dependencies.
+3. Verification — frontend unit/type/build and Python contract suites passed after the changes.
+
+Verification evidence:
+
+```bash
+rtk pytest tests/web tests/integration -q
+# Result: 54 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Result: 271 passed
+
+cd apps/web && npm run typecheck
+# Result: passed
+
+cd apps/web && npm test
+# Result: 9 files / 17 tests passed
+
+cd apps/web && npm run build
+# Result: Next.js production build passed
+```
+
+Remaining watch item: Playwright browser execution was not rerun in this pass; previous repo guard still requires a provisioned browser before claiming full frontend E2E readiness.
+
+## Post-implementation review — frontend UI/API hardening
+
+**Completed:** 2026-05-25
+
+Review verdict: **APPROVE / CLEAR** for the local diff. The review found no open critical/high/medium findings after adding the JSON error-payload regression. The implementation remains limited to frontend API diagnostics, no-dependency visual shell styling, tests, and review artifacts.
+
+Review evidence is recorded in `findings.md` under `Post-implementation code review — 2026-05-25 frontend UI/API hardening`.

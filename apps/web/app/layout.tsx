@@ -1,9 +1,16 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Nautilus Builder",
-  description: "Builder-side strategy authoring and observational workflow shell",
+  description:
+    "Builder-side strategy authoring and observational workflow shell",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body>{children}</body>

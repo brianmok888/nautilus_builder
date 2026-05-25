@@ -8,8 +8,11 @@ export const StrategyGraphCanvas = ({
   onSelect?: (nodeId: string) => void;
 }) => {
   return (
-    <section aria-label="strategy graph canvas">
-      <p>Graph canvas serializes draft blocks into StrategySpec for backend validation.</p>
+    <section className="panel list-card" aria-label="strategy graph canvas">
+      <p>
+        Graph canvas serializes draft blocks into StrategySpec for backend
+        validation.
+      </p>
       <ul>
         {nodes.map((node) => (
           <li key={node.id}>

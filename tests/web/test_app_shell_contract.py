@@ -31,3 +31,23 @@ def test_next_app_shell_mounts_existing_placeholder_components_without_runtime_a
     assert "submit_order" not in page
     assert "TradeAction" not in page
     assert "Nautilus Builder" in layout
+
+
+def test_next_app_shell_imports_global_operator_styles() -> None:
+    layout = (ROOT / "apps" / "web" / "app" / "layout.tsx").read_text()
+    css = ROOT / "apps" / "web" / "app" / "globals.css"
+
+    assert 'import "./globals.css"' in layout
+    assert css.exists()
+    css_text = css.read_text()
+    for token in ("--builder-bg", ".app-shell", ".dashboard-grid", ".card", ".status-badge", ".terminal-card"):
+        assert token in css_text
+
+
+def test_home_page_uses_visual_shell_without_live_authority() -> None:
+    page = (ROOT / "apps" / "web" / "app" / "page.tsx").read_text()
+
+    for token in ("app-shell", "hero-card", "workflow-nav", "dashboard-grid", "card"):
+        assert token in page
+    assert "submit_order" not in page
+    assert "TradeAction" not in page

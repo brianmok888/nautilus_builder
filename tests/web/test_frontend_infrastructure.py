@@ -43,3 +43,16 @@ def test_playwright_webserver_unsets_color_env_conflict() -> None:
     config = (WEB / "playwright.config.ts").read_text()
 
     assert "unset FORCE_COLOR NO_COLOR" in config
+
+
+def test_frontend_visual_shell_stays_dependency_free() -> None:
+    package = json.loads((WEB / "package.json").read_text())
+    css = (WEB / "app" / "globals.css").read_text()
+
+    assert "tailwindcss" not in package.get("dependencies", {})
+    assert "tailwindcss" not in package.get("devDependencies", {})
+    assert "@mui/material" not in package.get("dependencies", {})
+    assert "@chakra-ui/react" not in package.get("dependencies", {})
+    assert "no live order authority" in css
+    assert ".form-grid" in css
+    assert ".panel-grid" in css

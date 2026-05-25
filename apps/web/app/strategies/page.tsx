@@ -2,9 +2,11 @@ import { StrategyListClient } from "../../components/strategies/StrategyListClie
 
 export default function StrategiesPage() {
   return (
-    <main>
-      <h1>Strategy list</h1>
-      <p>Saved StrategySpec drafts and versions are backend-owned records.</p>
+    <main className="app-shell">
+      <section className="hero-card">
+        <h1>Strategy list</h1>
+        <p>Saved StrategySpec drafts and versions are backend-owned records.</p>
+      </section>
       <StrategyListClient />
     </main>
   );

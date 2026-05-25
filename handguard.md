@@ -881,3 +881,53 @@ The R2 closure diff was reviewed after implementation. Keep the final gating rul
 - Do not weaken any strict guard added in Segments 1-5 without adding a failing regression first and preserving a stricter replacement.
 
 Review verdict: **APPROVE / CLEAR** for local repo-contract closure. Deployment watch items remain external to this diff.
+
+## 11. Frontend API/proxy error guard
+
+When adding frontend API calls:
+
+- Route all calls through `apps/web/lib/api.ts`.
+- Do not call `response.json()` directly on unknown responses.
+- Preserve clear diagnostics for VM staging: status, URL, content type, body snippet, and `BUILDER_API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` guidance.
+- Treat HTML/text/empty API responses as API/proxy configuration failures, not as generic JSON parser errors.
+
+Minimum regression command:
+
+```bash
+cd apps/web && npm test -- --run lib/api.test.ts
+```
+
+## 12. Frontend visual shell guard
+
+When improving the Builder frontend:
+
+- Keep `apps/web/app/globals.css` as the dependency-free visual shell unless a future task explicitly approves a UI framework.
+- Preserve `apps/web/app/layout.tsx` importing `./globals.css`.
+- Do not add Tailwind, MUI, Chakra, or another UI library for basic shell polish without an explicit dependency decision.
+- Keep UI copy and affordances authoring/observational/advisory only; visual polish must not imply live execution authority.
+- Keep class tokens such as `.app-shell`, `.dashboard-grid`, `.card`, `.panel`, `.form-grid`, `.status-badge`, and `.terminal-card` covered by tests.
+
+Minimum regression command:
+
+```bash
+rtk pytest tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py -q
+```
+
+## 13. VM staging guard
+
+For remote VM staging:
+
+- Start the API on a host/port reachable by the Next server and browser.
+- Set `BUILDER_API_BASE_URL` for Next server-side API calls when the API is not on `127.0.0.1:8000` from the web process.
+- Set `NEXT_PUBLIC_API_BASE_URL` only when the browser should call the API origin directly; otherwise rely on Next rewrites to `/api/:path*` and `/health/backend`.
+- If the UI reports `expected JSON but received text/html`, inspect the URL in the `ApiError`; it usually means the frontend reached a proxy/HTML error page instead of the Builder API.
+- Do not claim full frontend E2E readiness until Playwright runs with installed browsers on the target or equivalent provisioned environment.
+
+## 14. Frontend UI/API post-review guard
+
+The 2026-05-25 frontend UI/API hardening diff was reviewed as **APPROVE / CLEAR**. Preserve these review outcomes:
+
+- JSON error payloads must stay parseable and must not be reported as empty responses.
+- Non-JSON HTML/text failures must stay actionable for VM proxy/API-base debugging.
+- Visual shell changes must remain dependency-free and must not imply live order authority.
+- Treat Playwright/browser E2E as the remaining readiness watch item for frontend deployment claims.

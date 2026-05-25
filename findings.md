@@ -1301,3 +1301,104 @@ rtk pytest tests -q
 git diff --check
 # passed
 ```
+
+## Closure update — Segment UI-1 API JSON/proxy hardening
+
+**Status:** CLOSED for the reported `JSON.parse: unexpected character at line 1 column 1` class of frontend failures.
+
+Resolution:
+
+- `apiFetch()` no longer unconditionally calls `response.json()`.
+- Non-JSON API/proxy responses now produce an `ApiError` naming the status, URL, received content type, and VM/API base URL guidance.
+- Empty error bodies and network failures no longer leak low-level JSON parser errors.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- --run lib/api.test.ts
+# Result: 5 passed
+```
+
+## Closure update — Segment UI-2 no-dependency polished shell
+
+**Status:** CLOSED for the reported VM symptom where the app rendered as mostly plain text.
+
+Resolution:
+
+- Root layout imports `apps/web/app/globals.css`.
+- The home shell now renders a hero, workflow navigation, dashboard grid, cards, panels, terminal card, form grids, and status badges.
+- Styling is dependency-free; no Tailwind, MUI, Chakra, or UI framework dependency was added.
+- Existing copy still reinforces Builder-only draft/advisory/observational boundaries and does not introduce live order authority.
+
+Evidence:
+
+```bash
+rtk pytest tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py -q
+# Result: 9 passed
+```
+
+## Master reconciliation — frontend staging findings
+
+**Final status:** REQUESTED FINDINGS CLOSED LOCALLY.
+
+Closed findings:
+
+- API JSON failure: `apiFetch()` now handles non-JSON, empty, malformed, and network responses with Builder-specific diagnostics.
+- Plain text UI: root layout imports global CSS and the app shell/components now render with dashboard, card, panel, form, terminal, and status-badge styling.
+- Frontend contract checks: global CSS import, no-dependency visual shell, and API error handling are covered by tests.
+
+Verification evidence:
+
+```bash
+rtk pytest tests/web tests/integration -q
+# Result: 54 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Result: 271 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# Result: typecheck passed; Vitest 17 passed; Next build passed
+```
+
+Residual deployment check: VM02 should set `BUILDER_API_BASE_URL` for server-side rendering and/or `NEXT_PUBLIC_API_BASE_URL` for browser direct API calls to the reachable API origin. If routes still return HTML/text, the new diagnostics should identify the exact URL/content type.
+
+## Post-implementation code review — 2026-05-25 frontend UI/API hardening
+
+**Files reviewed:** frontend API boundary, Next app shell/routes, strategy/market/results/promotions UI components, web contract tests, and review artifacts.
+**Architectural Status:** CLEAR.
+**Recommendation:** APPROVE for local VM-staging UI/API hardening.
+
+### CRITICAL
+
+None.
+
+### HIGH
+
+None.
+
+### MEDIUM
+
+None open after review. A review-discovered JSON-error nuance was fixed during this pass: JSON error payloads are preserved and no longer mislabeled as empty response bodies.
+
+### LOW / WATCH
+
+- Full browser E2E remains a deployment/provisioning watch item; this pass verified typecheck, Vitest, Next production build, and Python contract suites, but did not rerun Playwright after removing `.next` artifacts.
+- VM02 still needs correct `BUILDER_API_BASE_URL` / `NEXT_PUBLIC_API_BASE_URL` environment wiring for its network topology.
+
+### Review evidence
+
+```bash
+rg -n "submit_order|TradeAction|tailwindcss|@mui/material|@chakra-ui/react|response\.json\(" apps/web tests/web
+# Hits are negative tests, false-authority display fields, or e2e guard text; no new live authority or UI framework dependency was introduced.
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Result: 271 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build
+# Result: typecheck passed; Vitest 17 passed; Next build passed
+
+git diff --check
+# passed
+```

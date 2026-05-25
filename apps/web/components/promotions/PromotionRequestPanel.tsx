@@ -5,11 +5,14 @@ const result_id = "res_001";
 
 export const PromotionRequestPanel = () => {
   return (
-    <section aria-label="promotion request">
+    <section className="panel" aria-label="promotion request">
       <h3>Safe promotion request</h3>
       <p>Targets: shadow, signal-preview</p>
       <p>Requires manual approval before any downstream change.</p>
-      <p>approval_state: manual_approval_pending</p>
+      <p>
+        <span className="status-badge warning">approval_state</span>{" "}
+        manual_approval_pending
+      </p>
       <p>may_submit_order: false</p>
       <p>may_create_trade_action: false</p>
       <p>strategy_version_id: {strategy_version_id}</p>
