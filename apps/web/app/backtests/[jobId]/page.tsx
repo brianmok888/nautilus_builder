@@ -22,8 +22,9 @@ export default async function BacktestJobPage({
         <h2>Observational runtime console</h2>
         <p>Contracts: {contracts.join(", ")}</p>
         <p>
-          <span className="status-badge warning">Allowed command</span>{" "}
-          {"request cancel"}
+          <span className="status-badge warning">
+            Allowed command: request cancel
+          </span>
         </p>
       </section>
     </main>

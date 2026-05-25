@@ -1274,3 +1274,87 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build
 # typecheck passed; Vitest: 9 files / 17 tests passed; Next build passed
 ```
+
+## Brainstorming implementation plan — Segment VM-API-1 and CONFIG-1 live UI/config closure
+
+**Started:** 2026-05-25
+
+Context: VM02 showed the web shell at `http://192.168.4.82:3000`, but browser calls through the Next proxy returned `500 Internal Server Error` for `/api/adapters` and `/api/strategies` while the API itself returned JSON on `http://192.168.4.82:8000`. The user also requested a UI-based configuration section with multiple tabs for configuring multiple LLM/model roles.
+
+Approaches considered:
+
+1. **Recommended / implemented — fix server-side proxy precedence and add a frontend-only config section.** Make `next.config.mjs` rewrites prefer `BUILDER_API_BASE_URL` over `NEXT_PUBLIC_API_BASE_URL`, preserving browser-direct mode as optional. Add `/config` with multiple tabs for Providers, Models, Guardrails, and Audit. This addresses the VM proxy failure and gives operators a visible LLM config workspace without adding backend persistence or browser-side secrets.
+2. Use `NEXT_PUBLIC_API_BASE_URL` for all VM traffic. Rejected because browser-direct cross-origin calls are more fragile and can require CORS/firewall changes; the existing app is designed to use Next rewrites when possible.
+3. Build backend-persistent config management immediately. Rejected for this segment because it would require auth/scoped storage, secret handling, and API policy decisions beyond the reported UI/config need.
+
+Segment plan:
+
+1. TDD RED for proxy: add a regression proving Next rewrites prefer `BUILDER_API_BASE_URL` for server-side proxying.
+2. GREEN proxy: update `apps/web/next.config.mjs` and prove local `next start` can proxy `/api/adapters` and `/api/strategies` to the VM API.
+3. TDD RED for config UI: add component and contract tests for a multiple-tab LLM config section with no browser-side API key input.
+4. GREEN config UI: add `/config`, `ModelConfigTabs`, home nav link, and no-dependency styles.
+5. Reconciliation: run frontend type/unit/build/e2e, Python contract suite, `git diff --check`, and a local production proxy smoke.
+
+## Implementation progress — Segment VM-API-1 live web/API proxy fix
+
+**Completed:** 2026-05-25
+
+Files changed:
+
+- `apps/web/next.config.mjs` — rewrites now use `process.env.BUILDER_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"` so VM/server-side proxy config wins over browser-public config.
+- `tests/web/test_frontend_infrastructure.py` — added a regression locking the server-side proxy precedence.
+
+Verification:
+
+```bash
+rtk pytest tests/web/test_frontend_infrastructure.py::test_next_rewrites_use_server_api_base_before_browser_public_base -q
+# RED before config change: missing BUILDER_API_BASE_URL assertion failed
+# GREEN after config change: Pytest: 1 passed
+
+BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build
+BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run start -- --hostname 127.0.0.1 --port 3100
+curl -i http://127.0.0.1:3100/api/adapters
+# HTTP/1.1 200 OK; JSON adapter list proxied from VM API
+curl -i http://127.0.0.1:3100/api/strategies
+# HTTP/1.1 200 OK; [] JSON proxied from VM API
+```
+
+Deployment note: this repo fix must still be pulled/rebuilt/restarted on VM02 before `http://192.168.4.82:3000/api/*` changes from the currently observed 500s.
+
+## Implementation progress — Segment CONFIG-1 multiple-tab LLM config UI
+
+**Completed:** 2026-05-25
+
+Files changed:
+
+- `apps/web/app/config/page.tsx` — added a Builder configuration route.
+- `apps/web/components/config/ModelConfigTabs.tsx` — added a client-side tabbed configuration workspace for Providers, Models, Guardrails, and Audit.
+- `apps/web/app/page.tsx` — added a `Config` navigation link.
+- `apps/web/app/globals.css` — added dependency-free config tab/panel styling.
+- `apps/web/components/config/ModelConfigTabs.test.tsx` — covers tab navigation, model editing, guardrails, audit copy, and no API-key input.
+- `tests/web/test_config_ui_contract.py` — locks route mounting, env labels, guardrail copy, and no browser-side secret field.
+- `apps/web/app/backtests/[jobId]/page.tsx` and `apps/web/components/promotions/PromotionRequestPanel.tsx` — restored exact E2E-visible guard text for allowed cancel and manual approval state.
+
+Reconciliation:
+
+- Config UI is frontend-only draft configuration. It does not persist secrets, does not write backend env, and does not grant live trading authority.
+- LLM provider options are OpenAI-compatible, local OpenAI-compatible gateway, and offline advisory fixture; no LangChain/LangGraph/EvoMap runtime dependency was added.
+- Guardrails tab repeats `validate_strategy_spec()`, `signal_preview_only`, no credentials, no `submit_order` / `TradeAction`, and manual promotion requirements.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run components/config/ModelConfigTabs.test.tsx
+# RED before component: import failed for missing ModelConfigTabs
+# GREEN after component: 1 passed
+
+rtk pytest tests/web/test_config_ui_contract.py -q
+# Pytest: 1 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 280 passed
+
+cd apps/web && npm run typecheck && npm test && BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build && npm run test:e2e
+# typecheck passed; Vitest: 10 files / 18 tests passed; Next build passed with /config route; Playwright: 4 passed
+```

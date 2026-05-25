@@ -10,8 +10,9 @@ export const PromotionRequestPanel = () => {
       <p>Targets: shadow, signal-preview</p>
       <p>Requires manual approval before any downstream change.</p>
       <p>
-        <span className="status-badge warning">approval_state</span>{" "}
-        manual_approval_pending
+        <span className="status-badge warning">
+          approval_state: manual_approval_pending
+        </span>
       </p>
       <p>may_submit_order: false</p>
       <p>may_create_trade_action: false</p>

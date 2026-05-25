@@ -1497,3 +1497,52 @@ cd apps/web && npm run typecheck && npm test && npm run build
 git diff --check
 # passed
 ```
+
+## Closure update — Segment VM-API-1 live web/API proxy and CONFIG-1 LLM config UI
+
+**Status:** CLOSED locally on 2026-05-25.
+
+### Findings
+
+- **HIGH-UI-2026-05-25-1:** VM02 browser traffic through `http://192.168.4.82:3000/api/*` returned 500s even though direct API calls to `http://192.168.4.82:8000/api/*` returned JSON. The Next rewrite config only read `NEXT_PUBLIC_API_BASE_URL`, while the documented VM guard says server-side proxying should use `BUILDER_API_BASE_URL` when the API is reachable from the web process.
+- **MEDIUM-UX-2026-05-25-1:** Operators had no UI-based configuration section for AI/LLM provider and model-role settings after the OpenAI-compatible provider was added.
+
+### Resolution
+
+- Next rewrites now prefer `BUILDER_API_BASE_URL` before `NEXT_PUBLIC_API_BASE_URL`, preserving browser-direct mode as optional and making VM server-side proxying explicit.
+- Added `/config` with multiple tabs: Providers, Models, Guardrails, and Audit.
+- The config UI shows OpenAI-compatible/local/offline provider choices, model-role fields, draft JSON preview, and audit/guardrail status without collecting API keys.
+- E2E-visible guard text for backtest cancel and promotion manual approval was made contiguous so Playwright can assert the no-live-authority journey reliably.
+
+### Review verdict
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR for the repo diff.
+
+The change is frontend/proxy/config-surface scoped. It does not add backend secret persistence, live trading authority, Daedalus coupling, LangChain/LangGraph/EvoMap runtime dependency, UI framework dependency, or automatic promotion.
+
+### Evidence
+
+```bash
+rtk pytest tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py tests/web/test_frontend_data_wiring.py -q
+# Pytest: 10 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 280 passed
+
+cd apps/web && npm run typecheck && npm test && BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build && npm run test:e2e
+# typecheck passed; Vitest: 18 passed; Next build passed; Playwright: 4 passed
+
+BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run start -- --hostname 127.0.0.1 --port 3100
+curl -i http://127.0.0.1:3100/api/adapters
+# HTTP/1.1 200 OK; JSON adapter list
+curl -i http://127.0.0.1:3100/api/strategies
+# HTTP/1.1 200 OK; [] JSON
+
+git diff --check
+# passed
+```
+
+### Deployment note
+
+The live VM02 web service still needs to pull this commit, rebuild, set `BUILDER_API_BASE_URL=http://192.168.4.82:8000` for `next build/start`, and restart before the remote `:3000/api/*` endpoints reflect the local fix.

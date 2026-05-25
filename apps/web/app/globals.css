@@ -329,3 +329,38 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.config-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.config-tabs button {
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--builder-text);
+}
+
+.config-tabs button[aria-selected="true"] {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.28), rgba(129, 140, 248, 0.26));
+  border-color: rgba(125, 211, 252, 0.64);
+}
+
+.config-tab-panel,
+.config-preview {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.config-checklist {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 1.2rem;
+}
+
+.config-preview pre {
+  max-height: 28rem;
+  overflow: auto;
+}

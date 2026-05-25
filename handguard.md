@@ -989,3 +989,38 @@ python3 -m compileall -q packages services tests
 rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
 # Pytest: 278 passed
 ```
+
+## 17. VM web/API proxy and LLM config UI guard
+
+For VM/staging web deployments:
+
+- Use `BUILDER_API_BASE_URL` for server-side Next rewrites when the API is reachable from the web process.
+- Keep `NEXT_PUBLIC_API_BASE_URL` optional for browser-direct API calls only; do not require browser direct cross-origin API access when the Next proxy is available.
+- Keep `/api/:path*` and `/health/backend` rewrites pointed at the selected API base URL.
+- Verify staged proxying with `curl -i http://<web-host>:3000/api/adapters` and `curl -i http://<web-host>:3000/api/strategies`; both should return JSON, not `500 Internal Server Error`.
+
+For LLM configuration UI:
+
+- `/config` is a UI draft/configuration workspace, not a secret store.
+- Do not add browser-side API-key/password inputs for model providers.
+- Display env labels such as `OPENAI_BASE_URL`, `OPENAI_MODEL`, and server-side-only `OPENAI_API_KEY` guidance without persisting secrets.
+- Keep provider/model config advisory-only and bound to `validate_strategy_spec()`, `signal_preview_only`, no credentials, no `submit_order`, no `TradeAction`, and manual promotion.
+- Do not add LangChain/LangGraph/EvoMap runtime dependencies from this UI surface without a new advisory-only design and tests.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+cd apps/web && npm test -- --run components/config/ModelConfigTabs.test.tsx && npm run test:e2e
+```
+
+Segment VM-API-1 / CONFIG-1 evidence:
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 280 passed
+
+cd apps/web && npm run typecheck && npm test && BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build && npm run test:e2e
+# typecheck passed; Vitest: 18 passed; build passed; Playwright: 4 passed
+```

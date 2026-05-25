@@ -18,6 +18,7 @@ export default function HomePage() {
         </p>
         <nav className="workflow-nav" aria-label="Operator workflow">
           <a href="/strategies">Strategies</a>
+          <a href="/config">Config</a>
           <a href="/backtests/bt_job_001">Backtest job bt_job_001</a>
           <a href="/results/res_001">Results res_001</a>
         </nav>

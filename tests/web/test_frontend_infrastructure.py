@@ -56,3 +56,12 @@ def test_frontend_visual_shell_stays_dependency_free() -> None:
     assert "no live order authority" in css
     assert ".form-grid" in css
     assert ".panel-grid" in css
+
+
+def test_next_rewrites_use_server_api_base_before_browser_public_base() -> None:
+    config = (WEB / "next.config.mjs").read_text()
+
+    assert "BUILDER_API_BASE_URL" in config
+    assert "process.env.BUILDER_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL" in config
+    assert "destination: `${apiBaseUrl}/api/:path*`" in config
+    assert "destination: `${apiBaseUrl}/health`" in config
