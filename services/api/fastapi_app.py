@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
+from packages.artifact_store import LocalJsonArtifactStore
+from packages.auth import AuthTokenService, InvalidAuthTokenError, UserProjectContext
 from packages.strategy_spec.repository import InMemoryStrategyRepository
+from packages.catalog_datasets import CatalogDatasetRegistryService
 from packages.backtest_jobs.service import BacktestJobService
 from packages.workflow_spine import InMemoryWorkflowRepository
-from services.api.app import _create_shadow_promotion, _generate_ai_draft
+from services.api.app import _generate_ai_draft
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
-from services.api.routes.promotions import request_promotion_payload
+from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import (
@@ -25,13 +28,18 @@ def create_fastapi_app(
     workflow_repository: InMemoryWorkflowRepository | None = None,
     strategy_repository: InMemoryStrategyRepository | None = None,
     backtest_job_service: BacktestJobService | None = None,
+    auth_token_service: AuthTokenService | None = None,
+    catalog_dataset_registry: CatalogDatasetRegistryService | None = None,
+    artifact_store: LocalJsonArtifactStore | None = None,
 ):
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Header
     from fastapi.responses import JSONResponse
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
     backtest_job_service = backtest_job_service or BacktestJobService()
+    auth_token_service = auth_token_service or AuthTokenService()
+    catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
     @app.get("/health")
@@ -59,16 +67,65 @@ def create_fastapi_app(
         return _fastapi_response(validate_backtest_profile_payload(payload), JSONResponse)
 
     @app.post("/api/backtest-jobs")
-    def create_backtest_job(payload: dict[str, Any]) -> Any:
-        return _fastapi_response(create_backtest_job_payload(backtest_job_service, payload), JSONResponse)
+    def create_backtest_job(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = _context_from_authorization(authorization, auth_token_service)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            create_backtest_job_payload(
+                backtest_job_service,
+                payload,
+                context=context,
+                dataset_registry=catalog_dataset_registry,
+                strict_scope=True,
+            ),
+            JSONResponse,
+        )
 
     @app.get("/api/backtest-jobs/{job_id}")
-    def backtest_job(job_id: str) -> Any:
-        return _fastapi_response(backtest_job_payload(backtest_job_service, job_id), JSONResponse)
+    def backtest_job(
+        job_id: str,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        context, auth_error = _context_from_authorization(authorization, auth_token_service)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            backtest_job_payload(
+                backtest_job_service,
+                job_id,
+                context=context,
+                user_id=user_id,
+                project_id=project_id,
+                strict_scope=True,
+            ),
+            JSONResponse,
+        )
 
     @app.post("/api/backtest-jobs/{job_id}/cancel")
-    def cancel_backtest_job(job_id: str, payload: dict[str, Any]) -> Any:
-        return _fastapi_response(cancel_backtest_job_payload(backtest_job_service, job_id), JSONResponse)
+    def cancel_backtest_job(
+        job_id: str,
+        payload: dict[str, Any],
+        user_id: str | None = None,
+        project_id: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        context, auth_error = _context_from_authorization(authorization, auth_token_service)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            cancel_backtest_job_payload(
+                backtest_job_service,
+                job_id,
+                context=context,
+                user_id=user_id,
+                project_id=project_id,
+                strict_scope=True,
+            ),
+            JSONResponse,
+        )
 
     @app.get("/api/backtest-jobs/{job_id}/events")
     def backtest_job_events(job_id: str) -> Any:
@@ -107,8 +164,19 @@ def create_fastapi_app(
         return _generate_ai_draft(payload)
 
     @app.post("/api/promotions/shadow")
-    def promotions_shadow(payload: dict[str, Any]) -> dict[str, object]:
-        return _create_shadow_promotion(payload)
+    def promotions_shadow(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = _context_from_authorization(authorization, auth_token_service)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            create_shadow_payload(
+                payload,
+                context=context,
+                artifact_store=artifact_store,
+                strict_evidence=True,
+            ),
+            JSONResponse,
+        )
 
     @app.post("/api/promotions/request")
     def promotions_request(payload: dict[str, Any]) -> Any:
@@ -139,3 +207,18 @@ def _fastapi_payload(response: ApiResponse) -> Any:
 
 def _fastapi_response(response: ApiResponse, response_class: Any) -> Any:
     return response_class(content=response.json(), status_code=response.status_code)
+
+
+def _context_from_authorization(
+    authorization: str | None,
+    auth_token_service: AuthTokenService,
+) -> tuple[UserProjectContext | None, ApiResponse | None]:
+    if not authorization:
+        return None, ApiResponse({"error": "auth_required", "details": "Bearer token is required"}, status_code=401)
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None, ApiResponse({"error": "invalid_auth_token", "details": "Bearer token is required"}, status_code=401)
+    try:
+        return auth_token_service.verify_token(token.strip()), None
+    except InvalidAuthTokenError as exc:
+        return None, ApiResponse({"error": "invalid_auth_token", "details": str(exc)}, status_code=401)

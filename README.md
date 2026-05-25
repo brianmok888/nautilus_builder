@@ -15,7 +15,9 @@ This repository is intentionally **Builder-only**:
 - `services/api/` — thin route/payload adapters over `packages/*`
 - `services/workers/` — worker entrypoint stubs
 - `tests/` — feature-mirrored pytest contract suite
-- `apps/web/components/` — placeholder TSX components that encode UI boundary intent only
+- `apps/web/app/` — minimal Next.js app shell mounted over Builder UI components
+- `apps/web/components/` — interactive/operator MVP TSX components that still do not own runtime authority
+- `pyproject.toml` / `uv.lock` — Python package/dependency manifest and lockfile, including the Daedalus-matched NautilusTrader pin
 
 ## What exists today
 
@@ -25,6 +27,8 @@ Implemented seam packages currently cover:
 - adapter/instrument registry scaffolding
 - StrategySpec compilation
 - durable backtest job/runtime event scaffolding
+- local JSON artifact store for scoped evidence persistence
+- tenant-scoped catalog dataset selection contracts
 - backtest worker/config/result normalization scaffolding
 - lifecycle/versioning policy
 - external strategy registry/import rules
@@ -39,6 +43,10 @@ Representative modules:
 - `packages/strategy_compiler/compiler.py`
 - `packages/backtest_jobs/service.py`
 - `packages/backtest_runner/config_builder.py`
+- `packages/backtest_runner/catalog_replay_smoke.py`
+- `packages/backtest_runner/strategy_spec_replay.py`
+- `packages/artifact_store/service.py`
+- `packages/catalog_datasets/service.py`
 - `packages/strategy_registry/service.py`
 - `packages/ai_builder/service.py`
 
@@ -69,8 +77,12 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 
 ## Current limitations
 
-- no package manifest or CI workflow yet
-- no real API server bootstrap yet
-- no real frontend app shell or frontend build pipeline yet
-- TSX files are placeholders aligned to Python contract tests, not interactive UI implementation
-- verification is still contract-heavy and scaffold-oriented rather than production-integrated
+Current implemented scaffolds include `pyproject.toml`, `services/api/fastapi_app.py`, `services/api/dev_server.py`, a minimal Next.js app shell, Vitest, Playwright, and passing local build/E2E checks. Remaining limitations are production-integration focused:
+
+- `uv.lock` is present for local dependency reproducibility; CI-validated environment sync is still pending
+- the real NautilusTrader evidence now includes a catalog-backed Nautilus replay smoke over synthetic historical quote ticks
+- the original catalog-backed Nautilus replay smoke is not a production-scale StrategySpec-generated replay; Builder now also has a StrategySpec-generated catalog replay path using a no-order RuleGraphBacktestStrategy, but that replay still uses deterministic local/synthetic quote-tick data for test evidence
+- local JSON artifact store evidence and tenant-scoped catalog dataset contracts exist, but production object-storage provisioning remains deployment work
+- route-level scoped access contracts exist, but production still needs real auth middleware/token propagation into those package checks
+- promotion requests are shadow/signal-preview only and require evidence before readiness can be claimed
+- verification remains contract-heavy and local; production deployment, object storage, and CI gates remain incremental

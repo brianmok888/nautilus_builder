@@ -29,8 +29,8 @@ def create_app(
     app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", data_availability_payload)
     app.route("POST", "/api/backtest-profiles/validate", validate_backtest_profile_payload)
     app.route("POST", "/api/backtest-jobs", lambda payload: create_backtest_job_payload(backtest_job_service, payload))
-    app.route("GET", "/api/backtest-jobs/{job_id}", lambda job_id: backtest_job_payload(backtest_job_service, job_id))
-    app.route("POST", "/api/backtest-jobs/{job_id}/cancel", lambda job_id, payload: cancel_backtest_job_payload(backtest_job_service, job_id))
+    app.route("GET", "/api/backtest-jobs/{job_id}", lambda job_id, user_id=None, project_id=None: backtest_job_payload(backtest_job_service, job_id, user_id=user_id, project_id=project_id))
+    app.route("POST", "/api/backtest-jobs/{job_id}/cancel", lambda job_id, payload, user_id=None, project_id=None: cancel_backtest_job_payload(backtest_job_service, job_id, user_id=user_id, project_id=project_id))
     app.route("GET", "/api/backtest-jobs/{job_id}/events", backtest_job_events_payload)
     app.route("POST", "/api/strategies", lambda payload: create_strategy_payload(strategy_repository, payload))
     app.route("GET", "/api/strategies", lambda: list_strategies_payload(strategy_repository))
@@ -41,7 +41,7 @@ def create_app(
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/ai-builder/apply", apply_ai_draft_payload)
-    app.route("POST", "/api/promotions/shadow", _create_shadow_promotion)
+    app.route("POST", "/api/promotions/shadow", create_shadow_payload)
     app.route("POST", "/api/promotions/request", request_promotion_payload)
     app.route("GET", "/api/workflow/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
     app.route("GET", "/api/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
@@ -60,10 +60,3 @@ def create_app(
 
 def _generate_ai_draft(payload: dict[str, object]) -> dict[str, object]:
     return generate_ai_draft_payload(str(payload.get("prompt", "")))
-
-
-def _create_shadow_promotion(payload: dict[str, object]) -> dict[str, object]:
-    return create_shadow_payload(
-        strategy_version=str(payload.get("strategy_version", "")),
-        compile_hash=str(payload.get("compile_hash", "")),
-    )

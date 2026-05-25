@@ -62,11 +62,20 @@ def test_shadow_promotion_route_is_contract_only() -> None:
         json={
             "strategy_version": "0.3.0-beta.1",
             "compile_hash": "abc123",
+            "gate_compatibility": True,
+            "evidence_refs": {
+                "validation_report": "artifact://validation/vr_001.json",
+                "backtest_result": "artifact://backtests/bt_001/result.json",
+                "no_lookahead_report": "artifact://validation/no_lookahead_001.json",
+                "gate_compatibility_report": "artifact://gate/gate_compat_001.json",
+                "runtime_boundary_report": "artifact://runtime/boundary_001.json",
+                "risk_review": "artifact://risk/risk_review_001.json",
+            },
         },
     )
 
     payload = response.json()
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert payload["profile"] == "signal_preview_only"
     assert payload["may_submit_order"] is False
     assert payload["may_create_trade_action"] is False

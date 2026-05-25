@@ -20,7 +20,7 @@ _INSTRUMENTS: dict[str, dict[str, InstrumentSelection]] = {
         "BTCUSDT-PERP": InstrumentSelection(
             instrument_id="BTCUSDT-PERP",
             market_type="crypto_perp",
-            supported_data_types=["historical_bars", "funding", "liquidation"],
+            supported_data_types=["historical_bars", "quote_ticks", "funding", "liquidation"],
             supported_timeframes=["1m", "5m", "1h"],
             available_date_ranges=["2024-01-01:2024-03-01", "2024-03-01:2024-06-01"],
         )
@@ -64,6 +64,9 @@ class InstrumentRegistryService:
             raise ValueError(
                 f"market type mismatched for {instrument_id}: expected {instrument.market_type}, got {market_type}"
             )
+
+        if data_type not in instrument.supported_data_types:
+            raise ValueError(f"instrument data type unsupported: {data_type}")
 
         if timeframe not in instrument.supported_timeframes:
             raise ValueError(f"date range unavailable or unsupported timeframe: {timeframe}")

@@ -22,7 +22,7 @@ def compile_strategy_spec(payload: dict[str, Any], *, profile: str) -> CompileAr
         return CompileArtifact(
             profile="backtest",
             strategy_class="RuleGraphBacktestStrategy",
-            output_mode="backtest_order_intent",
+            output_mode="backtest_signal_observation",
             execution_authority=False,
             spec_version=spec.version,
             adapter_id=spec.adapter_id,

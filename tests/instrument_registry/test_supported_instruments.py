@@ -58,3 +58,42 @@ def test_unsupported_timeframe_fails() -> None:
 
     assert error is not None
     assert "unsupported" in error.lower() or "unavailable" in error.lower()
+
+from packages.backtest_runner import STRATEGY_SPEC_REPLAY_DATA_TYPE
+
+
+def test_strategy_spec_replay_data_type_is_visible_and_valid_for_btcusdt_perp() -> None:
+    service = InstrumentRegistryService()
+
+    instrument = service.data_availability(adapter_id="BINANCE_PERP", instrument_id="BTCUSDT-PERP")
+    validated = service.validate_selection(
+        adapter_id="BINANCE_PERP",
+        instrument_id="BTCUSDT-PERP",
+        data_type=STRATEGY_SPEC_REPLAY_DATA_TYPE,
+        timeframe="1m",
+        market_type="crypto_perp",
+        date_range="2024-01-01:2024-03-01",
+    )
+
+    assert STRATEGY_SPEC_REPLAY_DATA_TYPE == "quote_ticks"
+    assert STRATEGY_SPEC_REPLAY_DATA_TYPE in instrument.supported_data_types
+    assert validated.instrument_id == "BTCUSDT-PERP"
+
+
+def test_instrument_registry_rejects_adapter_data_mode_not_supported_by_instrument() -> None:
+    service = InstrumentRegistryService()
+
+    error = None
+    try:
+        service.validate_selection(
+            adapter_id="BINANCE_PERP",
+            instrument_id="BTCUSDT-PERP",
+            data_type="order_book_delta",
+            timeframe="1m",
+            market_type="crypto_perp",
+            date_range="2024-01-01:2024-03-01",
+        )
+    except ValueError as exc:
+        error = str(exc)
+
+    assert error == "instrument data type unsupported: order_book_delta"

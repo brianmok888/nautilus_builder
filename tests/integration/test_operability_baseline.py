@@ -35,3 +35,27 @@ def test_local_stack_defines_postgres_redis_and_object_storage_placeholders() ->
     assert "object-storage:" in compose
     assert "POSTGRES_DB: nautilus_builder" in compose
     assert "redis-server" in compose
+
+
+def test_ci_template_covers_runtime_replay_frontend_and_new_storage_suites() -> None:
+    workflow = (ROOT / "infra" / "ci" / "github-actions-test.yml").read_text()
+
+    assert "python -m compileall -q packages services tests" in workflow
+    assert "tests/artifact_store" in workflow
+    assert "tests/catalog_datasets" in workflow
+    assert "check_nautilus_runtime_version" in workflow
+    assert "npm run typecheck" in workflow
+    assert "npm test" in workflow
+    assert "npm run build" in workflow
+    assert "npm run test:e2e" in workflow
+
+
+def test_deployment_readiness_evidence_documents_remaining_authority_boundaries() -> None:
+    evidence = (ROOT / "infra" / "deployment" / "production-readiness-evidence.md").read_text()
+
+    assert "durable artifact storage" in evidence
+    assert "user-selected catalog datasets" in evidence
+    assert "StrategySpec-generated catalog replay" in evidence
+    assert "authz/tenant controls" in evidence
+    assert "no live order authority" in evidence
+    assert "CI/deployment evidence" in evidence

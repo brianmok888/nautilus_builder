@@ -257,7 +257,7 @@ max_hold_bars
 Outputs:
 
 ```text
-BacktestOrderIntent
+BacktestSignalObservation
 StrategySignalPreview
 ```
 

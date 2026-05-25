@@ -198,7 +198,7 @@ BollingerBands
 VWAP
 ```
 
-Operators:
+Executable operators:
 
 ```text
 crossed_above
@@ -208,10 +208,16 @@ lt
 gte
 lte
 eq
-and
-or
-not
 ```
+
+Executable combinators:
+
+```text
+all
+any
+```
+
+`all` represents logical AND and `any` represents logical OR in the current executable schema. `not is not part of the executable MVP schema`; add it only with schema, compiler, and validation tests.
 
 Risk blocks:
 
@@ -226,7 +232,7 @@ max_hold_bars
 Outputs:
 
 ```text
-BacktestOrderIntent
+BacktestSignalObservation
 StrategySignalPreview
 ```
 

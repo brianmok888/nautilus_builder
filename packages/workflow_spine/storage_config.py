@@ -4,13 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class BuilderPostgresConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     dsn_env: str = Field(min_length=1)
-    schema: str = Field(default="builder", min_length=1)
+    db_schema: str = Field(default="builder", min_length=1, alias="schema")
 
     def table_name(self, table: str) -> str:
-        return f"{self.schema}.{table}"
+        return f"{self.db_schema}.{table}"
 
 
 class BuilderRedisConfig(BaseModel):

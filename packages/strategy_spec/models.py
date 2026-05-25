@@ -33,7 +33,12 @@ class CreatedFrom(str, Enum):
 
 class IndicatorType(str, Enum):
     EMA = "EMA"
+    SMA = "SMA"
     RSI = "RSI"
+    MACD = "MACD"
+    ATR = "ATR"
+    BOLLINGER_BANDS = "BollingerBands"
+    VWAP = "VWAP"
 
 
 class IndicatorInput(str, Enum):
@@ -55,12 +60,15 @@ class RuleClause(StrictModel):
     crossed_below: list[str] | None = None
     gt: list[str | float | int] | None = None
     lt: list[str | float | int] | None = None
+    gte: list[str | float | int] | None = None
+    lte: list[str | float | int] | None = None
+    eq: list[str | float | int] | None = None
 
     @model_validator(mode="after")
     def validate_single_operator(self) -> "RuleClause":
         populated = [
             name
-            for name in ("crossed_above", "crossed_below", "gt", "lt")
+            for name in ("crossed_above", "crossed_below", "gt", "lt", "gte", "lte", "eq")
             if getattr(self, name) is not None
         ]
         if len(populated) != 1:

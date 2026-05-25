@@ -1,4 +1,4 @@
-export const ALLOWED_STRATEGY_BLOCKS = ["EMA", "RSI", "crossed_above", "crossed_below", "gt", "lt"] as const;
+export const ALLOWED_STRATEGY_BLOCKS = ["EMA", "SMA", "RSI", "MACD", "ATR", "BollingerBands", "VWAP", "crossed_above", "crossed_below", "gt", "lt", "gte", "lte", "eq"] as const;
 
 export type StrategyGraphNode = {
   id: string;
@@ -43,7 +43,7 @@ export function updateStrategyBlockParams(
 }
 
 export function graphToStrategySpec(graph: StrategyGraphState): Record<string, unknown> {
-  const indicators = graph.nodes.filter((node) => node.type === "EMA" || node.type === "RSI");
+  const indicators = graph.nodes.filter((node) => ["EMA", "SMA", "RSI", "MACD", "ATR", "BollingerBands", "VWAP"].includes(node.type));
   return {
     status: "draft",
     stage: "draft",

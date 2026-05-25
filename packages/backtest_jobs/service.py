@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 
+from packages.auth import UserProjectContext, assert_same_project
 from packages.backtest_jobs.models import BacktestJob
 
 
@@ -12,7 +13,7 @@ class BacktestJobService:
         self._jobs_by_key: dict[str, BacktestJob] = {}
         self._jobs_by_id: dict[str, BacktestJob] = {}
 
-    def _canonical_payload(self, payload: dict[str, str]) -> dict[str, str]:
+    def _canonical_payload(self, payload: dict[str, object]) -> dict[str, str]:
         return {
             "strategy_spec_version_id": str(
                 payload.get("strategy_spec_version_id")
@@ -26,6 +27,13 @@ class BacktestJobService:
             "validation_report_id": str(payload.get("validation_report_id") or ""),
             "created_by": str(payload.get("created_by") or "builder_api"),
             "data_range": str(payload.get("data_range") or "unspecified"),
+            "user_id": str(payload.get("user_id") or "system"),
+            "project_id": str(payload.get("project_id") or "default"),
+            "dataset_id": str(payload.get("dataset_id") or "unspecified"),
+            "catalog_path": str(payload.get("catalog_path") or ""),
+            "data_type": str(payload.get("data_type") or "unspecified"),
+            "timeframe": str(payload.get("timeframe") or "unspecified"),
+            "market_type": str(payload.get("market_type") or "unspecified"),
         }
 
     def _make_key(self, payload: dict[str, str]) -> str:
@@ -64,6 +72,13 @@ class BacktestJobService:
             worker_id="unassigned",
             result_artifact_refs={},
             event_stream_id=self._event_stream_id(job_id),
+            user_id=canonical["user_id"],
+            project_id=canonical["project_id"],
+            dataset_id=canonical["dataset_id"],
+            catalog_path=canonical["catalog_path"] or None,
+            data_type=canonical["data_type"],
+            timeframe=canonical["timeframe"],
+            market_type=canonical["market_type"],
             compile_hash=canonical["compile_hash"],
             validation_report_id=canonical["validation_report_id"],
         )
@@ -71,8 +86,11 @@ class BacktestJobService:
         self._jobs_by_id[job.job_id] = job
         return job
 
-    def get_job(self, job_id: str) -> BacktestJob:
-        return self._jobs_by_id[job_id]
+    def get_job(self, job_id: str, *, context: UserProjectContext | None = None) -> BacktestJob:
+        job = self._jobs_by_id[job_id]
+        if context is not None:
+            assert_same_project(context, job.scoped_artifact)
+        return job
 
     def transition_job(
         self,
@@ -81,8 +99,9 @@ class BacktestJobService:
         *,
         worker_id: str | None = None,
         result_artifact_refs: dict[str, str] | None = None,
+        context: UserProjectContext | None = None,
     ) -> BacktestJob:
-        job = self._jobs_by_id[job_id]
+        job = self.get_job(job_id, context=context)
         updates: dict[str, object] = {"stage": stage, "status": stage, "updated_at": self._now()}
         if worker_id is not None:
             updates["worker_id"] = worker_id
@@ -96,8 +115,8 @@ class BacktestJobService:
     def record_frontend_disconnect(self, job_id: str) -> BacktestJob:
         return self._jobs_by_id[job_id]
 
-    def request_cancel(self, job_id: str) -> BacktestJob:
-        job = self._jobs_by_id[job_id]
+    def request_cancel(self, job_id: str, *, context: UserProjectContext | None = None) -> BacktestJob:
+        job = self.get_job(job_id, context=context)
         updated = job.model_copy(
             update={
                 "stage": "CANCEL_REQUESTED",
@@ -119,4 +138,11 @@ class BacktestJobService:
             "validation_report_id": job.validation_report_id,
             "created_by": job.created_by,
             "data_range": job.data_range,
+            "user_id": job.user_id,
+            "project_id": job.project_id,
+            "dataset_id": job.dataset_id,
+            "catalog_path": job.catalog_path or "",
+            "data_type": job.data_type,
+            "timeframe": job.timeframe,
+            "market_type": job.market_type,
         }

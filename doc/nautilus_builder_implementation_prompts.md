@@ -250,7 +250,7 @@ Hard rules:
 - Compiler rejects unknown blocks.
 - Compiler output must be deterministic.
 - Same spec version must produce same compile hash.
-- Backtest profile may produce simulated order intents inside Nautilus backtest.
+- Backtest profile may produce simulated signal observations inside Nautilus backtest.
 - Daedalus live/shadow profile may only emit StrategySignalPreview.
 - Compiler must not produce submit_order in live/shadow profile.
 

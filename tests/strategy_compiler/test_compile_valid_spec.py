@@ -10,7 +10,7 @@ def test_valid_spec_compiles_to_backtest_artifact() -> None:
 
     assert artifact.profile == "backtest"
     assert artifact.strategy_class == "RuleGraphBacktestStrategy"
-    assert artifact.output_mode == "backtest_order_intent"
+    assert artifact.output_mode == "backtest_signal_observation"
     assert artifact.spec_version == "0.1.0-draft.1"
     assert artifact.adapter_id == "BINANCE_PERP"
     assert artifact.instrument_id == "BTCUSDT-PERP"
