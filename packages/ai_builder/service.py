@@ -67,6 +67,10 @@ class AiBuilderService:
         strategy_lineage_id: str,
         strategy_version_id: str,
     ) -> dict[str, object]:
+        _require_non_empty("ai_thread_id", ai_thread_id)
+        _require_non_empty("improvement_cycle_id", improvement_cycle_id)
+        _require_non_empty("strategy_lineage_id", strategy_lineage_id)
+        _require_non_empty("strategy_version_id", strategy_version_id)
         result = self.generate_draft(prompt, ai_thread_id=ai_thread_id)
         if not result.accepted:
             raise ValueError("AI draft must pass validation before apply")
@@ -81,3 +85,8 @@ class AiBuilderService:
         }
         self._store.save(record)
         return record
+
+
+def _require_non_empty(field_name: str, value: str) -> None:
+    if not value.strip():
+        raise ValueError(f"{field_name} is required")

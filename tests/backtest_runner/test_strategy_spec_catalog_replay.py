@@ -112,3 +112,30 @@ def test_strategy_spec_generated_catalog_replay_reads_user_catalog_without_synth
     assert evidence["execution_authority"] is False
     assert evidence["credentials_used"] is False
     assert _file_manifest(catalog_path) == before_manifest
+
+
+def test_catalog_manifest_rejects_symlinked_file_inside_catalog(tmp_path) -> None:
+    from packages.backtest_runner.strategy_spec_replay import _catalog_manifest
+
+    catalog = tmp_path / "catalog"
+    outside = tmp_path / "outside_secret.txt"
+    catalog.mkdir()
+    outside.write_text("secret")
+    (catalog / "linked_secret.txt").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="catalog manifest must not traverse symlinks"):
+        _catalog_manifest(catalog)
+
+
+def test_catalog_manifest_rejects_symlinked_directory_inside_catalog(tmp_path) -> None:
+    from packages.backtest_runner.strategy_spec_replay import _catalog_manifest
+
+    catalog = tmp_path / "catalog"
+    outside = tmp_path / "outside_dir"
+    catalog.mkdir()
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret")
+    (catalog / "linked_dir").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="catalog manifest must not traverse symlinks"):
+        _catalog_manifest(catalog)

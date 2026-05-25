@@ -981,3 +981,323 @@ cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm ru
 git diff --check
 # passed
 ```
+
+## Deep review refresh — 2026-05-25 post-closure inventory review
+
+### Verdict
+
+**Recommendation:** REQUEST CHANGES before production-readiness or promotion-readiness claims. **Architectural Status:** BLOCK for production exposure; CLEAR for no live-order authority. The prior named 2026-05-25 findings remain locally closed, but this inventory found new actionable gaps around evidence semantics, catalog traversal, tenant scoping, and advisory provenance.
+
+### Fresh verification evidence
+
+```bash
+git ls-remote --symref https://github.com/nautechsystems/nautilus_trader HEAD
+# refs/heads/develop @ 107b9c707cae70bb8ea8580df86235b305754ceb
+
+git ls-remote --symref https://github.com/EvoMap/evolver HEAD
+# refs/heads/main @ 3d5386cfe16660de05ef8ff5cbe9749b032e782c
+
+git ls-remote --symref https://github.com/langchain-ai/langchain HEAD
+# refs/heads/master @ 33875fde2acf6ffb717915a895638274a6098ec2
+
+git ls-remote --symref https://github.com/langchain-ai/langgraph HEAD
+# refs/heads/main @ d1e2ff0561a8b0b09212d0795c9d7b390a5de23a
+
+python3 -m compileall -q packages services tests
+rtk pytest tests -q
+# Pytest: 256 passed
+
+python3 - <<'PY'
+from packages.backtest_runner.runtime_check import check_nautilus_runtime_version
+status = check_nautilus_runtime_version()
+print(status.message)
+assert status.is_match, status.message
+PY
+# nautilus_trader runtime matches pinned version 1.223.0
+
+cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm run test:e2e
+# typecheck passed; Vitest: 8 files / 12 tests passed; Next build passed; Playwright: 4 passed
+
+git diff --check
+# passed
+```
+
+### Findings by severity — 2026-05-25 post-closure review
+
+#### CRITICAL
+
+None found. No Builder source path currently calls `submit_order`, creates `TradeAction`, imports Daedalus execution internals, or adds LangChain/LangGraph/EvoMap/aiogram runtime dependencies.
+
+#### HIGH-2026-05-25-R2-1 — Strict promotion evidence is artifact-backed but not promotion-bound, and missing artifacts can escape as 500s
+
+- **Evidence:** `packages/promotions/service.py:51-58` validates `strategy_version` and `compile_hash` independently, then calls `_validate_evidence()` without passing either value. `packages/promotions/service.py:117-126` verifies artifact ref prefix, scope via the artifact store, artifact type, and checksum, but never checks that artifact payload/metadata belongs to the requested `compile_hash`, `strategy_version`, result, or job. `packages/artifact_store/service.py:65-80` calls `path.read_text()` for the scoped ref and only checksum-validates after the file is read; missing files raise `FileNotFoundError`, which `services/api/routes/promotions.py:30-33` does not catch.
+- **Proof:** a strict request using all six valid scoped artifact refs whose payloads contain `compile_hash=old_compile_hash` is accepted for `compile_hash=new_compile_hash`. A strict request using well-shaped but absent scoped refs raises `FileNotFoundError` instead of returning a typed 422.
+- **Risk:** stale or unrelated evidence can support a shadow promotion request, and missing evidence can become a route-level server error. This weakens the manual/evidence gate expected before Daedalus shadow/signal-preview handoff.
+- **Fix:** bind strict evidence to the request by checking stored artifact payload/metadata for `compile_hash`, `strategy_version`, `result_id`/`job_id`, and evidence role; convert missing/corrupt artifact reads into typed domain `ValueError`s that FastAPI maps to 422.
+
+#### HIGH-2026-05-25-R2-2 — User-catalog manifest hashing follows nested symlinks inside an allowed catalog
+
+- **Evidence:** `packages/catalog_datasets/service.py:16-24` validates that the selected catalog path itself resolves under the configured root and `packages/catalog_datasets/service.py:26-34` rejects symlinks in that path. However, `packages/backtest_runner/strategy_spec_replay.py:248-253` builds the evidence manifest with `catalog_path.rglob("*")`, `file.is_file()`, and `file.read_bytes()`; `Path.is_file()` follows symlinked files.
+- **Proof:** creating `catalog/linked_secret.txt -> ../outside_secret.txt` causes `_catalog_manifest(catalog)` to hash `linked_secret.txt` by reading the outside target.
+- **Risk:** a user-selected catalog can make Builder read and checksum files outside the catalog tree during replay evidence collection. Even if only hashes are returned, this violates the root/allowlist boundary and can create sensitive-file hash disclosure or denial-of-service paths.
+- **Fix:** reject or skip symlinks during manifest traversal; resolve every manifest candidate and require it to remain under the resolved catalog path/root before reading; add regression tests for nested file symlinks and symlinked subdirectories.
+
+#### HIGH-2026-05-25-R2-3 — Tenant/project scoping is incomplete across non-backtest API routes
+
+- **Evidence:** `services/api/fastapi_app.py:69-128` enforces bearer-derived context for backtest jobs and `services/api/fastapi_app.py:166-179` does the same for strict shadow promotion. In contrast, strategy routes (`services/api/fastapi_app.py:142-160`), AI draft/apply (`services/api/fastapi_app.py:162-164`), promotion request (`services/api/fastapi_app.py:181-183`), workflow result/suggestion/lineage routes (`services/api/fastapi_app.py:185-199`), and runtime replay (`services/api/fastapi_app.py:130-136`) do not require auth context. `packages/workflow_spine/repository.py:38-61` returns results and suggestions by IDs only, and `services/api/routes/workflow_results.py:7-18` / `:35-69` expose them without a `UserProjectContext`.
+- **Proof:** an in-memory result with `project_id=project_beta` and its AI suggestion are returned by `workflow_result_payload()` and `workflow_result_suggestions_payload()` with no caller context.
+- **Risk:** once real multi-tenant repositories are injected, strategy drafts, result metrics, artifact refs, and AI suggestions can leak across users/projects despite the backtest-job strict-scope closure.
+- **Fix:** extend `UserProjectContext` enforcement and repository filters to strategies, workflow results, suggestions, lineage status, runtime event replay, and promotion request routes; keep the lightweight `ApiApp` explicitly fixture/dev-only.
+
+#### MEDIUM-2026-05-25-R2-1 — Strict catalog root policy is optional at registry construction
+
+- **Evidence:** `packages/catalog_datasets/service.py:40-42` only creates a `CatalogPathPolicy` when `catalog_root` is supplied. `packages/catalog_datasets/service.py:94-98` returns datasets unchanged when no root policy exists.
+- **Proof:** `CatalogDatasetRegistryService().register_dataset()` accepts an absolute `/tmp/outside/catalog` path unchanged.
+- **Risk:** strict API code can receive a registry that has scoped datasets but no root policy, then record unallowlisted catalog paths into jobs. Later replay requires `catalog_root`, but job creation has already claimed dataset selection.
+- **Fix:** expose/require a root-policy flag for strict selection, make `catalog_root` mandatory for registries used by strict FastAPI/worker paths, or reject absolute paths unless a root has been configured.
+
+#### MEDIUM-2026-05-25-R2-2 — Storage schema and namespace identifiers are not constrained to safe shapes
+
+- **Evidence:** `packages/workflow_spine/storage_config.py:6-13` accepts arbitrary `db_schema` strings and returns them in table names. `packages/workflow_spine/postgres_repository.py:15-19` and `packages/runtime_events/stream.py:9-17` interpolate schema names into SQL identifiers. `packages/workflow_spine/storage_config.py:16-30` accepts Redis namespaces such as `builder:evil` or strings with whitespace.
+- **Proof:** `BuilderPostgresConfig(db_schema="builder;drop table x--")` and `BuilderRedisConfig(namespace="builder:evil")` validate successfully.
+- **Risk:** configuration mistakes or untrusted deployment input can produce invalid SQL, namespace collisions, or injection-shaped strings in storage infrastructure.
+- **Fix:** validate schema/table/namespace identifiers with a strict regex; quote SQL identifiers through the real database driver when Postgres replaces the SQLite test seam; reject namespace separators unless explicitly intended.
+
+#### MEDIUM-2026-05-25-R2-3 — AI apply route accepts blank provenance IDs and route-level audit is ephemeral
+
+- **Evidence:** `services/api/routes/ai_builder.py:11-19` coerces missing `ai_thread_id`, `improvement_cycle_id`, `strategy_lineage_id`, and `strategy_version_id` to empty strings. `packages/ai_builder/service.py:61-83` stores those IDs without validation. The API route constructs a fresh `AiBuilderService()` per call, so the default audit store is in-memory and discarded after the request.
+- **Proof:** `AiBuilderService().apply_draft_to_strategy(..., ai_thread_id="", improvement_cycle_id="", strategy_lineage_id="", strategy_version_id="")` returns an accepted advisory record with all four IDs blank.
+- **Risk:** future LangChain/LangGraph/EvoMap-style advisory loops need durable thread/cycle provenance and explicit human-in-the-loop traceability. Blank IDs make AI suggestions hard to reconcile to Builder strategy lineage.
+- **Fix:** require non-empty provenance IDs at the route/model boundary and inject a durable audit store for API usage; keep direct AI provider output advisory-only and validation-gated.
+
+#### MEDIUM-2026-05-25-R2-4 — Legacy fixture artifact refs still appear in externally reachable result/promotion compatibility paths
+
+- **Evidence:** `packages/backtest_runner/result_normalizer.py:35-40` emits unscoped `artifact://backtests/...` refs for fixture results. `services/api/routes/workflow_results.py:21-28` fabricates `artifact://backtests/{result_id}/result.json` for the default dashboard fallback. Legacy promotion tests still exercise unscoped refs through non-strict `ApiApp` paths.
+- **Risk:** this is acceptable for fixture/dev compatibility, but external callers can confuse these refs with strict Builder artifacts if the route is not explicitly fixture-scoped or auth-gated.
+- **Fix:** label fallback result payloads as fixture/dev evidence, prefer scoped `artifact://builder/...` refs for real stored results, and prevent non-strict refs from reaching production FastAPI routes.
+
+#### LOW-2026-05-25-R2-1 — Frontend/tooling warnings remain in otherwise passing verification
+
+- **Evidence:** `npm test -- --run` still emits the Vite CJS Node API deprecation warning. Playwright's web server still emits a `NO_COLOR` ignored warning because `FORCE_COLOR` is set.
+- **Risk:** not a runtime correctness issue, but it keeps verification output noisy and can hide future warnings.
+- **Fix:** update Vitest/Vite config to avoid the CJS Node API path and normalize color environment handling in the Playwright web server command.
+
+### Positive findings retained
+
+- No live trading/order-authority source path was found in Builder implementation. `submit_order`/`TradeAction` hits are guard text, negative tests, or explicit `may_submit_order=False` contract fields.
+- No executable Builder source imports LangChain, LangGraph, EvoMap/evolver, aiogram, or Telegram.
+- `BacktestNode` and `ParquetDataCatalog` are used for the current Nautilus backtest replay seam; no `TradingNode`/`LiveNode` claims are made by Builder code.
+- The no-order semantic rename remains closed: `backtest_order_intent` and `BacktestOrderIntent` are absent from Builder no-order source truth except historical closure-plan text and negative tests.
+
+## R2 Segment 1 closure — promotion evidence lineage binding (2026-05-25)
+
+Closed finding:
+
+- **HIGH-2026-05-25-R2-1:** Strict promotion evidence is now artifact-backed **and** promotion-bound. Each strict evidence artifact must resolve in the caller scope, match its evidence role, pass checksum validation, and carry matching `compile_hash` plus `strategy_version` / `strategy_version_id` binding. Missing or invalid artifact envelopes now fail as typed domain errors that route helpers map to 422.
+
+New evidence guarantees:
+
+- wrong-compile artifacts cannot support a new promotion request;
+- wrong strategy-version artifacts cannot support a new promotion request;
+- missing scoped refs fail as `ValueError("artifact not found: ...")`, not raw `FileNotFoundError`;
+- strict FastAPI shadow-promotion fixtures now include lineage metadata in stored artifacts.
+
+Verification:
+
+```bash
+rtk pytest tests/promotions/test_shadow_evidence_contract.py -q
+# Pytest: 19 passed
+
+rtk pytest tests/promotions tests/artifact_store tests/api/test_fastapi_app.py -q
+# Pytest: 37 passed
+```
+
+Remaining R2 findings after Segment 1: catalog manifest traversal/root-policy, tenant/project scoping across non-backtest routes, storage identifier validation, AI provenance/audit durability, fixture artifact exposure, and frontend warning cleanup.
+
+## R2 Segment 2 closure — catalog traversal and root-policy enforcement (2026-05-25)
+
+Closed findings:
+
+- **HIGH-2026-05-25-R2-2:** User-catalog manifest hashing no longer follows nested symlinks inside selected catalogs. Symlinked files and directories are rejected before read, and each resolved manifest candidate must remain under the selected catalog path.
+- **MEDIUM-2026-05-25-R2-1:** Strict catalog dataset use now has an executable root-policy requirement. Registries can still be used in fixture/dev compatibility mode without a root, but strict registration/selection and strict backtest job creation fail closed unless `catalog_root` was configured.
+
+New evidence guarantees:
+
+- nested symlinked files cannot be hashed as catalog evidence;
+- symlinked directories inside catalogs are rejected;
+- strict backtest job creation returns `422 invalid_backtest_job_request` for unrooted catalog registries;
+- compatibility no-root registry behavior remains limited to non-strict/dev paths.
+
+Verification:
+
+```bash
+rtk pytest tests/catalog_datasets/test_catalog_dataset_registry.py tests/backtest_runner/test_strategy_spec_catalog_replay.py tests/api/test_backtest_job_routes.py -q
+# Pytest: 22 passed
+
+rtk pytest tests/catalog_datasets tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_fastapi_app.py -q
+# Pytest: 46 passed
+```
+
+Remaining R2 findings after Segment 2: tenant/project scoping across non-backtest routes, storage identifier validation, AI provenance/audit durability, fixture artifact exposure, and frontend warning cleanup.
+
+## R2 Segment 3 closure — tenant/project scoping across FastAPI routes (2026-05-25)
+
+Closed finding:
+
+- **HIGH-2026-05-25-R2-3:** Strict FastAPI auth-derived scope now applies beyond backtest jobs. Strategy routes, workflow result/suggestion/lineage routes, runtime-event replay, AI draft, and promotion-request routes require bearer auth in the FastAPI bootstrap. Strategy records created through strict routes are user/project-owned, and workflow result/suggestion reads enforce project boundaries.
+
+New evidence guarantees:
+
+- missing auth returns `401 auth_required` for production-facing non-backtest FastAPI routes;
+- strategies created in `project_alpha` are not visible/readable from `project_beta` strict context;
+- workflow result/suggestion/lineage reads deny cross-project access with 403;
+- `ApiApp` compatibility remains explicit fixture/dev behavior and is not production authorization evidence.
+
+Verification:
+
+```bash
+rtk pytest tests/api/test_fastapi_app.py -q
+# Pytest: 9 passed
+
+rtk pytest tests/api tests/workflow_spine tests/strategy_spec tests/runtime_events -q
+# Pytest: 98 passed
+```
+
+Remaining R2 findings after Segment 3: storage identifier validation, AI provenance/audit durability, fixture artifact exposure, and frontend warning cleanup.
+
+## R2 Segment 4 closure — storage identifiers and AI provenance/audit (2026-05-25)
+
+Closed findings:
+
+- **MEDIUM-2026-05-25-R2-2:** Builder-owned storage schema/table and Redis namespace identifiers now require safe identifier shapes before use in SQL table names or stream namespaces.
+- **MEDIUM-2026-05-25-R2-3:** AI draft apply now rejects blank `ai_thread_id`, `improvement_cycle_id`, `strategy_lineage_id`, and `strategy_version_id`. FastAPI AI apply uses a reused app-level service with an injectable audit store, so route-level apply records are not discarded after each request.
+
+New evidence guarantees:
+
+- `builder;drop table x--`, `builder:evil`, and whitespace namespace shapes are rejected;
+- runtime durable stream schema names are validated before SQL construction;
+- AI apply cannot record blank provenance IDs;
+- FastAPI `/api/ai-builder/apply` persists apply audit records through an injected `SqliteAiDraftAuditStore`.
+
+Verification:
+
+```bash
+rtk pytest tests/workflow_spine/test_storage_config.py tests/runtime_events/test_durable_stream.py tests/ai_builder/test_persistent_audit_store.py tests/api/test_fastapi_app.py -q
+# Pytest: 24 passed
+
+rtk pytest tests/workflow_spine tests/runtime_events tests/ai_builder tests/api -q
+# Pytest: 101 passed
+```
+
+Remaining R2 findings after Segment 4: fixture artifact exposure and frontend warning cleanup.
+
+## R2 Segment 5 closure — fixture evidence exposure and frontend warnings (2026-05-25)
+
+Closed findings:
+
+- **MEDIUM-2026-05-25-R2-4:** Fixture/dev compatibility artifact refs are now explicitly labeled and moved to `fixture://` in fixture result normalization and dashboard fallback payloads. Strict FastAPI result routes do not expose the fallback as a production repository result.
+- **LOW-2026-05-25-R2-1:** Frontend test config now uses ESM Vitest config (`vitest.config.mts`) and Playwright's web server command unsets `FORCE_COLOR`/`NO_COLOR` to avoid the observed warnings.
+
+New evidence guarantees:
+
+- fixture backtest result refs carry `fixture_evidence_only=true`;
+- dashboard fallback payloads carry `evidence_mode=fixture_dev_only` and `fixture_evidence_only=true`;
+- strict FastAPI `/api/results/res_001` returns 404 without a repository-owned result;
+- Vitest runs through the ESM config without the Vite CJS warning in the targeted verification run.
+
+Verification:
+
+```bash
+rtk pytest tests/backtest_runner/test_result_normalizer.py tests/backtest_runner/test_runner_dummy_data.py tests/api/test_workflow_results.py tests/api/test_fastapi_app.py tests/web/test_frontend_infrastructure.py tests/integration/test_browser_e2e_contract.py -q
+# Pytest: 29 passed
+
+rtk pytest tests/backtest_runner tests/api tests/web tests/integration -q
+# Pytest: 121 passed
+
+cd apps/web && npm test -- --run
+# Vitest: 12 passed; no Vite CJS warning observed
+```
+
+All named R2 findings are now closed at repo-contract level. Master reconciliation remains before final readiness reporting.
+
+## Master reconciliation — 2026-05-25 R2 findings closure
+
+### Verdict
+
+**Recommendation:** local repo-contract closure achieved for all named R2 findings. **Architectural Status:** CLEAR for the implemented Builder contracts and no-live-order boundary. **WATCH** remains for external production rollout items that are outside this repo change: real token issuer/middleware, object-store deployment, catalog ingestion operations, and downstream Daedalus promotion consumption.
+
+### Closed R2 findings
+
+- **HIGH-2026-05-25-R2-1:** Closed by lineage-bound strict promotion evidence and typed artifact errors.
+- **HIGH-2026-05-25-R2-2:** Closed by symlink-safe catalog manifest traversal.
+- **HIGH-2026-05-25-R2-3:** Closed by auth-derived FastAPI scoping across non-backtest routes.
+- **MEDIUM-2026-05-25-R2-1:** Closed by executable strict catalog root-policy guards.
+- **MEDIUM-2026-05-25-R2-2:** Closed by safe SQL schema/table and Redis namespace validation.
+- **MEDIUM-2026-05-25-R2-3:** Closed by non-empty AI apply provenance and reusable/injected FastAPI audit storage.
+- **MEDIUM-2026-05-25-R2-4:** Closed by explicit fixture-only evidence labels and production FastAPI fallback denial.
+- **LOW-2026-05-25-R2-1:** Closed by ESM Vitest config and Playwright color-env cleanup.
+
+### Master verification
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests -q
+# Pytest: 278 passed
+
+python3 - <<'PY'
+from packages.backtest_runner.runtime_check import check_nautilus_runtime_version
+status = check_nautilus_runtime_version()
+print(status.message)
+assert status.is_match, status.message
+PY
+# nautilus_trader runtime matches pinned version 1.223.0
+
+cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm run test:e2e
+# typecheck passed; Vitest: 12 passed with no Vite CJS warning observed; Next build passed; Playwright: 4 passed
+
+git diff --check
+# passed
+```
+
+### Remaining watch items
+
+- Production auth still depends on integrating a real issuer/middleware with `AuthTokenService`'s current in-memory seam.
+- Production artifact storage remains a deployment concern beyond `LocalJsonArtifactStore`.
+- Catalog data ingestion/curation remains explicit; Builder now fails closed rather than proving data it does not own.
+- Daedalus consumption of strict Builder promotion artifacts remains an external integration step.
+
+## Post-implementation code review — 2026-05-25 R2 closure
+
+**Files reviewed:** implementation diff across promotion/artifact, catalog/backtest, FastAPI scope, workflow/strategy repositories, storage config, AI builder, workflow result fallback, frontend verification config, and regression tests.
+**Architectural Status:** CLEAR.
+**Recommendation:** APPROVE for local repo-contract closure.
+
+### CRITICAL
+
+None.
+
+### HIGH
+
+None.
+
+### MEDIUM
+
+None open after the implementation pass.
+
+### LOW / WATCH
+
+- Production rollout still needs real auth middleware/issuer, object storage, catalog data curation, and Daedalus-side consumption of strict promotion artifacts. These are deployment/integration watch items, not merge blockers for this repo-contract closure.
+
+### Review evidence
+
+```bash
+grep -R "submit_order\|TradeAction\|Daedalus\|langchain\|langgraph\|EvoMap\|evolver\|aiogram\|telegram" -n packages services apps/web --exclude-dir=node_modules --exclude-dir=.next --exclude='*.pyc'
+# Hits are guard text, negative tests, false-authority fields, or docs only; no live-order/Daedalus/AI-runtime dependency path was introduced.
+
+python3 -m compileall -q packages services tests
+rtk pytest tests -q
+# Pytest: 278 passed
+
+git diff --check
+# passed
+```

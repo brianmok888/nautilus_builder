@@ -54,7 +54,11 @@ class PromotionService:
             raise ValueError("compile hash evidence is required")
         if gate_compatibility is not True:
             raise ValueError("gate compatibility evidence is required")
-        evidence, checksums = self._validate_evidence(evidence_refs)
+        evidence, checksums = self._validate_evidence(
+            evidence_refs,
+            strategy_version=strategy_version,
+            compile_hash=compile_hash,
+        )
 
         return PromotionRequest(
             strategy_version=strategy_version,
@@ -85,7 +89,11 @@ class PromotionService:
             raise ValueError("manual approval is required")
         if gate_compatibility is not True:
             raise ValueError("gate compatibility evidence is required")
-        evidence, checksums = self._validate_evidence(evidence_refs)
+        evidence, checksums = self._validate_evidence(
+            evidence_refs,
+            strategy_version=strategy_version,
+            compile_hash=compile_hash,
+        )
 
         return PromotionRequest(
             strategy_version=strategy_version,
@@ -99,7 +107,13 @@ class PromotionService:
             evidence_checksums=checksums,
         )
 
-    def _validate_evidence(self, evidence_refs: dict[str, object]) -> tuple[dict[str, str], dict[str, str]]:
+    def _validate_evidence(
+        self,
+        evidence_refs: dict[str, object],
+        *,
+        strategy_version: str,
+        compile_hash: str,
+    ) -> tuple[dict[str, str], dict[str, str]]:
         try:
             evidence = PromotionEvidenceRefs.model_validate(evidence_refs)
         except ValidationError as exc:
@@ -123,5 +137,43 @@ class PromotionService:
                 raise ValueError(
                     f"artifact type mismatch: {evidence_key} expected {evidence_key}, got {actual_type}"
                 )
+            self._assert_evidence_binding(
+                evidence_key=evidence_key,
+                payload=stored.payload,
+                metadata=stored.record.metadata,
+                expected_compile_hash=compile_hash,
+                expected_strategy_version=strategy_version,
+            )
             checksums[evidence_key] = stored.record.checksum_sha256
         return evidence_payload, checksums
+
+    @staticmethod
+    def _assert_evidence_binding(
+        *,
+        evidence_key: str,
+        payload: dict[str, object],
+        metadata: dict[str, str],
+        expected_compile_hash: str,
+        expected_strategy_version: str,
+    ) -> None:
+        actual_compile_hash = _binding_value(payload, metadata, "compile_hash")
+        if actual_compile_hash != expected_compile_hash:
+            raise ValueError(
+                f"compile_hash mismatch for {evidence_key}: expected {expected_compile_hash}, got {actual_compile_hash or 'missing'}"
+            )
+        actual_strategy_version = _binding_value(payload, metadata, "strategy_version")
+        if actual_strategy_version is None:
+            actual_strategy_version = _binding_value(payload, metadata, "strategy_version_id")
+        if actual_strategy_version != expected_strategy_version:
+            raise ValueError(
+                f"strategy_version mismatch for {evidence_key}: expected {expected_strategy_version}, got {actual_strategy_version or 'missing'}"
+            )
+
+
+def _binding_value(payload: dict[str, object], metadata: dict[str, str], key: str) -> str | None:
+    value = metadata.get(key)
+    if value is None:
+        value = payload.get(key)
+    if value is None:
+        return None
+    return str(value)

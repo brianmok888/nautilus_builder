@@ -62,6 +62,7 @@ def create_backtest_job_payload(
                 timeframe=str(payload["timeframe"]),
                 market_type=str(payload["market_type"]),
                 date_range=str(payload["data_range"]),
+                strict_root_policy=True,
             )
         except ProjectScopeError as exc:
             return ApiResponse({"error": "forbidden", "message": str(exc)}, status_code=403)

@@ -21,6 +21,17 @@ def normalize_backtest_result(
     fills = _list_value(raw_result.get("fills", []))
     logs = _list_value(raw_result.get("logs", []))
 
+    fixture_evidence_only = engine_mode == FIXTURE_ENGINE_MODE
+    result_ref = (
+        f"fixture://backtests/{backtest_job_id}/result.json"
+        if fixture_evidence_only and backtest_job_id
+        else "fixture://backtests/result.json"
+        if fixture_evidence_only
+        else f"artifact://backtests/{backtest_job_id}/result.json"
+        if backtest_job_id
+        else "result.json"
+    )
+
     return BacktestResultArtifact(
         backtest_job_id=backtest_job_id,
         strategy_spec_version=strategy_spec_version,
@@ -33,11 +44,12 @@ def normalize_backtest_result(
             "fill_count": len(fills),
         },
         artifact_refs={
-            "result": f"artifact://backtests/{backtest_job_id}/result.json" if backtest_job_id else "result.json",
+            "result": result_ref,
             "equity_curve": "equity_curve.parquet",
             "trades": "trades.parquet",
             "fills": "fills.parquet",
             "evidence_mode": engine_mode,
+            "fixture_evidence_only": "true" if fixture_evidence_only else "false",
         },
         logs=[str(entry) for entry in logs],
     )

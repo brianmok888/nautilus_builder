@@ -55,23 +55,29 @@ def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
 
 
 def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
     monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
-    app = create_fastapi_app()
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth)
 
     health_payload = app.routes[("GET", "/health")]()
-    ai_payload = app.routes[("POST", "/api/ai-builder/draft")]({"prompt": "Draft EMA RSI"})
+    ai_payload = app.routes[("POST", "/api/ai-builder/draft")]({"prompt": "Draft EMA RSI"}, authorization=f"Bearer {token.token}")
 
     assert health_payload == {"status": "ok", "service": "nautilus_builder_api"}
-    assert ai_payload["spec"]["stage"] == "draft"
-    assert ai_payload["spec"]["validation"]["output_mode"] == "signal_preview_only"
+    assert ai_payload.status_code == 200
+    assert ai_payload.json()["spec"]["stage"] == "draft"
+    assert ai_payload.json()["spec"]["validation"]["output_mode"] == "signal_preview_only"
 
 
 def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
     from tests.strategy_spec.test_schema_valid import make_valid_spec
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
@@ -80,31 +86,39 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
 
     from services.api.fastapi_app import create_fastapi_app
 
-    app = create_fastapi_app()
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth)
 
-    created = app.routes[("POST", "/api/strategies")](make_valid_spec())
-    listed = app.routes[("GET", "/api/strategies")]()
-    detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001")
+    created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {token.token}")
+    listed = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {token.token}")
+    detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001", authorization=f"Bearer {token.token}")
 
     assert created.status_code == 201
     assert created.json()["strategy_id"] == "strategy_001"
-    assert listed[0]["strategy_id"] == "strategy_001"
+    assert listed.status_code == 200
+    assert listed.json()[0]["strategy_id"] == "strategy_001"
     assert detail.status_code == 200
     assert detail.json()["versions"][0]["spec"]["version"] == "0.1.0-draft.1"
 
 
 def test_fastapi_bootstrap_preserves_error_status_codes(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
     monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
-    app = create_fastapi_app()
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth)
 
-    missing = app.routes[("GET", "/api/strategies/{strategy_id}")]("missing")
+    missing = app.routes[("GET", "/api/strategies/{strategy_id}")]("missing", authorization=f"Bearer {token.token}")
     rejected = app.routes[("POST", "/api/promotions/request")](
-        {"strategy_version_id": "v1", "result_id": "res1", "target": "live"}
+        {"strategy_version_id": "v1", "result_id": "res1", "target": "live"},
+        authorization=f"Bearer {token.token}",
     )
 
     assert missing.status_code == 404
@@ -203,7 +217,13 @@ def test_fastapi_shadow_promotion_requires_auth_and_resolves_scoped_artifacts(mo
             context=context,
             artifact_type=key,
             artifact_id=f"{key}_001",
-            payload={"evidence_type": key, "orders": 0},
+            payload={
+                "evidence_type": key,
+                "compile_hash": "abc123",
+                "strategy_version": "0.3.0-beta.1",
+                "orders": 0,
+            },
+            metadata={"compile_hash": "abc123", "strategy_version": "0.3.0-beta.1"},
         ).artifact_ref
 
     app = create_fastapi_app(auth_token_service=auth, artifact_store=store)
@@ -221,3 +241,187 @@ def test_fastapi_shadow_promotion_requires_auth_and_resolves_scoped_artifacts(mo
     assert missing.json()["error"] == "auth_required"
     assert created.status_code == 201
     assert set(created.json()["evidence_checksums"]) == set(refs)
+
+
+def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+    from tests.strategy_spec.test_schema_valid import make_valid_spec
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_456", project_id="project_beta")
+    app = create_fastapi_app(auth_token_service=auth)
+
+    missing = app.routes[("POST", "/api/strategies")](make_valid_spec())
+    created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {alpha.token}")
+    listed_alpha = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {alpha.token}")
+    listed_beta = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {beta.token}")
+    detail_beta = app.routes[("GET", "/api/strategies/{strategy_id}")](
+        "strategy_001",
+        authorization=f"Bearer {beta.token}",
+    )
+
+    assert missing.status_code == 401
+    assert created.status_code == 201
+    assert created.json()["project_id"] == "project_alpha"
+    assert listed_alpha.status_code == 200
+    assert listed_alpha.json()[0]["strategy_id"] == "strategy_001"
+    assert listed_beta.status_code == 200
+    assert listed_beta.json() == []
+    assert detail_beta.status_code == 403
+    assert detail_beta.json()["error"] == "forbidden"
+
+
+def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+    from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, TestResultRecord
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    repository = InMemoryWorkflowRepository()
+    repository.save_result(
+        TestResultRecord(
+            result_id="res_alpha",
+            test_job_id="job_alpha",
+            project_id="project_alpha",
+            strategy_lineage_id="lineage_alpha",
+            strategy_version_id="sv_alpha",
+            metrics={"sharpe": 1.0},
+            artifact_refs={"result": "artifact://builder/project_alpha/user_123/backtest_result/res_alpha"},
+        )
+    )
+    repository.save_ai_suggestion(
+        AiSuggestionRecord(
+            suggestion_id="sug_alpha",
+            project_id="project_alpha",
+            strategy_lineage_id="lineage_alpha",
+            strategy_version_id="sv_alpha",
+            result_id="res_alpha",
+            ai_thread_id="thread_alpha",
+            improvement_cycle_id="cycle_alpha",
+            suggestion_type="parameter_adjustment",
+            message="Retest lower RSI threshold.",
+        )
+    )
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_456", project_id="project_beta")
+    app = create_fastapi_app(workflow_repository=repository, auth_token_service=auth)
+
+    missing = app.routes[("GET", "/api/workflow/results/{result_id}")]("res_alpha")
+    alpha_result = app.routes[("GET", "/api/workflow/results/{result_id}")]("res_alpha", authorization=f"Bearer {alpha.token}")
+    beta_result = app.routes[("GET", "/api/workflow/results/{result_id}")]("res_alpha", authorization=f"Bearer {beta.token}")
+    beta_suggestions = app.routes[("GET", "/api/workflow/results/{result_id}/suggestions")](
+        "res_alpha",
+        authorization=f"Bearer {beta.token}",
+    )
+    beta_lineage = app.routes[("GET", "/api/workflow/lineages/{strategy_lineage_id}/status")](
+        "lineage_alpha",
+        authorization=f"Bearer {beta.token}",
+    )
+
+    assert missing.status_code == 401
+    assert alpha_result.status_code == 200
+    assert alpha_result.json()["project_id"] == "project_alpha"
+    assert beta_result.status_code == 403
+    assert beta_suggestions.status_code == 403
+    assert beta_lineage.status_code == 403
+
+
+def test_fastapi_runtime_ai_and_promotion_request_routes_require_auth(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth)
+
+    missing_runtime = app.routes[("GET", "/api/runtime-events/replay")]()
+    missing_ai = app.routes[("POST", "/api/ai-builder/draft")]({"prompt": "Draft EMA RSI"})
+    missing_promotion = app.routes[("POST", "/api/promotions/request")](
+        {"strategy_version_id": "v1", "result_id": "res1", "target": "shadow"}
+    )
+    runtime = app.routes[("GET", "/api/runtime-events/replay")](authorization=f"Bearer {token.token}")
+    ai = app.routes[("POST", "/api/ai-builder/draft")]({"prompt": "Draft EMA RSI"}, authorization=f"Bearer {token.token}")
+    promotion = app.routes[("POST", "/api/promotions/request")](
+        {"strategy_version_id": "v1", "result_id": "res1", "target": "shadow"},
+        authorization=f"Bearer {token.token}",
+    )
+
+    assert missing_runtime.status_code == 401
+    assert missing_ai.status_code == 401
+    assert missing_promotion.status_code == 401
+    assert runtime.status_code == 200
+    assert ai.status_code == 200
+    assert promotion.status_code == 201
+
+
+def test_fastapi_ai_apply_requires_provenance_and_uses_injected_audit_store(monkeypatch) -> None:
+    import sqlite3
+
+    from packages.ai_builder.provider import SqliteAiDraftAuditStore
+    from packages.auth import AuthTokenService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    connection = sqlite3.connect(":memory:")
+    audit_store = SqliteAiDraftAuditStore(connection=connection)
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth, ai_audit_store=audit_store)
+    payload = {
+        "prompt": "Create EMA RSI",
+        "ai_thread_id": "ai_thread_001",
+        "improvement_cycle_id": "cycle_001",
+        "strategy_lineage_id": "lineage_strategy_001",
+        "strategy_version_id": "strategy_001_v002",
+    }
+
+    blank = app.routes[("POST", "/api/ai-builder/apply")]({**payload, "ai_thread_id": ""}, authorization=f"Bearer {token.token}")
+    applied = app.routes[("POST", "/api/ai-builder/apply")](payload, authorization=f"Bearer {token.token}")
+    reloaded = SqliteAiDraftAuditStore(connection=connection)
+
+    assert blank.status_code == 422
+    assert "ai_thread_id is required" in blank.json()["details"]
+    assert applied.status_code == 200
+    assert applied.json()["mode"] == "advisory_only"
+    records = reloaded.records_for_thread("ai_thread_001")
+    assert any(record.get("improvement_cycle_id") == "cycle_001" for record in records)
+
+
+def test_fastapi_results_route_does_not_expose_fixture_fallback_as_production_result(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth)
+
+    response = app.routes[("GET", "/api/results/{result_id}")]("res_001", authorization=f"Bearer {token.token}")
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "result_not_found"

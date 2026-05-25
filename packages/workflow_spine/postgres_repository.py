@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from sqlite3 import Connection
 
+from packages.workflow_spine.storage_config import safe_storage_identifier
 from packages.workflow_spine.models import (
     AiSuggestionRecord,
     StrategyIdentity,
@@ -13,7 +14,7 @@ from packages.workflow_spine.models import (
 
 
 def _table(schema: str, name: str) -> str:
-    return f"{schema}_{name}"
+    return f"{safe_storage_identifier(schema)}_{safe_storage_identifier(name)}"
 
 
 def workflow_schema_statements(*, schema: str) -> list[str]:
@@ -63,7 +64,7 @@ def workflow_schema_statements(*, schema: str) -> list[str]:
 class PostgresWorkflowRepository:
     def __init__(self, *, connection: Connection, schema: str = "builder") -> None:
         self._connection = connection
-        self._schema = schema
+        self._schema = safe_storage_identifier(schema)
         for statement in workflow_schema_statements(schema=schema):
             self._connection.execute(statement)
         self._connection.commit()

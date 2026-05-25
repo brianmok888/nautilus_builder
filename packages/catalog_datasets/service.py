@@ -43,7 +43,17 @@ class CatalogDatasetRegistryService:
         for dataset in datasets or []:
             self.register_dataset(dataset)
 
-    def register_dataset(self, dataset: CatalogDataset) -> CatalogDataset:
+    @property
+    def has_root_policy(self) -> bool:
+        return self._path_policy is not None
+
+    def require_root_policy(self) -> None:
+        if self._path_policy is None:
+            raise ValueError("catalog_root is required for strict catalog dataset selection")
+
+    def register_dataset(self, dataset: CatalogDataset, *, strict_root_policy: bool = False) -> CatalogDataset:
+        if strict_root_policy:
+            self.require_root_policy()
         registered = self._normalize_dataset_path(dataset)
         self._datasets[registered.dataset_id] = registered
         return registered
@@ -72,7 +82,10 @@ class CatalogDatasetRegistryService:
         timeframe: str,
         market_type: str,
         date_range: str,
+        strict_root_policy: bool = False,
     ) -> CatalogDataset:
+        if strict_root_policy:
+            self.require_root_policy()
         dataset = self.get_dataset(dataset_id)
         assert_same_project(context, dataset.scoped_artifact)
         expected = {

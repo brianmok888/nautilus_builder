@@ -30,4 +30,5 @@ def test_worker_result_preserves_backend_job_identity() -> None:
     )
 
     assert result.backtest_job_id == "job_001"
-    assert result.artifact_refs["result"] == "artifact://backtests/job_001/result.json"
+    assert result.artifact_refs["result"] == "fixture://backtests/job_001/result.json"
+    assert result.artifact_refs["fixture_evidence_only"] == "true"

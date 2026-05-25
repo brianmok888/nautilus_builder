@@ -23,3 +23,32 @@ def test_result_normalizer_includes_expected_artifacts() -> None:
     assert normalized.artifact_refs["fills"] == "fills.parquet"
     assert normalized.summary_metrics["trade_count"] == 1
     assert normalized.logs == ["started", "finished"]
+
+
+def test_fixture_result_normalizer_labels_unscoped_refs_as_fixture_only() -> None:
+    normalized = normalize_backtest_result(
+        backtest_job_id="job_001",
+        raw_result={"trades": [], "fills": [], "logs": []},
+        strategy_spec_version="0.1.0-draft.1",
+        compile_hash="abc123",
+        worker_image="nautilus-builder-worker:dev",
+    )
+
+    assert normalized.artifact_refs["evidence_mode"] == "fixture"
+    assert normalized.artifact_refs["fixture_evidence_only"] == "true"
+    assert normalized.artifact_refs["result"].startswith("fixture://backtests/")
+
+
+def test_injected_engine_result_refs_are_not_marked_as_fixture_only() -> None:
+    normalized = normalize_backtest_result(
+        backtest_job_id="job_001",
+        raw_result={"trades": [], "fills": [], "logs": []},
+        strategy_spec_version="0.1.0-draft.1",
+        compile_hash="abc123",
+        worker_image="nautilus-builder-worker:dev",
+        engine_mode="injected_engine",
+    )
+
+    assert normalized.artifact_refs["evidence_mode"] == "injected_engine"
+    assert normalized.artifact_refs["fixture_evidence_only"] == "false"
+    assert normalized.artifact_refs["result"] == "artifact://backtests/job_001/result.json"

@@ -71,10 +71,19 @@ class LocalJsonArtifactStore:
             artifact_type=scoped.artifact_type,
             artifact_id=scoped.artifact_id,
         )
-        envelope = json.loads(path.read_text())
-        record = ArtifactRecord.model_validate(envelope["record"])
+        try:
+            raw = path.read_text()
+        except FileNotFoundError as exc:
+            raise ValueError(f"artifact not found: {artifact_ref}") from exc
+        try:
+            envelope = json.loads(raw)
+            if not isinstance(envelope, dict):
+                raise ValueError("artifact envelope must be an object")
+            record = ArtifactRecord.model_validate(envelope["record"])
+            payload = dict(envelope["payload"])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"artifact envelope invalid: {artifact_ref}") from exc
         assert_same_project(context, self.scoped_ref(record.artifact_ref))
-        payload = dict(envelope["payload"])
         checksum = hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
         if checksum != record.checksum_sha256:
             raise ValueError(f"artifact checksum mismatch: {record.artifact_ref}")

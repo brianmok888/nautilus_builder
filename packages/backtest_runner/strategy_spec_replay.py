@@ -246,11 +246,17 @@ def _resolve_catalog_path(catalog_path: str | Path, *, catalog_root: str | Path 
 
 
 def _catalog_manifest(catalog_path: Path) -> dict[str, str]:
-    return {
-        file.relative_to(catalog_path).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest()
-        for file in sorted(catalog_path.rglob("*"))
-        if file.is_file()
-    }
+    root = catalog_path.resolve(strict=True)
+    manifest: dict[str, str] = {}
+    for candidate in sorted(catalog_path.rglob("*")):
+        if candidate.is_symlink():
+            raise ValueError("catalog manifest must not traverse symlinks")
+        resolved = candidate.resolve(strict=True)
+        if not resolved.is_relative_to(root):
+            raise ValueError("catalog manifest path outside catalog root")
+        if candidate.is_file():
+            manifest[candidate.relative_to(catalog_path).as_posix()] = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    return manifest
 
 
 def _manifest_checksum(manifest: dict[str, str]) -> str:

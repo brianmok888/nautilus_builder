@@ -88,3 +88,12 @@ def test_workflow_lineage_status_endpoint_returns_read_projection() -> None:
     assert payload["result_id"] == "res_001"
     assert payload["suggestion_created"] is True
     assert "display_name" not in payload
+
+
+def test_result_dashboard_fixture_fallback_is_explicitly_labeled_dev_only() -> None:
+    response = create_app().get("/api/results/res_001")
+
+    payload = response.json()
+    assert payload["evidence_mode"] == "fixture_dev_only"
+    assert payload["fixture_evidence_only"] is True
+    assert payload["artifacts"]["result"].startswith("fixture://backtests/")

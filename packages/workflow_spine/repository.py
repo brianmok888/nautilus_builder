@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from packages.auth import ProjectScopeError, UserProjectContext
 from packages.workflow_spine.models import (
     AiSuggestionRecord,
     StrategyIdentity,
@@ -38,8 +39,16 @@ class InMemoryWorkflowRepository:
     def save_result(self, result: TestResultRecord) -> None:
         self._results[result.result_id] = result
 
-    def result(self, result_id: str) -> TestResultRecord | None:
-        return self._results.get(result_id)
+    def result(
+        self,
+        result_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> TestResultRecord | None:
+        result = self._results.get(result_id)
+        if result is not None and context is not None and result.project_id != context.project_id:
+            raise ProjectScopeError(f"result {result_id} is outside project scope")
+        return result
 
     def result_for_job(self, test_job_id: str) -> TestResultRecord | None:
         for result in self._results.values():
@@ -50,15 +59,47 @@ class InMemoryWorkflowRepository:
     def save_ai_suggestion(self, suggestion: AiSuggestionRecord) -> None:
         self._suggestions[suggestion.suggestion_id] = suggestion
 
-    def suggestions_for_lineage(self, strategy_lineage_id: str) -> list[AiSuggestionRecord]:
-        return [
+    def suggestions_for_lineage(
+        self,
+        strategy_lineage_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[AiSuggestionRecord]:
+        suggestions = [
             suggestion
             for suggestion in self._suggestions.values()
             if suggestion.strategy_lineage_id == strategy_lineage_id
         ]
+        return self._scope_suggestions(suggestions, context=context, identifier=strategy_lineage_id)
 
-    def suggestions_for_result(self, result_id: str) -> list[AiSuggestionRecord]:
-        return [suggestion for suggestion in self._suggestions.values() if suggestion.result_id == result_id]
+    def suggestions_for_result(
+        self,
+        result_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[AiSuggestionRecord]:
+        suggestions = [suggestion for suggestion in self._suggestions.values() if suggestion.result_id == result_id]
+        return self._scope_suggestions(suggestions, context=context, identifier=result_id)
 
-    def suggestions_for_ai_thread(self, ai_thread_id: str) -> list[AiSuggestionRecord]:
-        return [suggestion for suggestion in self._suggestions.values() if suggestion.ai_thread_id == ai_thread_id]
+    def suggestions_for_ai_thread(
+        self,
+        ai_thread_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[AiSuggestionRecord]:
+        suggestions = [suggestion for suggestion in self._suggestions.values() if suggestion.ai_thread_id == ai_thread_id]
+        return self._scope_suggestions(suggestions, context=context, identifier=ai_thread_id)
+
+    @staticmethod
+    def _scope_suggestions(
+        suggestions: list[AiSuggestionRecord],
+        *,
+        context: UserProjectContext | None,
+        identifier: str,
+    ) -> list[AiSuggestionRecord]:
+        if context is None:
+            return suggestions
+        scoped = [suggestion for suggestion in suggestions if suggestion.project_id == context.project_id]
+        if suggestions and not scoped:
+            raise ProjectScopeError(f"workflow suggestions for {identifier} are outside project scope")
+        return scoped

@@ -165,8 +165,8 @@ def _strict_artifact_refs(tmp_path, context: UserProjectContext) -> tuple[LocalJ
             context=context,
             artifact_type=key,
             artifact_id=f"{key}_001",
-            payload={"evidence_type": key, "compile_hash": "abc123", "orders": 0},
-            metadata={"evidence_type": key},
+            payload={"evidence_type": key, "compile_hash": "abc123", "strategy_version": "0.3.0-beta.1", "orders": 0},
+            metadata={"evidence_type": key, "compile_hash": "abc123", "strategy_version": "0.3.0-beta.1"},
         )
         refs[key] = record.artifact_ref
     return store, refs
@@ -295,3 +295,67 @@ def test_strict_shadow_route_rejects_legacy_refs(tmp_path) -> None:
     assert response.status_code == 422
     assert response.json()["error"] == "promotion_evidence_missing"
     assert "scoped Builder artifact refs required" in response.json()["details"]
+
+
+def test_strict_shadow_request_rejects_missing_scoped_artifact_as_domain_error(tmp_path) -> None:
+    context = UserProjectContext(user_id="user_123", project_id="project_alpha")
+    store, refs = _strict_artifact_refs(tmp_path, context)
+    refs["risk_review"] = "artifact://builder/project_alpha/user_123/risk_review/missing_risk_review"
+
+    with pytest.raises(ValueError, match="artifact not found"):
+        PromotionService(artifact_store=store, context=context).create_shadow_request(
+            strategy_version="0.3.0-beta.1",
+            compile_hash="abc123",
+            gate_compatibility=True,
+            evidence_refs=refs,
+        )
+
+
+def test_strict_shadow_request_rejects_wrong_compile_hash_evidence(tmp_path) -> None:
+    context = UserProjectContext(user_id="user_123", project_id="project_alpha")
+    store, refs = _strict_artifact_refs(tmp_path, context)
+    stale = store.put_json(
+        context=context,
+        artifact_type="backtest_result",
+        artifact_id="stale_compile",
+        payload={
+            "evidence_type": "backtest_result",
+            "compile_hash": "old_compile_hash",
+            "strategy_version": "0.3.0-beta.1",
+        },
+        metadata={"compile_hash": "old_compile_hash", "strategy_version": "0.3.0-beta.1"},
+    )
+    refs["backtest_result"] = stale.artifact_ref
+
+    with pytest.raises(ValueError, match="compile_hash mismatch"):
+        PromotionService(artifact_store=store, context=context).create_shadow_request(
+            strategy_version="0.3.0-beta.1",
+            compile_hash="abc123",
+            gate_compatibility=True,
+            evidence_refs=refs,
+        )
+
+
+def test_strict_shadow_request_rejects_wrong_strategy_version_evidence(tmp_path) -> None:
+    context = UserProjectContext(user_id="user_123", project_id="project_alpha")
+    store, refs = _strict_artifact_refs(tmp_path, context)
+    stale = store.put_json(
+        context=context,
+        artifact_type="validation_report",
+        artifact_id="stale_strategy_version",
+        payload={
+            "evidence_type": "validation_report",
+            "compile_hash": "abc123",
+            "strategy_version": "0.2.0-beta.9",
+        },
+        metadata={"compile_hash": "abc123", "strategy_version": "0.2.0-beta.9"},
+    )
+    refs["validation_report"] = stale.artifact_ref
+
+    with pytest.raises(ValueError, match="strategy_version mismatch"):
+        PromotionService(artifact_store=store, context=context).create_shadow_request(
+            strategy_version="0.3.0-beta.1",
+            compile_hash="abc123",
+            gate_compatibility=True,
+            evidence_refs=refs,
+        )

@@ -65,3 +65,13 @@ def test_runtime_events_sse_payload_is_observational_only() -> None:
 
     assert payload[0].startswith("event: runtime_event\n")
     assert '"job_id":"bt_001"' in payload[0]
+
+
+def test_runtime_event_durable_stream_rejects_unsafe_schema_identifier() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        runtime_event_schema_statements(schema="builder;drop table x--")
+
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        DurableRuntimeEventStream(connection=sqlite3.connect(":memory:"), schema="builder:evil")

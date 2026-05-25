@@ -30,3 +30,19 @@ def test_builder_redis_config_uses_builder_namespace_on_shared_redis() -> None:
 def test_builder_redis_config_rejects_nd_owned_namespace() -> None:
     with pytest.raises(ValueError, match="Builder Redis namespace must not be nd"):
         BuilderRedisConfig(url_env="REDIS_URL", namespace="nd")
+
+
+def test_builder_postgres_config_rejects_unsafe_schema_and_table_identifiers() -> None:
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        BuilderPostgresConfig(dsn_env="BUILDER_DATABASE_URL", db_schema="builder;drop table x--")
+
+    config = BuilderPostgresConfig(dsn_env="BUILDER_DATABASE_URL", db_schema="builder")
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        config.table_name("strategy_versions;drop")
+
+
+def test_builder_redis_config_rejects_namespace_separators_and_whitespace() -> None:
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        BuilderRedisConfig(url_env="REDIS_URL", namespace="builder:evil")
+    with pytest.raises(ValueError, match="safe storage identifier"):
+        BuilderRedisConfig(url_env="REDIS_URL", namespace="builder evil")

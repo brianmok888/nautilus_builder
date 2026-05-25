@@ -664,3 +664,220 @@ cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm ru
 git diff --check
 # passed
 ```
+
+## Deep review handguard — 2026-05-25 post-closure inventory review
+
+This review found new blockers after the prior findings closure. Preserve the prior closed baseline, but do not make production-readiness, strict promotion-readiness, or tenant-safe API claims until the following guards are executable.
+
+### Promotion evidence binding guards
+
+- Strict promotion evidence must be both artifact-backed and semantically bound to the request.
+- Every strict evidence artifact must resolve under the auth-derived `UserProjectContext` and must match the requested `compile_hash` plus strategy/version/result/job lineage metadata appropriate to the evidence type.
+- Missing, corrupt, wrong-scope, wrong-type, checksum-mismatched, or stale/wrong-compile evidence must fail as typed 4xx/API domain errors, never as uncaught `FileNotFoundError`, `KeyError`, or raw JSON errors.
+- `PromotionRequest.evidence_checksums` is necessary but not sufficient; checksums prove payload integrity, not relevance to the promotion request.
+
+Required closure tests:
+
+```bash
+rtk pytest tests/promotions tests/artifact_store tests/api -q
+# Must include negative cases for missing scoped artifact and wrong compile_hash/strategy evidence.
+```
+
+### Catalog traversal and root-policy guards
+
+- Catalog path allowlisting must cover both the selected catalog directory and every file read for manifest/evidence generation.
+- Manifest traversal must reject or skip symlinked files and symlinked directories; every resolved file candidate must remain under the resolved catalog path/root before hashing.
+- Strict catalog dataset registries must be visibly root-policy configured. Do not accept absolute or relative catalog paths in strict API/worker paths unless a configured catalog root normalizes and allowlists them.
+- User-catalog replay remains read-only. Synthetic smoke may write only to the controlled synthetic smoke catalog and must keep `dataset_source=synthetic_test_kit`.
+
+Required closure tests:
+
+```bash
+rtk pytest tests/catalog_datasets tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# Must include nested symlink-in-catalog manifest regression and strict registry-without-root rejection.
+```
+
+### Tenant/auth scope guards
+
+- FastAPI auth-derived scope must be consistent across all production-facing routes, not only backtest jobs and strict shadow promotion.
+- Strategy draft/version routes, workflow result routes, suggestion routes, lineage routes, runtime-event replay, AI apply/draft audit access, and promotion-request routes must either derive `UserProjectContext` from bearer auth or be explicitly documented/tested as fixture/dev-only.
+- Repository methods that store `project_id` must support scoped reads; do not expose `result_id`, `strategy_lineage_id`, or `ai_thread_id` lookups without project/user checks.
+- The lightweight `ApiApp` can stay dependency-free for contract tests, but it must not be cited as production authorization evidence.
+
+Required closure tests:
+
+```bash
+rtk pytest tests/auth tests/api tests/workflow_spine tests/strategy_spec tests/ai_builder -q
+# Must include cross-project denial for strategies, workflow results/suggestions/lineage, runtime events, and AI apply/audit records.
+```
+
+### Storage identifier guards
+
+- Builder-owned SQL schema/table and Redis namespace identifiers must be constrained to safe identifier shapes.
+- Do not interpolate unvalidated schema or namespace values into SQL identifiers or stream keys.
+- If a real Postgres driver replaces the SQLite seam, use driver-supported identifier quoting/composition instead of string concatenation.
+
+Required closure tests:
+
+```bash
+rtk pytest tests/workflow_spine tests/runtime_events -q
+# Must reject unsafe schema/namespace strings and preserve valid builder-owned defaults.
+```
+
+### AI/advisory provenance guards
+
+- AI Builder output remains advisory-only and must pass StrategySpec validation before apply.
+- Applying an AI draft must require non-empty `ai_thread_id`, `improvement_cycle_id`, `strategy_lineage_id`, and `strategy_version_id`.
+- API-level AI audit must be durable or explicitly fixture/dev-only; do not claim LangChain/LangGraph/EvoMap-style persistence/human-in-the-loop traceability from an ephemeral per-request in-memory store.
+- No LangChain/LangGraph/EvoMap runtime dependency should be added unless the integration is explicitly approved and remains advisory, degraded-mode safe, and unable to affect live execution directly.
+
+Required closure tests:
+
+```bash
+rtk pytest tests/ai_builder tests/workflow_spine tests/integration -q
+# Must include blank-provenance rejection and durable audit evidence for API apply paths.
+```
+
+### Required master verification before closing this review
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests -q
+
+python3 - <<'PY'
+from packages.backtest_runner.runtime_check import check_nautilus_runtime_version
+status = check_nautilus_runtime_version()
+assert status.is_match, status.message
+PY
+
+cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm run test:e2e
+git diff --check
+```
+
+Do not close the 2026-05-25 post-closure blockers until the markdown ledgers, source tests, and implementation all agree on the same stricter guarantees.
+
+## R2 Segment 1 completion guard — promotion lineage-bound evidence
+
+Segment 1 is complete. Preserve these rules going forward:
+
+- Strict promotion evidence must match the requested `compile_hash` and `strategy_version` / `strategy_version_id` in artifact payload or metadata.
+- Artifact ref shape/scope/type/checksum verification is necessary but not sufficient; relevance to the promotion request is required before `PromotionRequest` is returned.
+- Missing/corrupt scoped artifact evidence must fail as a typed 4xx/domain error, never as uncaught `FileNotFoundError`, raw JSON decode, or `KeyError`.
+- Test helpers that create strict promotion artifacts must include lineage metadata.
+
+Segment 1 evidence:
+
+```bash
+rtk pytest tests/promotions tests/artifact_store tests/api/test_fastapi_app.py -q
+# Pytest: 37 passed
+```
+
+## R2 Segment 2 completion guard — catalog traversal/root policy
+
+Segment 2 is complete. Preserve these rules going forward:
+
+- Catalog manifest generation must reject symlinked files and directories and must not read resolved paths outside the selected catalog tree.
+- Strict catalog dataset registration/selection must require a configured `catalog_root`; no-root registries are fixture/dev compatibility only.
+- Strict backtest job creation must pass `strict_root_policy=True` when selecting a catalog dataset.
+- User-catalog replay remains read-only; synthetic smoke remains the only path allowed to write deterministic test-kit data.
+
+Segment 2 evidence:
+
+```bash
+rtk pytest tests/catalog_datasets tests/backtest_runner tests/api/test_backtest_job_routes.py tests/api/test_fastapi_app.py -q
+# Pytest: 46 passed
+```
+
+## R2 Segment 3 completion guard — FastAPI tenant/project scoping
+
+Segment 3 is complete. Preserve these rules going forward:
+
+- FastAPI production-facing routes must derive `UserProjectContext` from bearer auth rather than trusting request body/query scope.
+- Strategy records created through FastAPI strict routes must carry user/project ownership; list/detail/update/version reads must enforce that ownership.
+- Workflow results, suggestions, and lineage projection reads must check project scope before returning metrics, artifacts, or AI messages.
+- Runtime event replay, AI draft/apply surfaces, and promotion-request surfaces must stay auth-gated in FastAPI; lightweight `ApiApp` remains fixture/dev-only for dependency-free contract tests.
+
+Segment 3 evidence:
+
+```bash
+rtk pytest tests/api tests/workflow_spine tests/strategy_spec tests/runtime_events -q
+# Pytest: 98 passed
+```
+
+## R2 Segment 4 completion guard — storage identifiers and AI provenance
+
+Segment 4 is complete. Preserve these rules going forward:
+
+- SQL schema/table identifiers and Redis namespaces must pass `safe_storage_identifier()` before interpolation or namespace construction.
+- Redis namespace separators belong in stream suffixes, not in the Builder namespace value itself.
+- Applying an AI draft must require non-empty `ai_thread_id`, `improvement_cycle_id`, `strategy_lineage_id`, and `strategy_version_id`.
+- FastAPI AI apply must use a reused/injected audit store or service; do not recreate an ephemeral audit store for each request.
+- AI remains advisory-only and validation-gated; no LangChain/LangGraph/EvoMap runtime dependency was added.
+
+Segment 4 evidence:
+
+```bash
+rtk pytest tests/workflow_spine tests/runtime_events tests/ai_builder tests/api -q
+# Pytest: 101 passed
+```
+
+## R2 Segment 5 completion guard — fixture refs and frontend verification noise
+
+Segment 5 is complete. Preserve these rules going forward:
+
+- Fixture/dev evidence must be visibly labeled as fixture-only and must not be confused with scoped Builder production artifacts.
+- Fixture backtest outputs should use `fixture://` refs and carry `fixture_evidence_only=true`.
+- Strict FastAPI result routes must require repository-owned scoped results; compatibility dashboard fallback remains `ApiApp`/fixture-dev only.
+- Keep Vitest on the ESM `.mts` config path and avoid reintroducing Vite CJS Node API warnings.
+- Keep the Playwright web server command from exporting conflicting `FORCE_COLOR`/`NO_COLOR` settings.
+
+Segment 5 evidence:
+
+```bash
+rtk pytest tests/backtest_runner tests/api tests/web tests/integration -q
+# Pytest: 121 passed
+
+cd apps/web && npm test -- --run
+# Vitest: 12 passed; no Vite CJS warning observed
+```
+
+## Master guard — 2026-05-25 R2 closure baseline
+
+The R2 findings closure baseline is verified. Preserve these stop conditions:
+
+- Do not accept strict promotion evidence unless artifacts are scoped, checksummed, type-correct, and bound to the requested compile hash plus strategy lineage.
+- Do not hash catalog manifest entries that are symlinks or resolve outside the selected catalog tree.
+- Do not expose production FastAPI strategy/workflow/runtime/AI/promotion routes without bearer-derived `UserProjectContext`.
+- Do not interpolate SQL schema/table or Redis namespace identifiers unless they pass the safe storage identifier policy.
+- Do not apply AI drafts without non-empty thread/cycle/lineage/version provenance and durable/reused audit storage.
+- Do not expose fixture evidence as production evidence; keep fixture refs visibly `fixture://` and fixture-dev-only.
+- Keep frontend verification warning cleanup in place: ESM Vitest config and no conflicting Playwright color env.
+
+Master evidence:
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests -q
+# Pytest: 278 passed
+
+python3 - <<'PY'
+from packages.backtest_runner.runtime_check import check_nautilus_runtime_version
+status = check_nautilus_runtime_version()
+assert status.is_match, status.message
+PY
+# nautilus_trader runtime matches pinned version 1.223.0
+
+cd apps/web && npm run typecheck && npm test -- --run && npm run build && npm run test:e2e
+# typecheck passed; Vitest 12 passed; Next build passed; Playwright 4 passed
+
+git diff --check
+# passed
+```
+
+## Post-implementation code-review guard — 2026-05-25
+
+The R2 closure diff was reviewed after implementation. Keep the final gating rule:
+
+- Do not weaken any strict guard added in Segments 1-5 without adding a failing regression first and preserving a stricter replacement.
+
+Review verdict: **APPROVE / CLEAR** for local repo-contract closure. Deployment watch items remain external to this diff.

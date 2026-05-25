@@ -4,12 +4,14 @@ import json
 from sqlite3 import Connection
 
 from packages.runtime_events.models import RuntimeEvent
+from packages.workflow_spine.storage_config import safe_storage_identifier
 
 
 def runtime_event_schema_statements(*, schema: str) -> list[str]:
+    safe_schema = safe_storage_identifier(schema)
     return [
         f"""
-        create table if not exists {schema}_runtime_events (
+        create table if not exists {safe_schema}_runtime_events (
             sequence integer primary key autoincrement,
             job_id text not null,
             payload text not null
@@ -32,7 +34,7 @@ class InMemoryRuntimeEventStream:
 class DurableRuntimeEventStream:
     def __init__(self, *, connection: Connection, schema: str = "builder") -> None:
         self._connection = connection
-        self._schema = schema
+        self._schema = safe_storage_identifier(schema)
         for statement in runtime_event_schema_statements(schema=schema):
             self._connection.execute(statement)
         self._connection.commit()

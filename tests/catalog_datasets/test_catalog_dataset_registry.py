@@ -101,3 +101,29 @@ def test_rejects_catalog_path_traversing_symlinked_directory(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="catalog path must not traverse symlinks"):
         service.register_dataset(_dataset(tmp_path, catalog_path=symlinked / "catalog"))
+
+
+def test_strict_catalog_registration_requires_configured_root_policy(tmp_path) -> None:
+    service = CatalogDatasetRegistryService()
+
+    with pytest.raises(ValueError, match="catalog_root is required for strict catalog dataset selection"):
+        service.register_dataset(_dataset(tmp_path), strict_root_policy=True)
+
+
+def test_strict_catalog_selection_requires_configured_root_policy(tmp_path) -> None:
+    context = UserProjectContext(user_id="user_123", project_id="project_alpha")
+    service = CatalogDatasetRegistryService()
+    dataset = service.register_dataset(_dataset(tmp_path))
+
+    with pytest.raises(ValueError, match="catalog_root is required for strict catalog dataset selection"):
+        service.select_dataset(
+            context=context,
+            dataset_id=dataset.dataset_id,
+            adapter_id="BINANCE_PERP",
+            instrument_id="BTCUSDT-PERP",
+            data_type="quote_ticks",
+            timeframe="1m",
+            market_type="crypto_perp",
+            date_range="2024-01-01:2024-03-01",
+            strict_root_policy=True,
+        )

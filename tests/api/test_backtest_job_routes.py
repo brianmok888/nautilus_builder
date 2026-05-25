@@ -263,3 +263,34 @@ def test_strict_backtest_job_read_and_cancel_ignore_spoofed_query_scope(tmp_path
     assert cancelled.json()["status"] == "cancel_requested"
     assert intruder.status_code == 403
     assert intruder.json()["error"] == "forbidden"
+
+
+def test_strict_backtest_job_creation_requires_root_policy_registry(tmp_path) -> None:
+    context = _strict_context()
+    registry = CatalogDatasetRegistryService()
+    registry.register_dataset(
+        CatalogDataset(
+            dataset_id="ds_btcusdt_perp_2024_q1",
+            user_id=context.user_id,
+            project_id=context.project_id,
+            adapter_id="BINANCE_PERP",
+            instrument_id="BTCUSDT-PERP",
+            data_type="quote_ticks",
+            timeframe="1m",
+            market_type="crypto_perp",
+            date_range="2024-01-01:2024-03-01",
+            catalog_path=(tmp_path / "catalogs" / "ds_btcusdt_perp_2024_q1").as_posix(),
+        )
+    )
+
+    response = create_backtest_job_payload(
+        BacktestJobService(),
+        _strict_payload(),
+        context=context,
+        dataset_registry=registry,
+        strict_scope=True,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"] == "invalid_backtest_job_request"
+    assert "catalog_root is required" in response.json()["details"]

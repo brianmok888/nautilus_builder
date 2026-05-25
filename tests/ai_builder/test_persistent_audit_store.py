@@ -36,3 +36,16 @@ def test_ai_draft_apply_payload_preserves_thread_cycle_and_lineage_ids() -> None
     assert result["strategy_lineage_id"] == "lineage_strategy_001"
     assert result["strategy_version_id"] == "strategy_001_v002"
     assert result["stage"] == "draft"
+
+
+def test_ai_draft_apply_rejects_blank_provenance_ids() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="ai_thread_id is required"):
+        AiBuilderService().apply_draft_to_strategy(
+            prompt="Create EMA RSI",
+            ai_thread_id="",
+            improvement_cycle_id="cycle_001",
+            strategy_lineage_id="lineage_strategy_001",
+            strategy_version_id="strategy_001_v002",
+        )
