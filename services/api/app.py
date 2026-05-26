@@ -4,6 +4,7 @@ from services.api.routes.backtest_jobs import backtest_job_events_payload, backt
 from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
+from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
 from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
@@ -12,6 +13,7 @@ from services.api.routes.workflow_results import workflow_lineage_status_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.backtest_jobs.service import BacktestJobService
 from packages.execution_lane import ExecutionLaneService
+from packages.llm_config import LlmConfigService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 
 
@@ -20,11 +22,13 @@ def create_app(
     strategy_repository: InMemoryStrategyRepository | None = None,
     backtest_job_service: BacktestJobService | None = None,
     execution_lane_service: ExecutionLaneService | None = None,
+    llm_config_service: LlmConfigService | None = None,
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
     backtest_job_service = backtest_job_service or BacktestJobService()
     execution_lane_service = execution_lane_service or ExecutionLaneService()
+    llm_config_service = llm_config_service or LlmConfigService()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/adapters", adapters_payload)
@@ -43,6 +47,8 @@ def create_app(
     app.route("POST", "/api/strategies/{strategy_id}/versions", lambda strategy_id, payload: create_strategy_version_payload(strategy_repository, strategy_id, payload))
     app.route("GET", "/api/runtime-events/replay", replay_runtime_events_payload)
     app.route("GET", "/api/execution-lane/status", lambda runtime_profile_id=None: execution_lane_status_payload(service=execution_lane_service, runtime_profile_id=runtime_profile_id))
+    app.route("GET", "/api/config/llm", lambda: get_llm_config_payload(llm_config_service))
+    app.route("POST", "/api/config/llm", lambda payload: save_llm_config_payload(llm_config_service, payload))
     app.route("POST", "/api/execution-lane/profiles", lambda payload: register_execution_lane_profile_payload(payload, service=execution_lane_service))
     app.route("POST", "/api/execution-lane/commands", lambda payload: enqueue_execution_lane_command_payload(payload, service=execution_lane_service))
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)

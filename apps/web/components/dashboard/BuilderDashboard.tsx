@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   AuditOutlined,
   CheckCircleOutlined,
@@ -34,6 +35,8 @@ const sectionAnchors = [
 ];
 
 export function BuilderDashboard() {
+  const [activeTab, setActiveTab] = useState("ai");
+
   return (
     <Space orientation="vertical" size="middle" className="builder-dashboard compact-dashboard">
       <Card className="dashboard-hero-card">
@@ -63,8 +66,8 @@ export function BuilderDashboard() {
                 description="AI output is advisory, StrategySpec drafts require backend validation, and promotion remains manual."
               />
               <Space wrap>
-                <Button type="primary">Start drafting</Button>
-                <Button>Continue to market setup</Button>
+                <Button type="primary" onClick={() => setActiveTab("ai")}>Start drafting</Button>
+                <Button onClick={() => setActiveTab("builder")}>Continue to market setup</Button>
                 <Tag color="warning">Requires validation before backtest</Tag>
               </Space>
             </Space>
@@ -130,7 +133,7 @@ export function BuilderDashboard() {
           <Card size="small">
             <Typography.Title level={2}>Advisory AI drafting</Typography.Title>
             <Typography.Paragraph>Turn operator prompts into validated StrategySpec candidates.</Typography.Paragraph>
-            <Typography.Paragraph>ai_thread_id and improvement_cycle_id are required lane identifiers.</Typography.Paragraph>
+            <Typography.Paragraph>Lineage IDs are automatic by default and available only under Advanced.</Typography.Paragraph>
           </Card>
         </Col>
         <Col xs={24} lg={6}>
@@ -146,7 +149,8 @@ export function BuilderDashboard() {
 
       <Tabs
         className="operator-workspace-tabs"
-        defaultActiveKey="ai"
+        activeKey={activeTab}
+        onChange={setActiveTab}
         items={[
           {
             key: "ai",

@@ -2060,3 +2060,114 @@ Remaining non-blocking watch items:
 - Full production Postgres persistence is still future work; the current workflow repository is explicitly SQLite/test-contract storage.
 - Frontend browser E2E still requires a provisioned Playwright browser before claiming full UI deployment readiness.
 - Future live execution must remain outside Builder authoring/backtest authority until Nautilus live-node/adapter reconciliation and ExecTester evidence exist.
+
+## Implementation progress — 2026-05-26 Segment 1 UI StrategySpec serialization
+
+**Completed:** 2026-05-26
+
+Files changed:
+
+- `apps/web/lib/strategySpec.ts` — graph serialization now emits a full backend-shaped draft StrategySpec with schema/version, adapter/venue/instrument defaults, data range, indicators, rules, risk, validation, and provenance fields; graph round-trip now consumes canonical object-shaped indicators.
+- `apps/web/lib/strategySpec.test.ts` — locks the backend-valid draft shape and indicator round-trip behavior.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run lib/strategySpec.test.ts
+# RED first: 2 failed for missing backend fields and missing indicator round-trip
+# GREEN: 3 passed
+```
+
+## Implementation progress — 2026-05-26 Segment 2 Backtest Center runtime rendering
+
+**Completed:** 2026-05-26
+
+Files changed:
+
+- `apps/web/app/backtests/[jobId]/page.tsx` — page now loads `fetchBacktestJob()` and `fetchBacktestJobEvents()` before rendering instead of listing contract function names.
+- `apps/web/app/backtests/[jobId]/BacktestJobClient.tsx` — new observational client renders run configuration, job status, artifact refs, event stream, and request-cancel UI without live order authority.
+- `apps/web/app/backtests/[jobId]/page.test.tsx` — locks backend fetch/render/cancel behavior.
+- `apps/web/lib/types.ts` — expanded `BacktestJobStatus` / `BacktestJobEvents` to the backend audit payload fields rendered by the page.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run app/backtests/'[jobId]'/page.test.tsx
+# RED first: fetchBacktestJob/fetchBacktestJobEvents were not called
+# GREEN: 1 passed
+```
+
+## Implementation progress — 2026-05-26 Segment 3 Dashboard navigation and builder route
+
+**Completed:** 2026-05-26
+
+Files changed:
+
+- `apps/web/components/dashboard/BuilderDashboard.tsx` — CTA buttons now drive the compact workflow tabs: Start drafting opens AI prompt, Continue to market setup opens StrategySpec/market context.
+- `apps/web/components/dashboard/BuilderDashboard.test.tsx` — locks CTA-driven tab switching.
+- `apps/web/app/builder/[strategyId]/page.tsx` — adds the missing strategy-scoped builder route used by strategy detail links.
+- `apps/web/app/builder/[strategyId]/page.test.tsx` — locks the route contract.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx app/builder/'[strategyId]'/page.test.tsx
+# RED first: CTA did not switch tabs; ./page import failed for missing builder route
+# GREEN: 3 passed
+```
+
+## Implementation progress — 2026-05-26 Segment 4 LLM config persistence and AI ID simplification
+
+**Completed:** 2026-05-26
+
+Files changed:
+
+- `packages/llm_config/` — new backend contract for non-secret OpenAI-compatible provider/model settings with secret-field rejection and server-environment secret storage policy.
+- `services/api/routes/llm_config.py`, `services/api/app.py`, `services/api/fastapi_app.py` — mounted `/api/config/llm` load/save routes; FastAPI route remains bearer-auth gated.
+- `tests/api/test_llm_config_routes.py` — locks default load, save, and browser-secret rejection.
+- `apps/web/lib/api.ts`, `apps/web/lib/types.ts` — added typed `fetchLlmConfig()` and `saveLlmConfig()` helpers.
+- `apps/web/components/config/ModelConfigTabs.tsx` — config UI now loads/saves via backend contract and still never renders API key inputs.
+- `apps/web/components/ai-builder/AiStrategyCopilot.tsx` — AI lineage IDs are hidden by default and available only under Advanced lineage IDs.
+
+Verification:
+
+```bash
+rtk pytest tests/api/test_llm_config_routes.py -q
+# RED first: 2 failed with 404 for missing /api/config/llm routes
+# GREEN: 2 passed
+
+cd apps/web && npm test -- --run components/config/ModelConfigTabs.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx
+# RED first: config save/load and hidden-ID expectations failed
+# GREEN: 3 passed
+```
+
+## Master reconciliation — 2026-05-26 UI workflow closure
+
+**Completed:** 2026-05-26
+
+Segments reconciled:
+
+1. StrategySpec graph serialization now produces a backend-shaped draft StrategySpec.
+2. Backtest Center fetches backend job/events contracts and renders degraded observational fallback when a referenced job is unavailable.
+3. Dashboard CTAs switch compact workflow tabs; `/builder/[strategyId]` exists for strategy detail links.
+4. LLM model config has a backend non-secret load/save contract; AI lineage IDs are advanced-only in the prompt workflow.
+
+Verification:
+
+```bash
+git diff --check
+# passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 365 passed
+
+cd apps/web && npm run typecheck && npm test
+# Vitest: 14 files / 29 tests passed
+
+cd apps/web && npm run build
+# Next.js production build passed
+
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+```

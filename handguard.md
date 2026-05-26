@@ -1501,3 +1501,91 @@ Do not weaken these permanent boundaries:
 - Builder authoring/replay paths do not call `submit_order`, create `TradeAction`, or collect broker/browser credentials.
 - `/home/mok/projects/Nautilus-Daedalus` remains reference-only for Builder work unless the user explicitly changes target.
 - NautilusTrader runtime/backtest claims must distinguish no-order catalog/rule evaluation evidence from live/paper trading execution evidence.
+
+## Segment 2026-05-26-1 completion guard — UI StrategySpec serialization
+
+Segment 2026-05-26-1 is complete. Preserve these rules going forward:
+
+- `graphToStrategySpec()` must remain backend StrategySpec-shaped: schema/version, adapter/venue/instrument, data_range, indicators, rules, risk, validation, and provenance are required.
+- Do not reintroduce `graph_edges` into the serialized StrategySpec payload unless the backend schema explicitly supports it.
+- UI graph defaults must stay `signal_preview_only` and draft-only; backend validation remains required before backtest creation.
+- `strategySpecToGraph()` must keep reading canonical object-shaped `indicators` so backend drafts remain editable.
+
+Segment evidence:
+
+```bash
+cd apps/web && npm test -- --run lib/strategySpec.test.ts
+# 3 passed after RED/GREEN cycle
+```
+
+## Segment 2026-05-26-2 completion guard — Backtest Center runtime rendering
+
+Segment 2026-05-26-2 is complete. Preserve these rules going forward:
+
+- `/backtests/[jobId]` must call backend job and event contracts before presenting job state.
+- Backtest artifacts are refs/manifests only; the UI must not treat them as live execution handles.
+- The only browser-side control is request-cancel. Do not add shell, worker mutation, or order submission controls.
+- Keep `may_submit_order: false` or equivalent visible on the Backtest Center route.
+
+Segment evidence:
+
+```bash
+cd apps/web && npm test -- --run app/backtests/'[jobId]'/page.test.tsx
+# 1 passed after RED/GREEN cycle
+```
+
+## Segment 2026-05-26-3 completion guard — Dashboard navigation and builder route
+
+Segment 2026-05-26-3 is complete. Preserve these rules going forward:
+
+- Dashboard workflow CTAs must navigate/switch visible Builder sections; do not leave primary CTA buttons inert.
+- Strategy detail `Open in Builder` links must point to an implemented route.
+- `/builder/[strategyId]` remains a draft-only strategy-context route; do not add live order controls or credential fields there.
+
+Segment evidence:
+
+```bash
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx app/builder/'[strategyId]'/page.test.tsx
+# 3 passed after RED/GREEN cycle
+```
+
+## Segment 2026-05-26-4 completion guard — LLM config and AI lineage UX
+
+Segment 2026-05-26-4 is complete. Preserve these rules going forward:
+
+- `/api/config/llm` may persist non-secret provider/model-role config only; browser payloads containing API keys, secrets, authorization headers, or tokens must be rejected.
+- UI config may expose `OPENAI_BASE_URL` and model role names, but never API key inputs.
+- Secrets storage remains `server_environment`.
+- AI copilot lineage/version identifiers stay hidden by default and must not overwhelm the primary natural-language strategy prompt workflow.
+
+Segment evidence:
+
+```bash
+rtk pytest tests/api/test_llm_config_routes.py -q
+# 2 passed
+cd apps/web && npm test -- --run components/config/ModelConfigTabs.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx
+# 3 passed
+```
+
+## Master reconciliation guard — 2026-05-26 UI workflow closure
+
+The 2026-05-26 UI closure baseline is verified. Preserve these stop conditions:
+
+- Graph-built StrategySpecs must stay backend-shaped and `signal_preview_only` until backend validation accepts them.
+- Backtest Center must read backend contracts and remain observational/cancel-request only, including degraded fallback state for missing dev fixture jobs.
+- Dashboard CTAs and strategy detail links must keep routing operators into real Builder sections/routes.
+- `/api/config/llm` must reject browser secrets and persist only non-secret provider/model role config.
+- AI lineage IDs must stay hidden from the default user workflow and available only under Advanced controls.
+- Do not add `submit_order`, `TradeAction`, browser credential inputs, or live/paper execution authority to these UI paths.
+
+Master evidence:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 365 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; 29 Vitest tests passed; Next build passed; 4 Playwright tests passed
+```

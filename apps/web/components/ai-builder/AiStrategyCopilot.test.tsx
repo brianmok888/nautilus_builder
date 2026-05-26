@@ -42,7 +42,11 @@ describe("AiStrategyCopilot", () => {
     render(<AiStrategyCopilot />);
 
     expect(screen.getByLabelText("Strategy prompt")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ai_thread_id")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply to Builder" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced lineage IDs" }));
+    expect(screen.getByLabelText("ai_thread_id")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Strategy prompt"), {
       target: { value: "Build an EMA RSI pullback strategy for BTC perpetuals" },

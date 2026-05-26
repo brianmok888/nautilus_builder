@@ -24,6 +24,7 @@ export const AiStrategyCopilot = () => {
   const [applied, setApplied] = useState<AiDraftApplication | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [showAdvancedIds, setShowAdvancedIds] = useState(false);
 
   const payload = useMemo<AiDraftPayload>(
     () => ({
@@ -108,44 +109,53 @@ export const AiStrategyCopilot = () => {
             />
           </Form.Item>
 
-          <Row gutter={[8, 8]} className="ai-audit-grid" aria-label="AI audit identifiers">
-            <Col xs={24} md={12} xl={6}>
-              <Form.Item label="ai_thread_id">
-                <Input
-                  aria-label="ai_thread_id"
-                  value={aiThreadId}
-                  onChange={(event) => setAiThreadId(event.target.value)}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <Form.Item label="improvement_cycle_id">
-                <Input
-                  aria-label="improvement_cycle_id"
-                  value={improvementCycleId}
-                  onChange={(event) => setImprovementCycleId(event.target.value)}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <Form.Item label="strategy_lineage_id">
-                <Input
-                  aria-label="strategy_lineage_id"
-                  value={strategyLineageId}
-                  onChange={(event) => setStrategyLineageId(event.target.value)}
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <Form.Item label="strategy_version_id">
-                <Input
-                  aria-label="strategy_version_id"
-                  value={strategyVersionId}
-                  onChange={(event) => setStrategyVersionId(event.target.value)}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Button type="link" onClick={() => setShowAdvancedIds((current) => !current)}>
+            Advanced lineage IDs
+          </Button>
+          <Typography.Text type="secondary">
+            Lineage IDs are generated automatically for normal drafting; advanced editing is optional.
+          </Typography.Text>
+
+          {showAdvancedIds ? (
+            <Row gutter={[8, 8]} className="ai-audit-grid" aria-label="AI audit identifiers">
+              <Col xs={24} md={12} xl={6}>
+                <Form.Item label="ai_thread_id">
+                  <Input
+                    aria-label="ai_thread_id"
+                    value={aiThreadId}
+                    onChange={(event) => setAiThreadId(event.target.value)}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12} xl={6}>
+                <Form.Item label="improvement_cycle_id">
+                  <Input
+                    aria-label="improvement_cycle_id"
+                    value={improvementCycleId}
+                    onChange={(event) => setImprovementCycleId(event.target.value)}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12} xl={6}>
+                <Form.Item label="strategy_lineage_id">
+                  <Input
+                    aria-label="strategy_lineage_id"
+                    value={strategyLineageId}
+                    onChange={(event) => setStrategyLineageId(event.target.value)}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12} xl={6}>
+                <Form.Item label="strategy_version_id">
+                  <Input
+                    aria-label="strategy_version_id"
+                    value={strategyVersionId}
+                    onChange={(event) => setStrategyVersionId(event.target.value)}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          ) : null}
         </Form>
 
         <Space wrap size="small" className="action-row compact-action-row">

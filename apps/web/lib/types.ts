@@ -81,12 +81,31 @@ export type BacktestProfileValidation = {
 export type BacktestJobStatus = {
   job_id: string;
   status: string;
+  stage?: string;
+  lifecycle_status?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  strategy_spec_version_id?: string;
+  adapter_profile_id?: string;
+  instrument_id?: string;
+  data_range?: string;
+  data_type?: string;
+  timeframe?: string;
+  market_type?: string;
+  worker_id?: string;
+  result_artifact_refs?: Record<string, string>;
+  event_stream_id?: string;
+  cancel_requested?: boolean;
+  compile_hash?: string;
+  compile_artifact_id?: string;
   mode?: string;
 };
 
 export type BacktestJobEvents = {
   job_id: string;
   stream_name: string;
+  status?: string;
   mode: "observational";
   events: unknown[];
 };
@@ -107,6 +126,28 @@ export type ResultDashboardPayload = {
   fills: unknown[];
   logs: unknown[];
   report_summary?: ReportSummary;
+};
+
+
+export type LlmConfig = {
+  provider_type: string;
+  base_url: string;
+  roles: {
+    draft_strategy_spec: string;
+    validate_and_repair: string;
+    explain_operator_feedback: string;
+  };
+  guardrails: Record<string, unknown>;
+  credential_inputs_allowed: false;
+  secrets_storage: "server_environment";
+};
+
+export type LlmConfigSavePayload = {
+  provider_type: string;
+  base_url: string;
+  draft_model: string;
+  validation_model: string;
+  explanation_model: string;
 };
 
 export type AiDraftPayload = {

@@ -2211,3 +2211,104 @@ Remaining watch items before stronger claims:
 - production Postgres repository against `infra/migrations`, not the SQLite compatibility repository;
 - Playwright/browser E2E for full frontend readiness;
 - future Nautilus live execution node/adapter reconciliation and ExecTester evidence before any live-trading readiness claim.
+
+## Closure progress — 2026-05-26 Segment 1 UI StrategySpec serialization
+
+**Status:** completed.
+
+Closed/changed findings:
+
+- `HIGH-1` from the UI recheck is remediated at frontend contract level: `graphToStrategySpec()` now emits a full backend-shaped draft StrategySpec rather than the previous partial `{status, stage, indicators, graph_edges}` scaffold.
+- `strategySpecToGraph()` now understands canonical object-shaped StrategySpec indicators so persisted/backend draft specs can reopen as editable graph nodes.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- --run lib/strategySpec.test.ts
+# RED first: 2 failed for missing backend fields and indicator round-trip
+# GREEN: 3 passed
+```
+
+## Closure progress — 2026-05-26 Segment 2 Backtest Center runtime rendering
+
+**Status:** completed.
+
+Closed/changed findings:
+
+- `HIGH-2` from the UI recheck is remediated at frontend route level: `/backtests/[jobId]` now fetches and renders backend job status, runtime events, artifact refs, worker identity, strategy version, and cancel-request state.
+- The Backtest Center remains observational-only: the browser action is limited to `cancelBacktestJob()` / request cancel, with `may_submit_order: false` visible.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- --run app/backtests/'[jobId]'/page.test.tsx
+# RED first: no backend fetch calls
+# GREEN: 1 passed
+```
+
+## Closure progress — 2026-05-26 Segment 3 Dashboard navigation and builder route
+
+**Status:** completed.
+
+Closed/changed findings:
+
+- `MEDIUM-3` Dashboard CTA buttons are no longer inert: they switch the main workspace between AI prompt and StrategySpec/market setup sections.
+- `MEDIUM-4` broken Builder route is closed by adding `/builder/[strategyId]`, preserving the existing strategy-detail link while keeping the page draft-only and non-authoritative.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx app/builder/'[strategyId]'/page.test.tsx
+# RED first: inert CTA and missing route
+# GREEN: 3 passed
+```
+
+## Closure progress — 2026-05-26 Segment 4 LLM config persistence and AI ID simplification
+
+**Status:** completed.
+
+Closed/changed findings:
+
+- `MEDIUM-5` LLM config is no longer local draft state only: `/api/config/llm` now provides a backend load/save contract for non-secret OpenAI-compatible provider and model-role settings.
+- Browser secret collection is explicitly rejected by backend config routes and absent from the UI.
+- `MEDIUM-6` AI copilot technical lineage IDs are hidden for normal users and only rendered under `Advanced lineage IDs`; default generated IDs still flow through the advisory API payload.
+
+Evidence:
+
+```bash
+rtk pytest tests/api/test_llm_config_routes.py -q
+# 2 passed after RED/GREEN cycle
+
+cd apps/web && npm test -- --run components/config/ModelConfigTabs.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx
+# 3 passed after RED/GREEN cycle
+```
+
+## Master reconciliation — 2026-05-26 UI workflow closure
+
+**Status:** completed.
+
+Closed current UI findings:
+
+- HIGH: StrategySpec editor no longer emits partial scaffold-only StrategySpec output.
+- HIGH: Backtest Center no longer renders a static contract list; it fetches job/event contracts and exposes artifact/cancel state.
+- MEDIUM: Dashboard CTA buttons now switch the intended workflow sections.
+- MEDIUM: `/builder/[strategyId]` now exists for strategy-detail links.
+- MEDIUM: LLM config now has backend load/save validation for non-secret provider/model settings.
+- MEDIUM: AI copilot technical lineage IDs are hidden by default under an Advanced affordance.
+
+Remaining risk / non-claim:
+
+- Backtest Center has an observational degraded fallback for fixture/development IDs that are absent from the backend; this keeps the UI navigable but does not prove the job exists.
+- LLM config persists non-secret routing settings only. API keys remain server-environment concerns and are not accepted by browser config payloads.
+- These changes improve UI workflow readiness; they do not create live order authority or real Nautilus engine proof beyond existing backend contracts.
+
+Verification:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 365 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 29 passed; build passed; Playwright 4 passed
+```

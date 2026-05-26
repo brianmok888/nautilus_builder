@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Alert, Badge, Card, Form, Input, Select, Space, Tabs, Tag, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Badge, Button, Card, Form, Input, Select, Space, Tabs, Tag, Typography } from "antd";
+import { fetchLlmConfig, saveLlmConfig } from "../../lib/api";
 
 const providerOptions = [
   {
@@ -39,6 +40,42 @@ export function ModelConfigTabs() {
   const [draftModel, setDraftModel] = useState("strategy-draft-model");
   const [validationModel, setValidationModel] = useState("strategy-draft-model");
   const [explanationModel, setExplanationModel] = useState("strategy-draft-model");
+  const [status, setStatus] = useState<{ type: "success" | "warning" | "error"; message: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchLlmConfig()
+      .then((config) => {
+        if (!isMounted) return;
+        setProviderType(config.provider_type);
+        setBaseUrl(config.base_url);
+        setDraftModel(config.roles.draft_strategy_spec);
+        setValidationModel(config.roles.validate_and_repair);
+        setExplanationModel(config.roles.explain_operator_feedback);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setStatus({
+          type: "warning",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const savePayload = useMemo(
+    () => ({
+      provider_type: providerType,
+      base_url: baseUrl,
+      draft_model: draftModel,
+      validation_model: validationModel,
+      explanation_model: explanationModel,
+    }),
+    [baseUrl, draftModel, explanationModel, providerType, validationModel],
+  );
 
   const preview = useMemo(
     () => ({
@@ -59,9 +96,28 @@ export function ModelConfigTabs() {
         promotion: "manual only",
         live_order_authority: false,
       },
+      persistence: "backend /api/config/llm contract; secrets remain server_environment",
     }),
     [baseUrl, draftModel, explanationModel, providerType, validationModel],
   );
+
+  async function onSaveConfig() {
+    setIsSaving(true);
+    setStatus(null);
+    try {
+      const saved = await saveLlmConfig(savePayload);
+      setProviderType(saved.provider_type);
+      setBaseUrl(saved.base_url);
+      setDraftModel(saved.roles.draft_strategy_spec);
+      setValidationModel(saved.roles.validate_and_repair);
+      setExplanationModel(saved.roles.explain_operator_feedback);
+      setStatus({ type: "success", message: "Saved LLM config" });
+    } catch (error) {
+      setStatus({ type: "error", message: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <section className="panel config-panel" aria-label="llm model configuration">
@@ -69,9 +125,10 @@ export function ModelConfigTabs() {
         <Alert
           showIcon
           type="info"
-          title="LLM settings are an operator-facing draft surface"
-          description="Provider secrets stay on the backend environment/config store. The browser can inspect intended provider/model roles but cannot collect API keys."
+          title="LLM settings are an operator-facing backend contract"
+          description="Provider secrets stay on the backend environment/config store. The browser can inspect and save intended provider/model roles but cannot collect API keys."
         />
+        {status ? <Alert showIcon type={status.type} title={status.message} /> : null}
         <Tabs
           className="config-tabs"
           defaultActiveKey="providers"
@@ -88,7 +145,7 @@ export function ModelConfigTabs() {
                   <Form layout="vertical" className="form-grid">
                     <Form.Item label="Provider type">
                       <Select
-                        aria-label="provider type"
+                        aria-label="Provider type"
                         options={providerOptions}
                         value={providerType}
                         onChange={setProviderType}
@@ -96,7 +153,7 @@ export function ModelConfigTabs() {
                     </Form.Item>
                     <Form.Item label="Base URL">
                       <Input
-                        aria-label="base url"
+                        aria-label="Base URL"
                         value={baseUrl}
                         onChange={(event) => setBaseUrl(event.target.value)}
                       />
@@ -114,6 +171,9 @@ export function ModelConfigTabs() {
                       </li>
                     ))}
                   </ul>
+                  <Button type="primary" loading={isSaving} onClick={onSaveConfig}>
+                    Save LLM config
+                  </Button>
                 </Card>
               ),
             },
@@ -123,8 +183,8 @@ export function ModelConfigTabs() {
               children: (
                 <Card title="Model roles">
                   <Typography.Paragraph>
-                    Separate draft, validation, and explanation roles so later
-                    backend config can route each advisory task independently.
+                    Separate draft, validation, and explanation roles so backend
+                    config can route each advisory task independently.
                   </Typography.Paragraph>
                   <Form layout="vertical" className="form-grid">
                     <Form.Item label="Draft model">
@@ -150,7 +210,7 @@ export function ModelConfigTabs() {
                     </Form.Item>
                   </Form>
                   <Tag color="warning">
-                    UI draft only — backend env/config store remains source of truth.
+                    Backend config contract — secrets remain server-side only.
                   </Tag>
                 </Card>
               ),

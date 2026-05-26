@@ -10,6 +10,8 @@ import type {
   DataAvailability,
   ExecutionLaneStatus,
   InstrumentSummary,
+  LlmConfig,
+  LlmConfigSavePayload,
   PromotionRequestResult,
   ResultDashboardPayload,
   StrategyDetail,
@@ -242,6 +244,21 @@ export async function fetchResultTrades(resultId: string): Promise<unknown[]> {
 
 export async function fetchResultFills(resultId: string): Promise<unknown[]> {
   return (await fetchResultSummary(resultId)).fills;
+}
+
+
+export async function fetchLlmConfig(): Promise<LlmConfig> {
+  return apiFetch<LlmConfig>("/api/config/llm");
+}
+
+export async function saveLlmConfig(
+  payload: LlmConfigSavePayload,
+): Promise<LlmConfig> {
+  return apiFetch<LlmConfig>("/api/config/llm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function generateAiDraft(

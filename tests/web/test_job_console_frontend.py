@@ -20,10 +20,13 @@ def test_job_terminal_declares_allowed_commands_and_forbidden_shell_boundary() -
 
 def test_backtest_job_frontend_page_uses_status_events_and_cancel_contracts() -> None:
     page = (ROOT / "apps" / "web" / "app" / "backtests" / "[jobId]" / "page.tsx").read_text()
+    client = (ROOT / "apps" / "web" / "app" / "backtests" / "[jobId]" / "BacktestJobClient.tsx").read_text()
     api = (ROOT / "apps" / "web" / "lib" / "api.ts").read_text()
 
     assert "fetchBacktestJob" in api
     assert "cancelBacktestJob" in api
     assert "fetchBacktestJobEvents" in api
-    assert "Observational runtime console" in page
-    assert "request cancel" in page
+    assert "fetchBacktestJob(jobId)" in page
+    assert "fetchBacktestJobEvents(jobId)" in page
+    assert "Observational runtime console" in client
+    assert "request cancel" in client

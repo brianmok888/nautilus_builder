@@ -51,7 +51,7 @@ test("operator can traverse composed observational journey with stable IDs and n
   await expect(page.getByText("strategy_version_id")).toBeVisible();
 
   await page.goto("/");
-  await expect(page.getByText("ai_thread_id and improvement_cycle_id")).toBeVisible();
+  await expect(page.getByText("Lineage IDs are automatic by default and available only under Advanced.")).toBeVisible();
   await expect(page.getByText("approval_state: manual_approval_pending")).toBeVisible();
   await expect(page.getByText("Order authority remains disabled in Builder.")).toBeVisible();
   await expect(page.getByText("Trade-action creation remains disabled in Builder.")).toBeVisible();

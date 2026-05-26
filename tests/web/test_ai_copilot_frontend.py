@@ -40,7 +40,8 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
     dashboard = (ROOT / "apps" / "web" / "components" / "dashboard" / "BuilderDashboard.tsx").read_text()
     css = (ROOT / "apps" / "web" / "app" / "globals.css").read_text()
 
-    assert 'defaultActiveKey="ai"' in dashboard
+    assert 'useState("ai")' in dashboard
+    assert "activeKey={activeTab}" in dashboard
     assert "compact-dashboard" in dashboard
     assert "compact-workflow-card" in dashboard
     assert 'componentSize="small"' in (ROOT / "apps" / "web" / "components" / "shell" / "OperatorAppShell.tsx").read_text()
