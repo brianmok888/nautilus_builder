@@ -11,6 +11,7 @@ def test_backtest_job_can_be_created_read_and_cancelled() -> None:
         "adapter_profile_id": "profile_001",
         "instrument_id": "BTCUSDT-PERP",
         "validation_report_id": "validation_001",
+        "compile_hash": "a" * 64,
         "compile_artifact_id": "compile_001",
         "created_by": "operator_001",
         "data_range": "2024-01-01:2024-03-01",
@@ -128,6 +129,7 @@ def _strict_payload() -> dict[str, object]:
         "adapter_profile_id": "BINANCE_PERP",
         "instrument_id": "BTCUSDT-PERP",
         "validation_report_id": "validation_001",
+        "compile_hash": "a" * 64,
         "compile_artifact_id": "compile_001",
         "created_by": "operator_001",
         "data_range": "2024-01-01:2024-03-01",
@@ -172,9 +174,10 @@ def test_strict_backtest_job_creation_requires_auth_context(tmp_path) -> None:
     context = _strict_context()
     registry = _strict_dataset_registry(tmp_path, context)
 
+    payload = _strict_payload()
     response = create_backtest_job_payload(
         BacktestJobService(),
-        _strict_payload(),
+        payload,
         context=None,
         dataset_registry=registry,
         strict_scope=True,
@@ -267,7 +270,7 @@ def test_strict_backtest_job_read_and_cancel_ignore_spoofed_query_scope(tmp_path
 
 def test_strict_backtest_job_creation_requires_root_policy_registry(tmp_path) -> None:
     context = _strict_context()
-    registry = CatalogDatasetRegistryService()
+    registry = CatalogDatasetRegistryService(allow_unrooted_test_mode=True)
     registry.register_dataset(
         CatalogDataset(
             dataset_id="ds_btcusdt_perp_2024_q1",
@@ -294,3 +297,39 @@ def test_strict_backtest_job_creation_requires_root_policy_registry(tmp_path) ->
     assert response.status_code == 422
     assert response.json()["error"] == "invalid_backtest_job_request"
     assert "catalog_root is required" in response.json()["details"]
+
+
+def test_strict_backtest_job_creation_requires_explicit_sha256_compile_hash(tmp_path) -> None:
+    context = _strict_context()
+    registry = _strict_dataset_registry(tmp_path, context)
+    payload = _strict_payload()
+    payload.pop("compile_hash")
+    response = create_backtest_job_payload(
+        BacktestJobService(),
+        payload,
+        context=context,
+        dataset_registry=registry,
+        strict_scope=True,
+    )
+
+    assert response.status_code == 422
+    assert "compile_hash" in response.json()["details"]
+
+
+def test_strict_backtest_job_creation_keeps_compile_artifact_id_separate_from_hash(tmp_path) -> None:
+    context = _strict_context()
+    registry = _strict_dataset_registry(tmp_path, context)
+    payload = {**_strict_payload(), "compile_hash": "a" * 64, "compile_artifact_id": "compile_001"}
+
+    response = create_backtest_job_payload(
+        BacktestJobService(),
+        payload,
+        context=context,
+        dataset_registry=registry,
+        strict_scope=True,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["compile_hash"] == "a" * 64
+    assert body["compile_artifact_id"] == "compile_001"

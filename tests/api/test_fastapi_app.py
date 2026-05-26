@@ -160,6 +160,7 @@ def test_fastapi_backtest_jobs_require_bearer_auth_and_ignore_spoofed_scope(monk
         "adapter_profile_id": "BINANCE_PERP",
         "instrument_id": "BTCUSDT-PERP",
         "validation_report_id": "validation_001",
+        "compile_hash": "a" * 64,
         "compile_artifact_id": "compile_001",
         "created_by": "operator_001",
         "data_range": "2024-01-01:2024-03-01",
@@ -425,3 +426,22 @@ def test_fastapi_results_route_does_not_expose_fixture_fallback_as_production_re
 
     assert response.status_code == 404
     assert response.json()["error"] == "result_not_found"
+
+def test_fastapi_bootstrap_registers_env_dev_bearer_token(monkeypatch) -> None:
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setenv("BUILDER_DEV_AUTH_TOKEN", "nb_local_dev_token")
+    monkeypatch.setenv("BUILDER_DEV_USER_ID", "user_123")
+    monkeypatch.setenv("BUILDER_DEV_PROJECT_ID", "project_alpha")
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    app = create_fastapi_app()
+    response = app.routes[("POST", "/api/ai-builder/draft")](
+        {"prompt": "Draft EMA RSI"},
+        authorization="Bearer nb_local_dev_token",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["accepted"] is True

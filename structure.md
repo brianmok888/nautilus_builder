@@ -1953,3 +1953,110 @@ Still open:
 - `dummy`/`fixture`/`placeholder` language remains in tests/docs and some frontend/result scaffolds; mostly intentional, but must not be used in readiness claims.
 - `PostgresWorkflowRepository` is a semantic misnomer until it becomes a real Postgres/psycopg repository.
 - `created_from="imported"` is schema-allowed but rejected by the raw-code substring scanner because `imported` contains `import`.
+
+## Implementation progress — Segment DR-CLOSURE-1 StrategySpec validation hardening
+
+**Completed:** 2026-05-26
+
+Changes:
+
+- Added validation closure tests for backtest-before-shadow, ISO date parsing/order, rule operator arity, rule operand reference resolution, imported provenance, and raw import statements.
+- Hardened `packages/strategy_validation/validators.py` so StrategySpecs must keep `requires_backtest_before_shadow=true`, have ordered ISO-8601 data ranges, and use exactly two operands per supported rule operator.
+- Raw-code detection now uses token-aware checks for words such as `import`, so safe enum values like `created_from="imported"` are accepted while `import os` remains blocked.
+
+Verification:
+
+```bash
+rtk pytest tests/strategy_validation/test_deep_review_closure_validation.py -q
+# 7 passed
+rtk pytest tests/strategy_validation tests/strategy_spec tests/ai_builder -q
+# 44 passed
+```
+
+## Implementation progress — Segment DR-CLOSURE-2 StrategySpec no-order rule replay
+
+**Completed:** 2026-05-26
+
+Changes:
+
+- Added `packages/nautilus_rule_graph/evaluator.py`, a deterministic no-order evaluator for StrategySpec indicators and rules.
+- `RuleGraphBacktestStrategy` now evaluates the StrategySpec rule graph on each quote tick while preserving `orders=0`, `positions=0`, `execution_authority=false`, and `may_submit_order=false`.
+- StrategySpec catalog replay evidence now reports rule/observation counts and no-order signal evaluation metadata alongside the Nautilus `BacktestNode` catalog smoke result.
+
+Verification:
+
+```bash
+rtk pytest tests/nautilus_rule_graph/test_rule_graph_evaluator.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# 6 passed
+rtk pytest tests/nautilus_rule_graph tests/backtest_runner tests/strategy_validation tests/strategy_spec -q
+# 58 passed
+```
+
+## Implementation progress — Segment DR-CLOSURE-3 web/API auth and dev-server exposure
+
+**Completed:** 2026-05-26
+
+Changes:
+
+- `apps/web/lib/api.ts` now attaches a configured local bearer token (`BUILDER_API_TOKEN` server-side or `NEXT_PUBLIC_BUILDER_API_TOKEN` browser/dev mode) to `/api/*` calls without overriding explicit `Authorization` headers.
+- FastAPI bootstrap can register a local env-owned development token via `BUILDER_DEV_AUTH_TOKEN` / `BUILDER_API_TOKEN` for VM demos while preserving bearer auth as the protected-route boundary.
+- Dependency-free `services.api.dev_server` is now documented as local-only; README and backend runtime entrypoint diagnostics no longer recommend binding that unauthenticated contract server to `0.0.0.0`.
+
+Verification:
+
+```bash
+cd apps/web && npm run typecheck && npm test -- --run lib/api.test.ts
+# typecheck passed; 8 tests passed
+rtk pytest tests/api/test_fastapi_app.py tests/integration/test_readme_readiness_hygiene.py tests/integration/test_headless_backend_runtime.py -q
+# 22 passed
+```
+
+## Implementation progress — Segment DR-CLOSURE-4 medium-risk evidence and persistence closure
+
+**Completed:** 2026-05-26
+
+Changes:
+
+- Strategy module registry metadata now resolves to the actual `RuleGraphBacktestStrategyConfig` class instead of a missing config symbol.
+- Backtest job lineage now separates `compile_hash` from `compile_artifact_id`; strict FastAPI job creation requires a 64-character SHA-256 compile hash while legacy non-strict compatibility derives a deterministic hash from the artifact ID.
+- Injected-engine/non-fixture backtest result normalization now emits scoped Builder artifact URIs under `artifact://builder/{project_id}/{user_id}/backtest_result/...`.
+- Catalog dataset registry construction is rooted by default for registration/selection; unrooted mode is explicitly marked as test compatibility.
+- FastAPI production mode now fails closed unless a durable AI audit store is injected or `BUILDER_AI_AUDIT_SQLITE_PATH` is configured.
+- The SQLite workflow repository now has an honest `SqliteWorkflowRepository` export; `PostgresWorkflowRepository` remains only as a compatibility alias until a real psycopg-backed implementation lands.
+
+Verification:
+
+```bash
+rtk pytest tests/catalog_datasets tests/api/test_backtest_job_routes.py tests/api/test_fastapi_app.py tests/backtest_jobs tests/backtest_runner/test_result_normalizer.py tests/strategy_registry tests/workflow_spine tests/ai_builder -q
+# Pytest: 112 passed
+```
+
+## Master reconciliation — deep-review closure pass 2026-05-26
+
+The named high/medium findings from the 2026-05-26 review are closed at repository-contract level without weakening the Builder authority boundary:
+
+- StrategySpec validation now rejects incoherent backtest-before-shadow, date-range, operator-arity, operand-reference, credential/order-token, and raw-code cases while accepting safe imported provenance.
+- StrategySpec replay now produces no-order rule/indicator evaluation evidence under the Nautilus replay seam, but still does not create orders or live authority.
+- Web/API local bearer-token propagation and dependency-free dev-server public-binding guidance are fixed for VM/demo operation.
+- Medium evidence/persistence hazards around registry paths, compile hash lineage, artifact refs, catalog root policy, AI audit durability, and SQLite-vs-Postgres naming are closed or made explicit compatibility seams.
+
+Final verification for this pass:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 363 passed
+
+cd apps/web
+npm run typecheck
+npm test
+npm run build
+# typecheck passed; Vitest 12 files / 25 tests passed; Next.js production build passed
+```
+
+Remaining non-blocking watch items:
+
+- Full production Postgres persistence is still future work; the current workflow repository is explicitly SQLite/test-contract storage.
+- Frontend browser E2E still requires a provisioned Playwright browser before claiming full UI deployment readiness.
+- Future live execution must remain outside Builder authoring/backtest authority until Nautilus live-node/adapter reconciliation and ExecTester evidence exist.

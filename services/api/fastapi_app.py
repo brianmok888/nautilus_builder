@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
+import sqlite3
 from typing import Any
 
-from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore
+from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import AuthTokenService, InvalidAuthTokenError, UserProjectContext
@@ -45,8 +47,9 @@ def create_fastapi_app(
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
     backtest_job_service = backtest_job_service or BacktestJobService()
     auth_token_service = auth_token_service or AuthTokenService()
+    _register_env_dev_token(auth_token_service)
     catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
-    ai_builder_service = AiBuilderService.from_env(store=ai_audit_store or RecordedAiDraftStore())
+    ai_builder_service = AiBuilderService.from_env(store=_default_ai_audit_store(ai_audit_store))
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
@@ -319,3 +322,27 @@ def _context_from_authorization(
         return auth_token_service.verify_token(token.strip()), None
     except InvalidAuthTokenError as exc:
         return None, ApiResponse({"error": "invalid_auth_token", "details": str(exc)}, status_code=401)
+
+
+def _register_env_dev_token(auth_token_service: AuthTokenService) -> None:
+    token = (os.environ.get("BUILDER_DEV_AUTH_TOKEN") or os.environ.get("BUILDER_API_TOKEN") or "").strip()
+    if not token:
+        return
+    auth_token_service.register_token(
+        token=token,
+        user_id=os.environ.get("BUILDER_DEV_USER_ID", "local_user"),
+        project_id=os.environ.get("BUILDER_DEV_PROJECT_ID", "local_project"),
+        role=os.environ.get("BUILDER_DEV_ROLE", "builder"),
+    )
+
+
+def _default_ai_audit_store(ai_audit_store: DraftAuditStoreProtocol | None) -> DraftAuditStoreProtocol:
+    if ai_audit_store is not None:
+        return ai_audit_store
+    sqlite_path = os.environ.get("BUILDER_AI_AUDIT_SQLITE_PATH", "").strip()
+    if sqlite_path:
+        return SqliteAiDraftAuditStore(connection=sqlite3.connect(sqlite_path))
+    environment = (os.environ.get("BUILDER_ENV") or os.environ.get("APP_ENV") or "").strip().lower()
+    if environment in {"prod", "production"}:
+        raise ValueError("durable AI audit store is required in production")
+    return RecordedAiDraftStore()

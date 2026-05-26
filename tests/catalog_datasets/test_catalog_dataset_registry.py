@@ -25,7 +25,7 @@ def _dataset(tmp_path: Path, *, catalog_path: Path | None = None) -> CatalogData
 
 def test_selects_user_catalog_dataset_with_full_backtest_profile_match(tmp_path) -> None:
     context = UserProjectContext(user_id="user_123", project_id="project_alpha")
-    service = CatalogDatasetRegistryService()
+    service = CatalogDatasetRegistryService(catalog_root=tmp_path)
     dataset = service.register_dataset(_dataset(tmp_path))
 
     selected = service.select_dataset(
@@ -46,7 +46,7 @@ def test_selects_user_catalog_dataset_with_full_backtest_profile_match(tmp_path)
 
 def test_rejects_catalog_dataset_profile_mismatch(tmp_path) -> None:
     context = UserProjectContext(user_id="user_123", project_id="project_alpha")
-    service = CatalogDatasetRegistryService()
+    service = CatalogDatasetRegistryService(catalog_root=tmp_path)
     dataset = service.register_dataset(_dataset(tmp_path))
 
     with pytest.raises(ValueError, match="dataset field mismatch: instrument_id expected ETHUSDT-PERP, got BTCUSDT-PERP"):
@@ -63,7 +63,7 @@ def test_rejects_catalog_dataset_profile_mismatch(tmp_path) -> None:
 
 
 def test_rejects_cross_project_catalog_dataset_selection(tmp_path) -> None:
-    service = CatalogDatasetRegistryService()
+    service = CatalogDatasetRegistryService(catalog_root=tmp_path)
     dataset = service.register_dataset(_dataset(tmp_path))
     intruder = UserProjectContext(user_id="user_123", project_id="project_beta")
 
@@ -106,13 +106,13 @@ def test_rejects_catalog_path_traversing_symlinked_directory(tmp_path) -> None:
 def test_strict_catalog_registration_requires_configured_root_policy(tmp_path) -> None:
     service = CatalogDatasetRegistryService()
 
-    with pytest.raises(ValueError, match="catalog_root is required for strict catalog dataset selection"):
+    with pytest.raises(ValueError, match="catalog_root is required for catalog dataset registration"):
         service.register_dataset(_dataset(tmp_path), strict_root_policy=True)
 
 
 def test_strict_catalog_selection_requires_configured_root_policy(tmp_path) -> None:
     context = UserProjectContext(user_id="user_123", project_id="project_alpha")
-    service = CatalogDatasetRegistryService()
+    service = CatalogDatasetRegistryService(allow_unrooted_test_mode=True)
     dataset = service.register_dataset(_dataset(tmp_path))
 
     with pytest.raises(ValueError, match="catalog_root is required for strict catalog dataset selection"):
@@ -127,3 +127,10 @@ def test_strict_catalog_selection_requires_configured_root_policy(tmp_path) -> N
             date_range="2024-01-01:2024-03-01",
             strict_root_policy=True,
         )
+
+
+def test_catalog_dataset_registration_requires_root_policy_by_default(tmp_path) -> None:
+    service = CatalogDatasetRegistryService()
+
+    with pytest.raises(ValueError, match="catalog_root is required for catalog dataset registration"):
+        service.register_dataset(_dataset(tmp_path))

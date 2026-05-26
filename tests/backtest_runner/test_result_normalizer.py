@@ -51,4 +51,19 @@ def test_injected_engine_result_refs_are_not_marked_as_fixture_only() -> None:
 
     assert normalized.artifact_refs["evidence_mode"] == "injected_engine"
     assert normalized.artifact_refs["fixture_evidence_only"] == "false"
-    assert normalized.artifact_refs["result"] == "artifact://backtests/job_001/result.json"
+    assert normalized.artifact_refs["result"] == "artifact://builder/default/system/backtest_result/job_001"
+
+
+def test_injected_engine_result_refs_use_scoped_builder_artifact_uri() -> None:
+    normalized = normalize_backtest_result(
+        backtest_job_id="job_001",
+        raw_result={"trades": [], "fills": [], "logs": []},
+        strategy_spec_version="0.1.0-draft.1",
+        compile_hash="a" * 64,
+        worker_image="nautilus-builder-worker:dev",
+        engine_mode="injected_engine",
+        project_id="project_alpha",
+        user_id="user_123",
+    )
+
+    assert normalized.artifact_refs["result"] == "artifact://builder/project_alpha/user_123/backtest_result/job_001"

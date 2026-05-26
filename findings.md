@@ -2118,3 +2118,96 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 - Execution lane contracts are useful, but there is no Nautilus `LiveNode`/`TradingNode`, adapter factory, DataTester, ExecTester, or reconciliation evidence. Treat it as a decoupled execution-lane model only.
 - LangChain/LangGraph/EvoMap alignment is conceptual today: Builder has an OpenAI-compatible provider and audit records, but no stateful graph/checkpointed AI improvement lane yet.
 - The DB direction should converge: either keep explicit in-memory/SQLite contract storage for open-source demo mode or implement the Postgres migrations end to end. Do not call the current SQLite repository production Postgres.
+
+### Closure update — DR-CLOSURE-1 StrategySpec validation hardening (2026-05-26)
+
+Status: **CLOSED for validation scope**.
+
+- HIGH finding "StrategySpec validation accepts unsafe or incoherent backtest semantics" is closed for the documented validator gaps: backtest-before-shadow, ISO datetime parsing/order, exact rule arity, rule operand reference resolution, and imported provenance false positives.
+- Remaining related work is covered by DR-CLOSURE-2: StrategySpec replay must now prove no-order rule evaluation evidence under Nautilus replay.
+
+Evidence:
+
+```bash
+rtk pytest tests/strategy_validation/test_deep_review_closure_validation.py -q
+# 7 passed
+rtk pytest tests/strategy_validation tests/strategy_spec tests/ai_builder -q
+# 44 passed
+```
+
+### Closure update — DR-CLOSURE-2 StrategySpec no-order rule replay (2026-05-26)
+
+Status: **CLOSED for no-order replay semantics**.
+
+- HIGH finding "StrategySpec-generated Nautilus replay does not execute the StrategySpec logic yet" is closed for the safe Builder scope: replay now includes deterministic StrategySpec indicator/rule evaluation evidence while still emitting zero orders, zero positions, no credentials, no live authority, and `may_submit_order=false`.
+- This is not a live trading implementation and does not replace future full Nautilus strategy/order parity work.
+
+Evidence:
+
+```bash
+rtk pytest tests/nautilus_rule_graph/test_rule_graph_evaluator.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# 6 passed
+rtk pytest tests/nautilus_rule_graph tests/backtest_runner tests/strategy_validation tests/strategy_spec -q
+# 58 passed
+```
+
+### Closure update — DR-CLOSURE-3 web/API auth and dev-server exposure (2026-05-26)
+
+Status: **CLOSED for local/VM auth propagation and unsafe dev-server docs**.
+
+- HIGH finding "The web UI has no bearer-auth propagation for protected FastAPI routes" is closed for the local/VM route: web API helpers propagate configured bearer tokens and auth failures now include setup guidance.
+- HIGH finding "Unauthenticated dependency-free API docs/diagnostics advertise public binding" is closed: dependency-free dev server examples now use `127.0.0.1` and document local-only scope.
+
+Evidence:
+
+```bash
+cd apps/web && npm run typecheck && npm test -- --run lib/api.test.ts
+# typecheck passed; 8 tests passed
+rtk pytest tests/api/test_fastapi_app.py tests/integration/test_readme_readiness_hygiene.py tests/integration/test_headless_backend_runtime.py -q
+# 22 passed
+```
+
+### Closure update — DR-CLOSURE-4 medium-risk evidence and persistence closure (2026-05-26)
+
+Status: **CLOSED for repo-contract scope**.
+
+- MEDIUM finding "Strategy module registry metadata points to a missing config class" is closed: default metadata resolves to `packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategyConfig` and tests import both allowlisted symbols.
+- MEDIUM finding "Backtest job creation treats `compile_artifact_id` as `compile_hash`" is closed for strict FastAPI paths: strict creation requires a 64-character SHA-256 `compile_hash`, preserves `compile_artifact_id` separately, and legacy non-strict compatibility derives a deterministic hash instead of mislabeling the artifact ID.
+- MEDIUM finding "Artifact URI schemes are not consistent across result paths" is closed for non-fixture result normalization: injected-engine results now use scoped `artifact://builder/{project_id}/{user_id}/backtest_result/{job_id}` refs.
+- MEDIUM finding "Catalog root policy is optional outside strict FastAPI paths" is closed for registry write/selection defaults: unrooted registries raise unless explicitly constructed as test compatibility.
+- MEDIUM finding "AI audit persistence defaults to process memory" is closed for production FastAPI bootstrap: production mode requires a durable injected store or `BUILDER_AI_AUDIT_SQLITE_PATH`.
+- MEDIUM finding "`PostgresWorkflowRepository` is SQLite-style despite the Postgres name" is controlled: `SqliteWorkflowRepository` is now the honest public name and the old Postgres name is a compatibility alias, not a production-readiness claim.
+
+Evidence:
+
+```bash
+rtk pytest tests/catalog_datasets tests/api/test_backtest_job_routes.py tests/api/test_fastapi_app.py tests/backtest_jobs tests/backtest_runner/test_result_normalizer.py tests/strategy_registry tests/workflow_spine tests/ai_builder -q
+# Pytest: 112 passed
+```
+
+### Master reconciliation — 2026-05-26 deep-review findings closure
+
+Status: **CLOSED for the named repository-contract findings; WATCH for production/runtime maturity claims**.
+
+All named HIGH/MEDIUM findings in this pass have concrete code/tests/docs closure. The closure does not claim full production trading readiness: Builder remains an advisory authoring/backtest system with no live order authority, no browser credentials, and no `submit_order`/`TradeAction` path.
+
+Final verification:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 363 passed
+
+cd apps/web
+npm run typecheck
+npm test
+npm run build
+# Typecheck passed; Vitest 25 passed; Next.js build passed
+```
+
+Remaining watch items before stronger claims:
+
+- production Postgres repository against `infra/migrations`, not the SQLite compatibility repository;
+- Playwright/browser E2E for full frontend readiness;
+- future Nautilus live execution node/adapter reconciliation and ExecTester evidence before any live-trading readiness claim.

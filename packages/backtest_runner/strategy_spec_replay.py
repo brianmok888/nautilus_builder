@@ -10,6 +10,7 @@ from packages.auth import UserProjectContext, assert_same_project
 from packages.catalog_datasets import CatalogDataset, CatalogPathPolicy
 from packages.strategy_compiler.compiler import compile_strategy_spec
 from packages.strategy_spec.models import StrategySpec
+from packages.nautilus_rule_graph.evaluator import evaluate_strategy_spec_quote_ticks
 
 from .engine_contract import NAUTILUS_TRADER_VERSION
 from .runtime_check import assert_nautilus_runtime_version
@@ -52,11 +53,13 @@ def run_strategy_spec_catalog_replay(
     instrument = _instrument_for_builder_id(dataset.instrument_id, TestInstrumentProvider)
     clear_singleton_instances(ParquetDataCatalog)
     catalog = ParquetDataCatalog(path=catalog_path.as_posix())
-    catalog_data_count = len(catalog.quote_ticks(instrument_ids=[str(instrument.id)]))
+    ticks = catalog.quote_ticks(instrument_ids=[str(instrument.id)])
+    catalog_data_count = len(ticks)
     if catalog_data_count <= 0:
         raise ValueError("user catalog has no matching quote_ticks")
 
     manifest = _catalog_manifest(catalog_path)
+    rule_graph_evidence = evaluate_strategy_spec_quote_ticks(spec.model_dump(mode="json"), ticks)
     return _run_strategy_spec_backtest(
         status=status,
         dataset=dataset,
@@ -69,6 +72,7 @@ def run_strategy_spec_catalog_replay(
         engine_mode=STRATEGY_SPEC_CATALOG_REPLAY_MODE,
         dataset_source=USER_CATALOG_DATASET_SOURCE,
         manifest=manifest,
+        rule_graph_evidence=rule_graph_evidence,
     )
 
 
@@ -114,8 +118,10 @@ def run_strategy_spec_synthetic_catalog_smoke(
     ]
     catalog.write_data([instrument])
     catalog.write_data(ticks)
-    catalog_data_count = len(catalog.quote_ticks(instrument_ids=[str(instrument.id)]))
+    ticks = catalog.quote_ticks(instrument_ids=[str(instrument.id)])
+    catalog_data_count = len(ticks)
     manifest = _catalog_manifest(catalog_path)
+    rule_graph_evidence = evaluate_strategy_spec_quote_ticks(spec.model_dump(mode="json"), ticks)
 
     return _run_strategy_spec_backtest(
         status=status,
@@ -129,6 +135,7 @@ def run_strategy_spec_synthetic_catalog_smoke(
         engine_mode=STRATEGY_SPEC_SYNTHETIC_CATALOG_SMOKE_MODE,
         dataset_source=SYNTHETIC_TEST_KIT_DATASET_SOURCE,
         manifest=manifest,
+        rule_graph_evidence=rule_graph_evidence,
     )
 
 
@@ -145,6 +152,7 @@ def _run_strategy_spec_backtest(
     engine_mode: str,
     dataset_source: str,
     manifest: dict[str, str],
+    rule_graph_evidence: dict[str, object],
 ) -> dict[str, object]:
     from nautilus_trader.backtest.node import BacktestNode
     from nautilus_trader.config import BacktestDataConfig
@@ -221,6 +229,7 @@ def _run_strategy_spec_backtest(
         "live_trading_enabled": False,
         "execution_authority": False,
         "credentials_used": False,
+        **rule_graph_evidence,
     }
 
 

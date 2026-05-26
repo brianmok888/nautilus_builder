@@ -78,14 +78,38 @@ async function parseResponseBody(response: Response): Promise<unknown> {
   }
 }
 
+function builderApiToken(): string {
+  return (
+    process.env.BUILDER_API_TOKEN ??
+    process.env.NEXT_PUBLIC_BUILDER_API_TOKEN ??
+    ""
+  ).trim();
+}
+
+function requestInitWithAuth(path: string, init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers);
+  const token = builderApiToken();
+  if (path.startsWith("/api/") && token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return { ...init, headers };
+}
+
+function isAuthErrorPayload(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null) return false;
+  const error = String((payload as { error?: unknown }).error ?? "");
+  return error === "auth_required" || error === "invalid_auth_token";
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const url = apiUrl(path);
+  const requestInit = requestInitWithAuth(path, init);
   let response: Response;
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, requestInit);
   } catch (error) {
     const cause = error instanceof Error ? error.message : String(error);
     throw new ApiError(
@@ -103,8 +127,9 @@ export async function apiFetch<T>(
       typeof payload === "object" && payload !== null && "body" in payload
         ? String((payload as { body: unknown }).body)
         : "";
-    const message =
-      body || payload === undefined
+    const message = isAuthErrorPayload(payload)
+      ? `Nautilus Builder API authentication failed (${response.status}) for ${url}. Configure BUILDER_API_TOKEN or NEXT_PUBLIC_BUILDER_API_TOKEN for local VM/API proxy mode.`
+      : body || payload === undefined
         ? errorMessage(response.status, url, contentType, body)
         : `Nautilus Builder API request failed (${response.status}) for ${url}`;
     throw new ApiError(message, response.status, payload, url, contentType);

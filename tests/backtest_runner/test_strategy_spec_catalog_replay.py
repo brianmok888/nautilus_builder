@@ -106,6 +106,10 @@ def test_strategy_spec_generated_catalog_replay_reads_user_catalog_without_synth
     assert evidence["catalog_manifest_checksum"] == smoke["catalog_manifest_checksum"]
     assert evidence["catalog_manifest_file_count"] > 0
     assert evidence["iterations"] >= 5
+    assert evidence["strategy_logic_evaluated"] is True
+    assert evidence["signal_observation_count"] == evidence["catalog_data_count"]
+    assert evidence["rule_evaluation_count"] >= evidence["catalog_data_count"]
+    assert evidence["order_intent_count"] == 0
     assert evidence["orders"] == 0
     assert evidence["positions"] == 0
     assert evidence["live_trading_enabled"] is False

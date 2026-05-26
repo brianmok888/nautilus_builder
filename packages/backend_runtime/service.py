@@ -30,7 +30,7 @@ HEADLESS_ENTRYPOINTS: tuple[RuntimeEntrypoint, ...] = (
         name="dependency_free_api",
         kind="http_api",
         target="services.api.dev_server:main",
-        command="python3 -m services.api.dev_server --host 0.0.0.0 --port 8000",
+        command="python3 -m services.api.dev_server --host 127.0.0.1 --port 8000",
     ),
     RuntimeEntrypoint(
         name="fastapi_api",

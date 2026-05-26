@@ -12,7 +12,7 @@ def test_strategy_module_registry_selects_safe_strategy_spec_module() -> None:
 
     assert entry.module_id == "rule_graph_backtest"
     assert entry.strategy_class_path == "packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategy"
-    assert entry.config_class_path == "packages.nautilus_rule_graph.config:RuleGraphStrategyConfig"
+    assert entry.config_class_path == "packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategyConfig"
     assert entry.input_kind == "strategy_spec"
     assert entry.read_only is True
     assert entry.execution_authority is False
@@ -34,7 +34,7 @@ def test_strategy_module_registry_rejects_unallowlisted_module_paths() -> None:
         registry.register_safe_module(
             module_id="unsafe_os",
             strategy_class_path="os:system",
-            config_class_path="packages.nautilus_rule_graph.config:RuleGraphStrategyConfig",
+            config_class_path="packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategyConfig",
             input_kind="strategy_spec",
         )
 
@@ -45,3 +45,15 @@ def test_strategy_module_registry_does_not_import_or_execute_modules() -> None:
     entry = registry.select_for_strategy_spec("rule_graph_backtest")
 
     assert entry.resolution_mode == "metadata_only"
+
+
+def test_strategy_module_registry_paths_resolve_in_allowlisted_mode() -> None:
+    from importlib import import_module
+
+    registry = StrategyModuleRegistryService()
+    entry = registry.select_for_strategy_spec("rule_graph_backtest")
+
+    for path in (entry.strategy_class_path, entry.config_class_path):
+        module_name, _, attr = path.partition(":")
+        module = import_module(module_name)
+        assert getattr(module, attr) is not None

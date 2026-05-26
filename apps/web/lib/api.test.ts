@@ -72,6 +72,53 @@ describe("apiFetch", () => {
     ).rejects.not.toThrow(/empty response body/i);
   });
 
+
+  it("attaches configured local bearer token to API requests when no Authorization header is provided", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("NEXT_PUBLIC_BUILDER_API_TOKEN", "nb_local_dev_token");
+
+    await apiFetch<{ ok: boolean }>("/api/strategies");
+
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const init = calls[0][1];
+    expect(new Headers(init.headers).get("Authorization")).toBe(
+      "Bearer nb_local_dev_token",
+    );
+  });
+
+  it("does not override an explicit Authorization header", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("NEXT_PUBLIC_BUILDER_API_TOKEN", "nb_local_dev_token");
+
+    await apiFetch<{ ok: boolean }>("/api/strategies", {
+      headers: { Authorization: "Bearer caller_token" },
+    });
+
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const init = calls[0][1];
+    expect(new Headers(init.headers).get("Authorization")).toBe(
+      "Bearer caller_token",
+    );
+  });
+
+  it("surfaces FastAPI bearer-auth errors with action guidance", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          { error: "auth_required", details: "Bearer token is required" },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    await expect(apiFetch("/api/strategies")).rejects.toThrow(
+      /configure BUILDER_API_TOKEN or NEXT_PUBLIC_BUILDER_API_TOKEN/i,
+    );
+  });
+
   it("wraps network failures with API base URL guidance", async () => {
     vi.stubGlobal(
       "fetch",

@@ -204,3 +204,31 @@ def test_ai_prompt_containing_credentials_is_rejected_before_audit() -> None:
         raise AssertionError("credential prompt was accepted")
 
     assert store.records_for_thread("thread_secret_prompt") == []
+
+
+def test_fastapi_production_mode_requires_durable_ai_audit_store(monkeypatch) -> None:
+    import sys
+    import types
+
+    class FakeFastAPI:
+        def __init__(self, *, title: str, version: str) -> None:
+            self.title = title
+            self.version = version
+        def get(self, _path):
+            return lambda handler: handler
+        def post(self, _path):
+            return lambda handler: handler
+
+    monkeypatch.setitem(sys.modules, "fastapi", types.SimpleNamespace(FastAPI=FakeFastAPI, Header=lambda default=None: default))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=object))
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    try:
+        create_fastapi_app()
+    except ValueError as exc:
+        assert "durable AI audit store is required" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("production FastAPI app started without durable AI audit store")

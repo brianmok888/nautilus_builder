@@ -21,14 +21,27 @@ class AuthTokenService:
         project_id: str,
         role: str = "builder",
     ) -> AuthToken:
+        token = f"nb_test_{user_id}_{project_id}_{next(self._counter)}"
+        return self.register_token(token=token, user_id=user_id, project_id=project_id, role=role)
+
+    def register_token(
+        self,
+        *,
+        token: str,
+        user_id: str,
+        project_id: str,
+        role: str = "builder",
+    ) -> AuthToken:
         context = UserProjectContext(
             user_id=user_id,
             project_id=project_id,
             role=role,
         )
-        token = f"nb_test_{user_id}_{project_id}_{next(self._counter)}"
-        self._tokens[token] = context
-        return AuthToken(token=token, context=context)
+        normalized = token.strip()
+        if not normalized:
+            raise ValueError("auth token is required")
+        self._tokens[normalized] = context
+        return AuthToken(token=normalized, context=context)
 
     def verify_token(self, token: str) -> UserProjectContext:
         context = self._tokens.get(token)

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import re
+
 from packages.auth import ProjectScopeError, UserProjectContext
 from packages.backtest_jobs.service import BacktestJobService
 from packages.catalog_datasets import CatalogDatasetRegistryService
@@ -11,7 +14,7 @@ _STRICT_REQUIRED_FIELDS = (
     "strategy_version_id",
     "adapter_profile_id",
     "instrument_id",
-    "compile_artifact_id",
+    "compile_hash",
     "validation_report_id",
     "data_range",
     "data_type",
@@ -39,6 +42,9 @@ def create_backtest_job_payload(
                 {"error": "invalid_backtest_job_request", "details": f"missing required fields: {', '.join(missing)}"},
                 status_code=422,
             )
+        compile_hash_error = _compile_hash_error(str(payload.get("compile_hash", "")))
+        if compile_hash_error is not None:
+            return ApiResponse({"error": "invalid_backtest_job_request", "details": compile_hash_error}, status_code=422)
         if dataset_registry is None:
             return ApiResponse(
                 {"error": "invalid_backtest_job_request", "details": "catalog dataset registry is required"},
@@ -73,8 +79,9 @@ def create_backtest_job_payload(
             "strategy_spec_version_id": str(payload["strategy_version_id"]),
             "adapter_profile_id": str(payload["adapter_profile_id"]),
             "instrument_id": str(payload["instrument_id"]),
-            "compile_hash": str(payload["compile_artifact_id"]),
+            "compile_hash": str(payload["compile_hash"]),
             "validation_report_id": str(payload["validation_report_id"]),
+            "compile_artifact_id": str(payload.get("compile_artifact_id", "")),
             "created_by": str(payload.get("created_by", context.user_id)),
             "data_range": str(payload["data_range"]),
             "user_id": context.user_id,
@@ -86,19 +93,26 @@ def create_backtest_job_payload(
             "market_type": dataset.market_type,
         }
     else:
-        required = ("strategy_version_id", "adapter_profile_id", "instrument_id", "compile_artifact_id", "validation_report_id")
+        required = ("strategy_version_id", "adapter_profile_id", "instrument_id", "validation_report_id")
         missing = [field for field in required if not str(payload.get(field, "")).strip()]
+        if not str(payload.get("compile_hash") or payload.get("compile_artifact_id") or "").strip():
+            missing.append("compile_hash")
         if missing:
             return ApiResponse(
                 {"error": "invalid_backtest_job_request", "details": f"missing required fields: {', '.join(missing)}"},
                 status_code=422,
             )
+        try:
+            compile_hash, compile_artifact_id = _compile_lineage_from_payload(payload, strict_scope=False)
+        except ValueError as exc:
+            return ApiResponse({"error": "invalid_backtest_job_request", "details": str(exc)}, status_code=422)
         job_payload = {
             "strategy_spec_version_id": str(payload["strategy_version_id"]),
             "adapter_profile_id": str(payload["adapter_profile_id"]),
             "instrument_id": str(payload["instrument_id"]),
-            "compile_hash": str(payload["compile_artifact_id"]),
+            "compile_hash": compile_hash,
             "validation_report_id": str(payload["validation_report_id"]),
+            "compile_artifact_id": compile_artifact_id,
             "created_by": str(payload.get("created_by", "builder_api")),
             "data_range": str(payload.get("data_range", "unspecified")),
             "user_id": str(payload.get("user_id", "system")),
@@ -193,6 +207,8 @@ def _job_response(job, *, include_backend_id: bool = False) -> dict[str, object]
         "dataset_id": job.dataset_id,
         "catalog_path": job.catalog_path,
         "cancel_requested": job.cancel_requested,
+        "compile_hash": job.compile_hash,
+        "compile_artifact_id": job.compile_artifact_id,
         "mode": "backend_owned",
     }
     if include_backend_id:
@@ -227,3 +243,26 @@ def _context_from_values(*, user_id: str | None, project_id: str | None) -> User
     if not user_id or not project_id:
         raise ProjectScopeError("user_id and project_id are required together for scoped access")
     return UserProjectContext(user_id=user_id, project_id=project_id)
+
+
+_SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
+
+def _compile_hash_error(value: str) -> str | None:
+    if _SHA256_RE.fullmatch(value) is None:
+        return "compile_hash must be a 64-character hex sha256 digest"
+    return None
+
+def _compile_lineage_from_payload(payload: dict[str, object], *, strict_scope: bool) -> tuple[str, str]:
+    compile_hash = str(payload.get("compile_hash") or "").strip()
+    compile_artifact_id = str(payload.get("compile_artifact_id") or "").strip()
+    if compile_hash:
+        error = _compile_hash_error(compile_hash)
+        if error is not None:
+            raise ValueError(error)
+        return compile_hash.lower(), compile_artifact_id
+    if strict_scope:
+        raise ValueError("compile_hash is required")
+    if compile_artifact_id:
+        legacy_hash = hashlib.sha256(f"compile_artifact_id:{compile_artifact_id}".encode("utf-8")).hexdigest()
+        return legacy_hash, compile_artifact_id
+    raise ValueError("compile_hash is required")

@@ -33,3 +33,13 @@ def test_readme_mentions_new_production_readiness_closure_boundaries() -> None:
     assert "tenant-scoped catalog dataset" in readme
     assert "StrategySpec-generated catalog replay" in readme
     assert "real auth middleware" in readme
+
+
+def test_dependency_free_dev_server_is_documented_as_local_only() -> None:
+    readme = Path("README.md").read_text()
+    backend_runtime = Path("packages/backend_runtime/service.py").read_text()
+
+    assert "python3 -m services.api.dev_server --host 127.0.0.1 --port 8000" in readme
+    assert "dependency-free dev server is local-only" in readme.lower()
+    assert "python3 -m services.api.dev_server --host 0.0.0.0" not in readme
+    assert "services.api.dev_server --host 0.0.0.0" not in backend_runtime

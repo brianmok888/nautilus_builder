@@ -37,9 +37,16 @@ class CatalogPathPolicy:
 class CatalogDatasetRegistryService:
     """Project-scoped registry for user-selected Nautilus catalog datasets."""
 
-    def __init__(self, datasets: list[CatalogDataset] | None = None, *, catalog_root: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        datasets: list[CatalogDataset] | None = None,
+        *,
+        catalog_root: str | Path | None = None,
+        allow_unrooted_test_mode: bool = False,
+    ) -> None:
         self._datasets: dict[str, CatalogDataset] = {}
         self._path_policy = CatalogPathPolicy(catalog_root) if catalog_root is not None else None
+        self._allow_unrooted_test_mode = allow_unrooted_test_mode
         for dataset in datasets or []:
             self.register_dataset(dataset)
 
@@ -52,6 +59,8 @@ class CatalogDatasetRegistryService:
             raise ValueError("catalog_root is required for strict catalog dataset selection")
 
     def register_dataset(self, dataset: CatalogDataset, *, strict_root_policy: bool = False) -> CatalogDataset:
+        if self._path_policy is None and not self._allow_unrooted_test_mode:
+            raise ValueError("catalog_root is required for catalog dataset registration")
         if strict_root_policy:
             self.require_root_policy()
         registered = self._normalize_dataset_path(dataset)
@@ -84,6 +93,8 @@ class CatalogDatasetRegistryService:
         date_range: str,
         strict_root_policy: bool = False,
     ) -> CatalogDataset:
+        if self._path_policy is None and not self._allow_unrooted_test_mode:
+            raise ValueError("catalog_root is required for catalog dataset selection")
         if strict_root_policy:
             self.require_root_policy()
         dataset = self.get_dataset(dataset_id)

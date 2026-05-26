@@ -17,6 +17,8 @@ def normalize_backtest_result(
     worker_image: str,
     backtest_job_id: str | None = None,
     engine_mode: str = FIXTURE_ENGINE_MODE,
+    project_id: str = "default",
+    user_id: str = "system",
 ) -> BacktestResultArtifact:
     trades = _list_value(raw_result.get("trades", []))
     fills = _list_value(raw_result.get("fills", []))
@@ -28,9 +30,9 @@ def normalize_backtest_result(
         if fixture_evidence_only and backtest_job_id
         else "fixture://backtests/result.json"
         if fixture_evidence_only
-        else f"artifact://backtests/{backtest_job_id}/result.json"
+        else f"artifact://builder/{project_id}/{user_id}/backtest_result/{backtest_job_id}"
         if backtest_job_id
-        else "result.json"
+        else f"artifact://builder/{project_id}/{user_id}/backtest_result/result"
     )
 
     return BacktestResultArtifact(

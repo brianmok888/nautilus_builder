@@ -65,10 +65,10 @@ Representative modules:
 The backend can run without the Next.js web UI and without a Nautilus-Daedalus checkout. Supported entrypoints are:
 
 ```bash
-# Dependency-free local API contract server
-python3 -m services.api.dev_server --host 0.0.0.0 --port 8000
+# Dependency-free dev server is local-only; not production/internet exposed
+python3 -m services.api.dev_server --host 127.0.0.1 --port 8000
 
-# FastAPI server in the project dependency environment
+# FastAPI server in the project dependency environment; configure BUILDER_DEV_AUTH_TOKEN/BUILDER_API_TOKEN for VM demos
 uv run uvicorn 'services.api.fastapi_app:create_fastapi_app' --factory --host 0.0.0.0 --port 8000
 
 # Standalone execution-lane worker scaffold

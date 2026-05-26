@@ -4,6 +4,7 @@ import sqlite3
 
 from packages.workflow_spine import (
     AiSuggestionRecord,
+    SqliteWorkflowRepository,
     PostgresWorkflowRepository,
     StrategyIdentity,
     StrategyTestParams,
@@ -91,3 +92,11 @@ def test_postgres_workflow_repository_persists_records_across_instances() -> Non
     assert reloaded.job("job_001") == job
     assert reloaded.result("res_001") == result
     assert reloaded.suggestions_for_lineage("lineage_001") == [suggestion]
+
+
+def test_sqlite_workflow_repository_is_the_honest_contract_name() -> None:
+    connection = sqlite3.connect(":memory:")
+    repository = SqliteWorkflowRepository(connection=connection, schema="builder")
+
+    assert repository.backend == "sqlite"
+    assert PostgresWorkflowRepository is SqliteWorkflowRepository

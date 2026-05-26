@@ -25,6 +25,7 @@ class BacktestJobService:
             "instrument_id": str(payload.get("instrument_id") or ""),
             "compile_hash": str(payload.get("compile_hash") or payload.get("compile_artifact_id") or ""),
             "validation_report_id": str(payload.get("validation_report_id") or ""),
+            "compile_artifact_id": str(payload.get("compile_artifact_id") or ""),
             "created_by": str(payload.get("created_by") or "builder_api"),
             "data_range": str(payload.get("data_range") or "unspecified"),
             "user_id": str(payload.get("user_id") or "system"),
@@ -81,6 +82,7 @@ class BacktestJobService:
             market_type=canonical["market_type"],
             compile_hash=canonical["compile_hash"],
             validation_report_id=canonical["validation_report_id"],
+            compile_artifact_id=canonical["compile_artifact_id"] or None,
         )
         self._jobs_by_key[key] = job
         self._jobs_by_id[job.job_id] = job
@@ -136,6 +138,7 @@ class BacktestJobService:
             "instrument_id": job.instrument_id,
             "compile_hash": job.compile_hash,
             "validation_report_id": job.validation_report_id,
+            "compile_artifact_id": job.compile_artifact_id or "",
             "created_by": job.created_by,
             "data_range": job.data_range,
             "user_id": job.user_id,

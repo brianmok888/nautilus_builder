@@ -61,7 +61,9 @@ def workflow_schema_statements(*, schema: str) -> list[str]:
     ]
 
 
-class PostgresWorkflowRepository:
+class SqliteWorkflowRepository:
+    backend = "sqlite"
+
     def __init__(self, *, connection: Connection, schema: str = "builder") -> None:
         self._connection = connection
         self._schema = safe_storage_identifier(schema)
@@ -176,3 +178,7 @@ class PostgresWorkflowRepository:
     @staticmethod
     def _json(payload: dict[str, object]) -> str:
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+# Compatibility alias for existing callers; prefer SqliteWorkflowRepository for honest storage naming.
+PostgresWorkflowRepository = SqliteWorkflowRepository

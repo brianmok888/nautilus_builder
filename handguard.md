@@ -1433,3 +1433,71 @@ rtk pytest tests/workflow_spine tests/infrastructure -q
 - OpenAI-compatible provider use is advisory-only: no shell, credentials, broker/exchange calls, `submit_order`, or `TradeAction` in prompts/specs/audit output.
 - Default production AI audit must be durable; in-memory `RecordedAiDraftStore` is test/demo only.
 - EvoMap/LangGraph-style continuous improvement claims require durable state/checkpoints, prompt-response metadata, accepted/rejected decisions, and replayable improvement-cycle IDs.
+
+### Segment DR-CLOSURE-1 regression guard — StrategySpec validation
+
+Keep these tests green whenever StrategySpec schema, AI draft output, or validation policy changes:
+
+```bash
+rtk pytest tests/strategy_validation/test_deep_review_closure_validation.py tests/strategy_validation tests/strategy_spec tests/ai_builder -q
+```
+
+Do not reintroduce substring-only raw-code checks that reject `created_from="imported"`, and do not allow `requires_backtest_before_shadow=false` to pass Builder validation.
+
+### Segment DR-CLOSURE-2 regression guard — no-order rule replay
+
+StrategySpec replay may evaluate signals/rules, but Builder backtest/research paths must remain no-order unless a separate approved live-execution lane owns the authority.
+
+Keep this regression target green:
+
+```bash
+rtk pytest tests/nautilus_rule_graph tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+```
+
+Required invariants: `strategy_logic_evaluated=true`, `signal_observation_count` is populated, `order_intent_count=0`, `orders=0`, `positions=0`, `execution_authority=false`, and `may_submit_order=false`.
+
+### Segment DR-CLOSURE-3 regression guard — web/API auth and local dev server
+
+Protected FastAPI routes must keep requiring bearer auth. Browser/VM demos may use a configured local token, but Builder must not add browser credential fields or silently downgrade protected routes to anonymous access.
+
+Regression target:
+
+```bash
+cd apps/web && npm run typecheck && npm test -- --run lib/api.test.ts
+rtk pytest tests/api/test_fastapi_app.py tests/integration/test_readme_readiness_hygiene.py tests/integration/test_headless_backend_runtime.py -q
+```
+
+Do not document `services.api.dev_server --host 0.0.0.0`; it is dependency-free and unauthenticated by design.
+
+### Segment DR-CLOSURE-4 regression guard — evidence lineage, roots, and durable audit
+
+Keep the medium-risk closure suite green whenever registry, job lineage, artifact refs, catalog datasets, AI audit, or workflow storage changes:
+
+```bash
+rtk pytest tests/catalog_datasets tests/api/test_backtest_job_routes.py tests/api/test_fastapi_app.py tests/backtest_jobs tests/backtest_runner/test_result_normalizer.py tests/strategy_registry tests/workflow_spine tests/ai_builder -q
+```
+
+Required invariants:
+
+- strict backtest jobs require a real 64-character hex `compile_hash` and keep `compile_artifact_id` separate;
+- non-fixture result artifacts use scoped `artifact://builder/{project_id}/{user_id}/...` refs;
+- catalog dataset registration/selection requires a root policy unless explicitly in test compatibility mode;
+- production FastAPI startup must not silently fall back to in-memory AI audit storage;
+- `SqliteWorkflowRepository` is the honest name for the current SQLite contract implementation; do not cite the compatibility `PostgresWorkflowRepository` alias as production Postgres evidence.
+
+### Master regression guard — deep-review closure 2026-05-26
+
+Before any future commit that claims Builder NT readiness, run at minimum:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+cd apps/web && npm run typecheck && npm test && npm run build
+```
+
+Do not weaken these permanent boundaries:
+
+- Builder authoring/replay paths do not call `submit_order`, create `TradeAction`, or collect broker/browser credentials.
+- `/home/mok/projects/Nautilus-Daedalus` remains reference-only for Builder work unless the user explicitly changes target.
+- NautilusTrader runtime/backtest claims must distinguish no-order catalog/rule evaluation evidence from live/paper trading execution evidence.

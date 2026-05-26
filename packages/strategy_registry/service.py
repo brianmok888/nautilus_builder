@@ -69,7 +69,7 @@ class StrategyModuleRegistryService:
         self.register_safe_module(
             module_id="rule_graph_backtest",
             strategy_class_path="packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategy",
-            config_class_path="packages.nautilus_rule_graph.config:RuleGraphStrategyConfig",
+            config_class_path="packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategyConfig",
             input_kind="strategy_spec",
         )
 

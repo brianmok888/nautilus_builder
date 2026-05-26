@@ -30,6 +30,7 @@ class BacktestJob(BaseModel):
     market_type: str = "unspecified"
     compile_hash: str
     validation_report_id: str
+    compile_artifact_id: str | None = None
     cancel_requested: bool = False
 
     @property
