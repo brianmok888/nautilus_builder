@@ -45,17 +45,21 @@ def test_playwright_webserver_unsets_color_env_conflict() -> None:
     assert "unset FORCE_COLOR NO_COLOR" in config
 
 
-def test_frontend_visual_shell_stays_dependency_free() -> None:
+def test_frontend_visual_shell_uses_approved_ant_design_stack() -> None:
     package = json.loads((WEB / "package.json").read_text())
     css = (WEB / "app" / "globals.css").read_text()
 
+    assert "antd" in package.get("dependencies", {})
+    assert "@ant-design/icons" in package.get("dependencies", {})
+    assert "vue" not in package.get("dependencies", {})
+    assert "@ant-design-vue/pro-layout" not in package.get("dependencies", {})
     assert "tailwindcss" not in package.get("dependencies", {})
     assert "tailwindcss" not in package.get("devDependencies", {})
     assert "@mui/material" not in package.get("dependencies", {})
     assert "@chakra-ui/react" not in package.get("dependencies", {})
     assert "no live order authority" in css
-    assert ".form-grid" in css
-    assert ".panel-grid" in css
+    assert ".operator-shell" in css
+    assert ".builder-dashboard" in css
 
 
 def test_next_rewrites_use_server_api_base_before_browser_public_base() -> None:

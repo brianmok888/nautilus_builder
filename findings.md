@@ -1546,3 +1546,50 @@ git diff --check
 ### Deployment note
 
 The live VM02 web service still needs to pull this commit, rebuild, set `BUILDER_API_BASE_URL=http://192.168.4.82:8000` for `next build/start`, and restart before the remote `:3000/api/*` endpoints reflect the local fix.
+
+## Closure update — Segment UI-ANTD-1 Ant Design operator console
+
+**Status:** CLOSED locally on 2026-05-26.
+
+### Finding
+
+- **MEDIUM-UX-2026-05-26-1:** The web UI was still scaffold-like and substantially less user-friendly than mature trading/admin frontends such as QuantDinger / QuantDinger-Vue. The custom CSS shell proved contracts, but it did not provide a polished operator-console experience.
+
+### Resolution
+
+- Added the approved React pre-built UI stack: `antd` and `@ant-design/icons`.
+- Rebuilt the app around an AntD operator shell with sidebar navigation, top status bar, backend/proxy status affordances, and always-visible advisory-only/no-live-authority warnings.
+- Added a richer AntD dashboard with KPI cards, AI → StrategySpec → Validate → Backtest → Manual promotion steps, visible workflow cards, and tabbed operator workspaces.
+- Reworked the LLM config section into AntD tabs/forms/cards/alerts/badges while preserving backend-only secret handling.
+- Kept the frontend React/Next-based; no Vue migration and no QuantDinger code copy.
+
+### Review verdict
+
+**Recommendation:** APPROVE with bundle/audit watch. **Architectural Status:** CLEAR for this frontend segment.
+
+The change is UI-layer scoped. It does not add live order authority, Daedalus execution coupling, backend secret persistence, automatic promotion, LangChain/LangGraph/EvoMap runtime dependency, or browser-side provider keys.
+
+### Evidence
+
+```bash
+rtk pytest tests/web/test_antd_operator_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+# Pytest: 15 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest: 18 passed; Next build passed; Playwright: 4 passed
+```
+
+### Remaining watch items
+
+- `npm audit --omit=dev --audit-level=moderate` reports a moderate `next`/`postcss` advisory and suggests a breaking `npm audit fix --force` path that would downgrade/replace Next; this segment did not apply that unsafe fix.
+- AntD increased first-load JS size (`/` around 249 kB, `/config` around 280 kB in the verified build); future charting should be lazy-loaded or route-split.
+
+### Final reconciliation refresh — Segment UI-ANTD-1
+
+**Status:** READY TO COMMIT/PUSH after fresh local verification on 2026-05-26.
+
+- Focused AntD/operator UI contracts: 15 passed.
+- Full targeted Python contract suite: 284 passed after `compileall`.
+- Frontend gates: TypeScript, Vitest, Next production build, and Playwright E2E passed.
+- Guardrail grep remains expected-only: live-order, credential, LangChain/LangGraph/EvoMap, and Vue terms appear in guard docs, negative tests, explicit false authority fields, or approved dependency-denial tests; no runtime authority path was added.
+- `npm audit --omit=dev --audit-level=high` exits 0. The remaining Next/PostCSS advisory is moderate and still points to a breaking `npm audit fix --force`; this segment intentionally does not apply that unsafe force-fix.

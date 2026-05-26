@@ -1,18 +1,39 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Alert, Badge, Card, Form, Input, Select, Space, Tabs, Tag, Typography } from "antd";
 
-type ConfigTab = "providers" | "models" | "guardrails" | "audit";
+const providerOptions = [
+  {
+    label: "OpenAI-compatible chat completions",
+    value: "openai-compatible",
+  },
+  {
+    label: "Local OpenAI-compatible gateway",
+    value: "local-openai-compatible",
+  },
+  {
+    label: "Offline advisory fixture",
+    value: "advisory-fixture",
+  },
+];
 
-const tabs: { id: ConfigTab; label: string }[] = [
-  { id: "providers", label: "Providers" },
-  { id: "models", label: "Models" },
-  { id: "guardrails", label: "Guardrails" },
-  { id: "audit", label: "Audit" },
+const guardrailItems = [
+  "validate_strategy_spec() is mandatory",
+  "signal_preview_only output mode only",
+  "submit_order / TradeAction blocked",
+  "No credentials in prompts, specs, or audit payloads",
+  "Backtest evidence and manual promotion remain required",
+];
+
+const auditItems = [
+  "Prompt + response metadata audited",
+  "No authorization headers or API keys are persisted",
+  "Response ID, finish reason, usage, and model name are recorded",
+  "Malformed provider responses become rejected drafts",
 ];
 
 export function ModelConfigTabs() {
-  const [activeTab, setActiveTab] = useState<ConfigTab>("providers");
   const [providerType, setProviderType] = useState("openai-compatible");
   const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
   const [draftModel, setDraftModel] = useState("strategy-draft-model");
@@ -44,153 +65,134 @@ export function ModelConfigTabs() {
 
   return (
     <section className="panel config-panel" aria-label="llm model configuration">
-      <div className="result-tabs config-tabs" role="tablist" aria-label="configuration tabs">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            aria-controls={`${tab.id}-panel`}
-            id={`${tab.id}-tab`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "providers" ? (
-        <section
-          className="config-tab-panel"
-          role="tabpanel"
-          id="providers-panel"
-          aria-labelledby="providers-tab"
-        >
-          <h2>LLM provider configuration</h2>
-          <p>
-            Configure advisory model endpoints for StrategySpec drafting without
-            moving secrets into the browser.
-          </p>
-          <div className="form-grid">
-            <label>
-              Provider type
-              <select
-                aria-label="provider type"
-                value={providerType}
-                onChange={(event) => setProviderType(event.target.value)}
-              >
-                <option value="openai-compatible">
-                  OpenAI-compatible chat completions
-                </option>
-                <option value="local-openai-compatible">
-                  Local OpenAI-compatible gateway
-                </option>
-                <option value="advisory-fixture">
-                  Offline advisory fixture
-                </option>
-              </select>
-            </label>
-            <label>
-              Base URL
-              <input
-                aria-label="base url"
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-              />
-            </label>
-          </div>
-          <ul className="config-checklist">
-            <li>OPENAI_API_KEY stays server-side only</li>
-            <li>OPENAI_BASE_URL maps to the configured provider endpoint</li>
-            <li>OPENAI_MODEL provides the default draft model</li>
-          </ul>
-        </section>
-      ) : null}
-
-      {activeTab === "models" ? (
-        <section
-          className="config-tab-panel"
-          role="tabpanel"
-          id="models-panel"
-          aria-labelledby="models-tab"
-        >
-          <h2>Model roles</h2>
-          <p>
-            Separate draft, validation, and explanation roles so later backend
-            config can route each advisory task independently.
-          </p>
-          <div className="form-grid">
-            <label>
-              Draft model
-              <input
-                aria-label="Draft model"
-                value={draftModel}
-                onChange={(event) => setDraftModel(event.target.value)}
-              />
-            </label>
-            <label>
-              Validation model
-              <input
-                aria-label="Validation model"
-                value={validationModel}
-                onChange={(event) => setValidationModel(event.target.value)}
-              />
-            </label>
-            <label>
-              Explanation model
-              <input
-                aria-label="Explanation model"
-                value={explanationModel}
-                onChange={(event) => setExplanationModel(event.target.value)}
-              />
-            </label>
-          </div>
-          <p className="status-badge warning">
-            UI draft only — backend env/config store remains source of truth.
-          </p>
-        </section>
-      ) : null}
-
-      {activeTab === "guardrails" ? (
-        <section
-          className="config-tab-panel"
-          role="tabpanel"
-          id="guardrails-panel"
-          aria-labelledby="guardrails-tab"
-        >
-          <h2>StrategySpec guardrails</h2>
-          <ul className="config-checklist">
-            <li>validate_strategy_spec() is mandatory</li>
-            <li>signal_preview_only output mode only</li>
-            <li>submit_order / TradeAction blocked</li>
-            <li>No credentials in prompts, specs, or audit payloads</li>
-            <li>Backtest evidence and manual promotion remain required</li>
-          </ul>
-        </section>
-      ) : null}
-
-      {activeTab === "audit" ? (
-        <section
-          className="config-tab-panel"
-          role="tabpanel"
-          id="audit-panel"
-          aria-labelledby="audit-tab"
-        >
-          <h2>Audit and runtime metadata</h2>
-          <ul className="config-checklist">
-            <li>Prompt + response metadata audited</li>
-            <li>No authorization headers or API keys are persisted</li>
-            <li>Response ID, finish reason, usage, and model name are recorded</li>
-            <li>Malformed provider responses become rejected drafts</li>
-          </ul>
-        </section>
-      ) : null}
-
-      <section className="config-preview" aria-label="configuration preview">
-        <h3>Draft config preview</h3>
-        <pre>{JSON.stringify(preview, null, 2)}</pre>
-      </section>
+      <Space orientation="vertical" size="large" className="config-stack">
+        <Alert
+          showIcon
+          type="info"
+          title="LLM settings are an operator-facing draft surface"
+          description="Provider secrets stay on the backend environment/config store. The browser can inspect intended provider/model roles but cannot collect API keys."
+        />
+        <Tabs
+          className="config-tabs"
+          defaultActiveKey="providers"
+          items={[
+            {
+              key: "providers",
+              label: "Providers",
+              children: (
+                <Card title="LLM provider configuration">
+                  <Typography.Paragraph>
+                    Configure advisory model endpoints for StrategySpec drafting
+                    without moving secrets into the browser.
+                  </Typography.Paragraph>
+                  <Form layout="vertical" className="form-grid">
+                    <Form.Item label="Provider type">
+                      <Select
+                        aria-label="provider type"
+                        options={providerOptions}
+                        value={providerType}
+                        onChange={setProviderType}
+                      />
+                    </Form.Item>
+                    <Form.Item label="Base URL">
+                      <Input
+                        aria-label="base url"
+                        value={baseUrl}
+                        onChange={(event) => setBaseUrl(event.target.value)}
+                      />
+                    </Form.Item>
+                  </Form>
+                  <ul className="config-checklist">
+                    {[
+                      "OPENAI_API_KEY stays server-side only",
+                      "OPENAI_BASE_URL maps to the configured provider endpoint",
+                      "OPENAI_MODEL provides the default draft model",
+                    ].map((item) => (
+                      <li key={item}>
+                        <Badge status="processing" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ),
+            },
+            {
+              key: "models",
+              label: "Models",
+              children: (
+                <Card title="Model roles">
+                  <Typography.Paragraph>
+                    Separate draft, validation, and explanation roles so later
+                    backend config can route each advisory task independently.
+                  </Typography.Paragraph>
+                  <Form layout="vertical" className="form-grid">
+                    <Form.Item label="Draft model">
+                      <Input
+                        aria-label="Draft model"
+                        value={draftModel}
+                        onChange={(event) => setDraftModel(event.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item label="Validation model">
+                      <Input
+                        aria-label="Validation model"
+                        value={validationModel}
+                        onChange={(event) => setValidationModel(event.target.value)}
+                      />
+                    </Form.Item>
+                    <Form.Item label="Explanation model">
+                      <Input
+                        aria-label="Explanation model"
+                        value={explanationModel}
+                        onChange={(event) => setExplanationModel(event.target.value)}
+                      />
+                    </Form.Item>
+                  </Form>
+                  <Tag color="warning">
+                    UI draft only — backend env/config store remains source of truth.
+                  </Tag>
+                </Card>
+              ),
+            },
+            {
+              key: "guardrails",
+              label: "Guardrails",
+              children: (
+                <Card title="StrategySpec guardrails">
+                  <ul className="config-checklist">
+                    {guardrailItems.map((item) => (
+                      <li key={item}>
+                        <Badge status="success" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ),
+            },
+            {
+              key: "audit",
+              label: "Audit",
+              children: (
+                <Card title="Audit and runtime metadata">
+                  <ul className="config-checklist">
+                    {auditItems.map((item) => (
+                      <li key={item}>
+                        <Badge status="warning" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ),
+            },
+          ]}
+        />
+        <Card title="Draft config preview" className="config-preview">
+          <pre>{JSON.stringify(preview, null, 2)}</pre>
+        </Card>
+      </Space>
     </section>
   );
 }

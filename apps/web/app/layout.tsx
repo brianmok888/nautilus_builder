@@ -1,4 +1,6 @@
+import "antd/dist/reset.css";
 import "./globals.css";
+import { OperatorAppShell } from "../components/shell/OperatorAppShell";
 
 export const metadata = {
   title: "Nautilus Builder",
@@ -13,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <OperatorAppShell>{children}</OperatorAppShell>
+      </body>
     </html>
   );
 }

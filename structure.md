@@ -1358,3 +1358,94 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build && npm run test:e2e
 # typecheck passed; Vitest: 10 files / 18 tests passed; Next build passed with /config route; Playwright: 4 passed
 ```
+
+## Brainstorming implementation plan — Segment UI-ANTD-1 Ant Design operator console
+
+**Started:** 2026-05-26
+
+Context: the current web UI was visually closer to a scaffold/contract demo than a user-friendly trading-builder console. The user compared it unfavorably with QuantDinger / QuantDinger-Vue and approved the practical React stack: `antd` and `@ant-design/icons`.
+
+Approaches considered:
+
+1. **Recommended / implemented — Ant Design React on the existing Next.js app.** Keep the current React/Next architecture, add `antd` + `@ant-design/icons`, and rebuild the shell/dashboard/config surfaces with AntD Layout, Cards, Statistics, Steps, Tabs, Forms, Selects, Alerts, and Badges. This gives a product-grade admin/trading console without a Vue migration.
+2. Vue / Ant Design Vue migration. Rejected because Nautilus Builder is already Next.js/React; migrating to Vue would expand scope, duplicate frontend foundations, and delay the AI → StrategySpec → backtest workflow.
+3. Continue custom CSS only. Rejected for the polished UI segment because it is slower, more brittle, and less user-friendly than a mature component system now that the user explicitly approved a pre-built UI kit.
+
+Segment plan:
+
+1. TDD RED: add source-contract tests requiring the approved AntD React stack, an AntD operator shell, AntD dashboard workflow surface, and AntD config UI with no browser-side secrets.
+2. GREEN: install `antd` and `@ant-design/icons`, mount AntD reset CSS, wrap pages with `OperatorAppShell`, add a sidebar/topbar/safety status shell, add `BuilderDashboard`, and convert LLM config tabs to AntD forms/cards/tabs.
+3. Reconciliation: preserve no-live-authority guardrails, no Vue migration, no browser API-key input, existing API proxy behavior, and existing Playwright user journey.
+4. Verification: run focused Python UI contracts, TypeScript, Vitest, Next build, Playwright, full Python contract suite, diff/audit checks.
+
+## Implementation progress — Segment UI-ANTD-1 Ant Design operator console
+
+**Completed locally:** 2026-05-26
+
+Files changed:
+
+- `apps/web/package.json` and `apps/web/package-lock.json` — added approved React UI dependencies `antd` and `@ant-design/icons`.
+- `apps/web/app/layout.tsx` — imports AntD reset CSS and mounts `OperatorAppShell` around all pages.
+- `apps/web/components/shell/OperatorAppShell.tsx` — adds sidebar navigation, top health/status bar, and always-visible advisory/no-live-authority guard badges.
+- `apps/web/components/dashboard/BuilderDashboard.tsx` — adds AntD KPI cards, AI-to-backtest `Steps`, visible workflow surface cards, and tabbed operator workspaces for strategy drafting, runtime observation, AI drafting, and manual promotion.
+- `apps/web/components/config/ModelConfigTabs.tsx` — converts the LLM provider/model/guardrail/audit config surface to AntD `Tabs`, `Form`, `Select`, `Input`, `Alert`, `Badge`, and `Card` components while keeping secrets backend-only.
+- `apps/web/app/page.tsx` — now renders `BuilderDashboard` in the app shell.
+- `apps/web/app/globals.css` — adds AntD shell/dashboard polish while retaining the no-live-order-authority styling boundary.
+- `apps/web/vitest.setup.ts` — adds deterministic test polyfills for AntD `ResizeObserver` and `matchMedia` usage.
+- `tests/web/test_antd_operator_ui_contract.py`, `tests/web/test_app_shell_contract.py`, `tests/web/test_frontend_infrastructure.py`, and `tests/web/test_config_ui_contract.py` — lock the AntD stack, no Vue migration, shell mounting, no-secret config UI, and no live authority.
+
+Reconciliation:
+
+- The redesign is frontend-only; it does not change the FastAPI API, backtest runner, Nautilus replay contracts, AI provider acceptance gate, or promotion authority.
+- The app remains React/Next; QuantDinger-Vue remains UX inspiration only, not copied code or a Vue migration.
+- UI strings still state advisory-only / observational-only / manual promotion and do not introduce `submit_order` or `TradeAction` authority in page entry points.
+- Browser config still does not collect provider API keys or secret fields.
+- AntD warnings encountered during TDD were closed by replacing deprecated `Space direction`, `Alert message`, `List`, and `Steps.description` usage.
+
+Verification:
+
+```bash
+rtk pytest tests/web/test_antd_operator_ui_contract.py -q
+# RED before implementation: 4 failed for missing antd deps/shell/dashboard/Form usage
+# GREEN after implementation: included in focused suite below
+
+rtk pytest tests/web/test_antd_operator_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+# Pytest: 15 passed
+
+cd apps/web && npm run typecheck && npm test
+# typecheck passed; Vitest: 10 files / 18 tests passed
+
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+
+cd apps/web && npm run build
+# Next build passed; / route first-load JS 249 kB, /config first-load JS 280 kB after AntD
+```
+
+### Final reconciliation refresh — Segment UI-ANTD-1
+
+**Refreshed:** 2026-05-26 after cleanup before commit/push.
+
+- Removed a stale unused AntD icon import from `OperatorAppShell`.
+- Cleaned generated `__pycache__`, Playwright test-results, and ignored TypeScript build-info artifacts after verification.
+- Reconfirmed the segment remains frontend/UI scoped: no FastAPI contract changes, no live trading authority, no browser-side provider secret inputs, no Vue migration, and no Daedalus execution coupling.
+
+Fresh verification evidence:
+
+```bash
+git diff --check
+# passed
+
+rtk pytest tests/web/test_antd_operator_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+# Pytest: 15 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 284 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest: 10 files / 18 tests passed; Next build passed; Playwright: 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exit 0; only moderate next/postcss advisory remains, with a breaking force-fix path
+```

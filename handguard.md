@@ -1024,3 +1024,35 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && BUILDER_API_BASE_URL=http://192.168.4.82:8000 npm run build && npm run test:e2e
 # typecheck passed; Vitest: 18 passed; build passed; Playwright: 4 passed
 ```
+
+## 18. Ant Design operator UI guard
+
+The 2026-05-26 UI polish segment explicitly approves Ant Design React for the Builder web app.
+
+- `antd` and `@ant-design/icons` are approved frontend dependencies for the Next.js/React app.
+- Do not migrate this repo to Vue or add `@ant-design-vue/pro-layout`; QuantDinger-Vue is UX inspiration only.
+- Keep the AntD shell visibly advisory-only: sidebar/topbar should keep no-live-authority/manual-promotion/signal-preview cues visible.
+- Do not add browser API-key/password inputs for LLM providers; secrets remain backend env/config only.
+- Do not add `submit_order`, `TradeAction`, Daedalus execution coupling, automatic promotion, or live-trading controls to frontend components.
+- Avoid deprecated AntD APIs that emit runtime/test warnings; current closed warnings included `Space direction`, `Alert message`, `List`, and `Steps.description`.
+- Watch bundle size before adding charts; prefer lazy route-level loading for backtest/equity curves.
+- `npm audit --omit=dev --audit-level=moderate` currently reports a moderate Next/PostCSS advisory with a breaking force-fix path; do not apply `npm audit fix --force` without a reviewed framework-upgrade plan.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/web/test_antd_operator_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+```
+
+Segment UI-ANTD-1 final evidence refresh:
+
+```bash
+git diff --check
+rtk pytest tests/web/test_antd_operator_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_frontend_infrastructure.py tests/web/test_config_ui_contract.py -q
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+# diff check passed; Pytest focused 15 passed; Pytest targeted 284 passed; Vitest 18 passed; Playwright 4 passed; audit high exited 0 with only moderate Next/PostCSS advisory.
+```
