@@ -84,6 +84,7 @@ def build_trading_node_runtime_plan(
         and profile.venue is not None
     )
     ready = live_ready or paper_ready
+    credential_slot_bound = ready and profile.credential_slot_ref is not None
     runtime_environment: Literal["sandbox", "live"] = "live" if profile.lane_mode == ExecutionLaneMode.LIVE else "sandbox"
 
     return NautilusTradingNodeRuntimePlan(
@@ -103,7 +104,7 @@ def build_trading_node_runtime_plan(
         advisory_only=profile.advisory_only,
         manual_review_required=profile.manual_review_required,
         reconciliation_required=profile.reconciliation_required,
-        credential_slot_ref=profile.credential_slot_ref if live_ready else None,
+        credential_slot_ref=profile.credential_slot_ref if credential_slot_bound else None,
         risk_profile_id=profile.risk_profile_id,
         strategy_lineage_id=command.strategy_lineage_id if command is not None else None,
         strategy_version_id=command.strategy_version_id if command is not None else None,
@@ -112,7 +113,7 @@ def build_trading_node_runtime_plan(
         manual_review_id=profile.manual_review_id,
         config_checksum=profile.config_checksum,
         evidence_refs=_evidence_refs(profile),
-        config_contract=_config_contract(profile=profile, live_ready=live_ready),
+        config_contract=_config_contract(profile=profile, live_ready=live_ready, credential_slot_bound=credential_slot_bound),
         nautilus_trader_version=profile.nautilus_trader_version or _installed_nautilus_version(),
     )
 
@@ -218,8 +219,8 @@ def _command_blocked_reasons(profile: ExecutionLaneProfile, command: ExecutionLa
     return reasons
 
 
-def _config_contract(*, profile: ExecutionLaneProfile, live_ready: bool) -> dict[str, Any]:
-    credential_slot_ref = profile.credential_slot_ref if live_ready else None
+def _config_contract(*, profile: ExecutionLaneProfile, live_ready: bool, credential_slot_bound: bool) -> dict[str, Any]:
+    credential_slot_ref = profile.credential_slot_ref if credential_slot_bound else None
     return {
         "runtime_note": "Python TradingNode integration-specific plan; Rust LiveNode is the future runtime target.",
         "trader_id": f"BUILDER-{profile.project_id[:24]}",

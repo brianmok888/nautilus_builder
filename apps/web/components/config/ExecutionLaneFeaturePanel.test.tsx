@@ -150,4 +150,102 @@ describe("ExecutionLaneFeaturePanel", () => {
     expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /submit order/i })).not.toBeInTheDocument();
   });
+
+  it("saves a local credential slot, clears secret fields, and binds only the slot ref to profiles", async () => {
+    let savedSecretSeen = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url.startsWith("/api/execution-lane/status")) {
+        return Response.json(statusPayload());
+      }
+      if (url === "/api/execution-lane/credential-slots" && method === "POST") {
+        const payload = JSON.parse(String(init?.body));
+        expect(payload).toMatchObject({
+          runtime_profile_id: "rp_paper_tradingnode",
+          venue: "BINANCE",
+          lane_mode: "paper",
+          credential_values: {
+            BINANCE_API_KEY: "test-binance-key",
+            BINANCE_API_SECRET: "test-binance-secret",
+          },
+        });
+        savedSecretSeen = true;
+        return Response.json(
+          {
+            credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
+            tenant_id: "tenant_a",
+            project_id: "project_alpha",
+            runtime_profile_id: "rp_paper_tradingnode",
+            adapter_id: "BINANCE_PERP",
+            venue: "BINANCE",
+            lane_mode: "paper",
+            secrets_storage: "local_env_file",
+            env_file_path: ".env.execution.local",
+            redacted_keys: ["BINANCE_API_KEY", "BINANCE_API_SECRET"],
+            fingerprint: "a".repeat(64),
+            browser_secret_echo: false,
+          },
+          { status: 201 },
+        );
+      }
+      if (url === "/api/execution-lane/profiles" && method === "POST") {
+        const payload = JSON.parse(String(init?.body));
+        expect(payload.credential_slot_ref).toBe("credslot://local-env/project_alpha/rp_paper_tradingnode/binance");
+        expect(JSON.stringify(payload)).not.toContain("test-binance-key");
+        return Response.json({ ...payload, strategy_lane_coupled: false }, { status: 201 });
+      }
+      if (url.startsWith("/api/execution-lane/runtime-plan") && method === "GET") {
+        return Response.json({
+          schema_version: "execution_lane.tradingnode.v1",
+          tenant_id: "tenant_a",
+          project_id: "project_alpha",
+          runtime_profile_id: "rp_paper_tradingnode",
+          lane_mode: "paper",
+          readiness_status: "READY",
+          blocked_reasons: [],
+          node_runtime: "python_trading_node",
+          runtime_label: "python_live_integration_specific",
+          future_runtime: "rust_live_node",
+          runtime_environment: "sandbox",
+          adapter_id: "BINANCE_PERP",
+          venue: "BINANCE",
+          venue_account_id: "SIM-BINANCE-001",
+          strategy_lane_coupled: false,
+          browser_credentials_allowed: false,
+          credential_inputs_allowed: false,
+          live_trading_enabled: false,
+          execution_authority: false,
+          may_submit_order: false,
+          advisory_only: true,
+          manual_review_required: true,
+          reconciliation_required: true,
+          credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
+          evidence_refs: {},
+          config_contract: { exec_engine: { reconciliation: true } },
+        });
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ExecutionLaneFeaturePanel />);
+
+    expect(await screen.findByText("Feature visibility matrix")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Credential variable 1"), { target: { value: "BINANCE_API_KEY" } });
+    fireEvent.change(screen.getByLabelText("Credential value 1"), { target: { value: "test-binance-key" } });
+    fireEvent.change(screen.getByLabelText("Credential variable 2"), { target: { value: "BINANCE_API_SECRET" } });
+    fireEvent.change(screen.getByLabelText("Credential value 2"), { target: { value: "test-binance-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save credential slot" }));
+
+    await waitFor(() => expect(screen.getByText("Credential slot ready")).toBeInTheDocument());
+    expect(savedSecretSeen).toBe(true);
+    expect(screen.getByText("credslot://local-env/project_alpha/rp_paper_tradingnode/binance")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("test-binance-key")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Wire paper profile" }));
+    await waitFor(() => expect(screen.getByText("Runtime plan READY")).toBeInTheDocument());
+    expect(screen.queryByText("test-binance-secret")).not.toBeInTheDocument();
+  });
+
 });

@@ -9,6 +9,8 @@ import type {
   BacktestRunResponse,
   BacktestProfileValidation,
   DataAvailability,
+  ExecutionCredentialSlot,
+  ExecutionCredentialSlotRequest,
   ExecutionLaneCommand,
   ExecutionLaneProfile,
   ExecutionLaneReport,
@@ -155,6 +157,16 @@ export async function fetchExecutionLaneStatus(
     ? `?${new URLSearchParams({ runtime_profile_id: runtimeProfileId }).toString()}`
     : "";
   return apiFetch<ExecutionLaneStatus>(`/api/execution-lane/status${params}`);
+}
+
+export async function saveExecutionLaneCredentialSlot(
+  payload: ExecutionCredentialSlotRequest,
+): Promise<ExecutionCredentialSlot> {
+  return apiFetch<ExecutionCredentialSlot>("/api/execution-lane/credential-slots", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function registerExecutionLaneProfile(

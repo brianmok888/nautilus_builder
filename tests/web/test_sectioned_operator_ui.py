@@ -114,8 +114,10 @@ def test_execution_config_section_keeps_feature_flags_read_only_and_secret_free(
         "Venue binding",
         "Paper controls visibility only",
         "Live controls visibility only",
-        "no browser credentials",
+        "Credential slot bootstrap",
+        "server-side credential slot only",
     ):
         assert token in config
-    assert 'type="password"' not in config
-    assert "api_key" not in config.lower()
+    assert "Input.Password" in config
+    assert "credential_slot_ref" in config
+    assert "NEXT_PUBLIC" not in config

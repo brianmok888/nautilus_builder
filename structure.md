@@ -2424,3 +2424,69 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 ```
 
 Master reconciliation: the web UI can now complete the BacktestNode local/dev flow from job creation to backend-owned run trigger and evidence display. The boundary remains evidence-only and no-order; it does not start paper/live venue connectivity or expose credentials.
+
+## Segment 2026-05-26 — Execution-lane credential slot bootstrap
+
+Implementation plan / design record:
+
+1. Keep raw venue credentials out of runtime profile, command, worker, StrategySpec, and BacktestNode payloads.
+2. Add a separate local/dev credential-slot bootstrap seam: UI submits venue-prefixed credential variables once; the backend validates names/values, writes a gitignored `.env.execution.local`, and returns only a `credential_slot_ref`, redacted key names, fingerprint, and storage metadata.
+3. Bind execution profiles to the returned `credential_slot_ref`; local-env slot refs are validated against tenant/project/profile/adapter/venue/mode before profile registration.
+4. Preserve TradingNode paper/live lane separation: the worker still claims execution-lane commands only, emits a `tradingnode_runtime_plan` report, and records `risk_gate_status`, `credential_slot_bound`, and `secrets_storage` without starting browser-owned processes or echoing secrets.
+5. Keep live authority fail-closed. Live profile/command authority still requires manual review, risk approval, config checksum, credential slot, DataTester evidence, ExecTester evidence, and reconciliation evidence.
+
+Changed structure:
+
+- `packages/execution_lane/credentials.py` — new credential-slot request/result models plus local env-file store with venue-prefixed key validation, `.env.execution.local` target policy, fingerprinting, and secret non-echo response metadata.
+- `packages/execution_lane/service.py` — accepts `credential_env_dir` for tests/local deployment, creates credential slots, validates local-env slot scope before profile registration, and exposes `credential_slots` in execution-lane status snapshots.
+- `packages/execution_lane/nautilus_runtime.py` — includes bound credential-slot refs in READY paper or live runtime plans while preserving `may_submit_order=false` for paper.
+- `services/api/routes/execution_lane.py`, `services/api/app.py`, and `services/api/fastapi_app.py` — add `POST /api/execution-lane/credential-slots`; FastAPI requires bearer auth and project-scope match.
+- `services/workers/execution_lane_worker.py` — adds risk-gate and credential-slot binding evidence to TradingNode runtime-plan reports without including raw secret values.
+- `apps/web/components/config/ExecutionLaneFeaturePanel.tsx` — adds a compact credential-slot bootstrap card, clears password fields after save, binds the returned slot ref to the paper profile payload, and keeps profile/command/worker displays redacted.
+- `apps/web/lib/api.ts` and `apps/web/lib/types.ts` — add typed credential-slot DTOs and `saveExecutionLaneCredentialSlot()`.
+- `.gitignore` — ignores local env files and transient test/build artifacts.
+
+Authoritative alignment notes:
+
+- NautilusTrader live-runtime alignment remains based on the Python `TradingNode` integration-specific path for this Builder lane, with Rust `LiveNode` still recorded as the future target.
+- NautilusTrader adapter/testing alignment remains evidence-gated: adapter credentials are resolved server-side, and live authority requires DataTester, ExecTester, and reconciliation evidence before any live submit capability can be represented.
+- The ND reference pattern preserved here is server-side credential resolution from env/local files and runner-owned node lifecycle, not browser-owned process or order authority.
+
+Targeted TDD evidence:
+
+```bash
+rtk pytest tests/execution_lane/test_credential_slots.py tests/api/test_execution_lane_credentials_routes.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope -q
+# RED first: ExecutionLaneService lacked credential_env_dir / create_credential_slot / route
+# GREEN: 7 passed
+
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py::test_worker_report_includes_credential_slot_and_risk_gate_without_secrets -q
+# RED first: worker report lacked risk_gate_status
+# GREEN: 1 passed
+
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# RED first: saveExecutionLaneCredentialSlot and credential fields missing
+# GREEN: 2 files / 12 Vitest tests passed
+
+rtk pytest tests/execution_lane tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope tests/web/test_execution_lane_ui_contract.py -q
+# 34 passed
+
+cd apps/web && npm run typecheck
+# passed
+```
+
+### Reconciliation — Execution credential-slot bootstrap
+
+This segment intentionally adds a credential bootstrap lane, not browser runtime authority. The UI can provide local/dev venue credentials once, the backend writes `.env.execution.local`, and all subsequent execution-lane objects carry only `credential_slot_ref` plus redacted metadata. Paper remains sandbox/no-order. Live remains gated by manual approval, risk, credential slot, DataTester, ExecTester, and reconciliation evidence.
+
+Master verification after documentation updates for the credential-slot segment:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 391 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 16 files / 37 tests passed; Next build passed; Playwright 4 passed
+```

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+from .credentials import ExecutionCredentialSlot, ExecutionCredentialSlotRequest, LocalEnvCredentialSlotStore
 from .models import ExecutionCommandStatus, ExecutionLaneCommand, ExecutionLaneProfile, ExecutionLaneReport
 from .nautilus_runtime import NautilusTradingNodeRuntimePlan, build_trading_node_runtime_plan
 
@@ -10,14 +12,26 @@ from .nautilus_runtime import NautilusTradingNodeRuntimePlan, build_trading_node
 class ExecutionLaneService:
     """In-memory contract service for a strategy-decoupled execution lane."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, credential_env_dir: str | Path | None = None) -> None:
         self._profiles: dict[str, ExecutionLaneProfile] = {}
         self._commands: dict[str, ExecutionLaneCommand] = {}
         self._idempotency_index: dict[tuple[str, str], str] = {}
         self._reports: dict[str, ExecutionLaneReport] = {}
+        self._credential_store = LocalEnvCredentialSlotStore(base_dir=credential_env_dir)
+        self._credential_slots: dict[str, ExecutionCredentialSlot] = {}
+
+    def create_credential_slot(self, payload: dict[str, object]) -> ExecutionCredentialSlot:
+        request = ExecutionCredentialSlotRequest.model_validate(payload)
+        slot = self._credential_store.create_slot(request)
+        self._credential_slots[slot.credential_slot_ref] = slot
+        return slot
+
+    def get_credential_slot(self, credential_slot_ref: str) -> ExecutionCredentialSlot:
+        return self._credential_slots[credential_slot_ref]
 
     def register_profile(self, payload: dict[str, object]) -> ExecutionLaneProfile:
         profile = ExecutionLaneProfile.model_validate(payload)
+        self._assert_profile_credential_slot(profile)
         self._profiles[profile.runtime_profile_id] = profile
         return profile
 
@@ -111,6 +125,7 @@ class ExecutionLaneService:
             "claimed_commands": sum(command.status == ExecutionCommandStatus.CLAIMED for command in commands),
             "reported_commands": sum(command.status == ExecutionCommandStatus.REPORTED for command in commands),
             "reports": len(reports),
+            "credential_slots": len(self._credential_slots),
             "strategy_lane_coupled": False,
             "may_submit_order": any(command.may_submit_order for command in commands),
             "venue_bindings": [
@@ -133,6 +148,23 @@ class ExecutionLaneService:
                 "strategy_lane_coupled": False,
             },
         }
+
+    def _assert_profile_credential_slot(self, profile: ExecutionLaneProfile) -> None:
+        if profile.credential_slot_ref is None:
+            return
+        if not profile.credential_slot_ref.startswith("credslot://local-env/"):
+            return
+        slot = self._credential_slots.get(profile.credential_slot_ref)
+        if slot is None:
+            raise ValueError("credential slot is not registered")
+        if slot.tenant_id != profile.tenant_id or slot.project_id != profile.project_id:
+            raise ValueError("credential slot scope does not match runtime profile")
+        if slot.runtime_profile_id != profile.runtime_profile_id:
+            raise ValueError("credential slot runtime_profile_id does not match runtime profile")
+        if slot.adapter_id != profile.adapter_id or slot.venue != profile.venue:
+            raise ValueError("credential slot adapter/venue does not match runtime profile")
+        if slot.lane_mode != profile.lane_mode:
+            raise ValueError("credential slot lane mode does not match runtime profile")
 
     @staticmethod
     def _assert_profile_matches_command(profile: ExecutionLaneProfile, command: ExecutionLaneCommand) -> None:

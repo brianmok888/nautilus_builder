@@ -1739,3 +1739,25 @@ rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner
 cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx lib/api.test.ts
 # 12 passed
 ```
+
+## Segment guard — Execution credential-slot bootstrap
+
+Credential bootstrap is allowed only under these constraints:
+
+- The only browser credential entry surface is the local/dev **Credential slot bootstrap** form in `/config`.
+- The UI may submit venue-prefixed credential variables to `POST /api/execution-lane/credential-slots` once, but it must clear secret fields after save and keep only the returned `credential_slot_ref`.
+- The backend may write local/dev credentials only to `.env.execution.local` or an explicitly equivalent gitignored local env-file policy. Never commit `.env`, `.env.*`, or generated credential files.
+- Credential-slot responses must not echo raw secret values. They may include `credential_slot_ref`, `redacted_keys`, `fingerprint`, `env_file_path`, `secrets_storage`, and `browser_secret_echo=false`.
+- Runtime profile, command, StrategySpec, BacktestNode run, worker, and report payloads must not carry raw credentials, API secret values, passwords, private keys, authorization tokens, or browser shell/process handles.
+- Builder-created `credslot://local-env/...` refs must be bound to matching tenant/project/runtime_profile/adapter/venue/lane_mode before profile registration. Externally managed `credslot://server/...` refs remain server-side operator references.
+- Paper plans may bind a credential slot for sandbox/venue connectivity, but must keep `runtime_environment=sandbox`, `live_trading_enabled=false`, `execution_authority=false`, and `may_submit_order=false`.
+- Live plans may bind a credential slot only with the existing live authority gates: manual review, risk profile, activated_by/at, config checksum, DataTester evidence, ExecTester evidence, reconciliation evidence, live authority, and approved command risk decision.
+- Execution-lane worker reports may emit `risk_gate_status`, `credential_slot_bound`, and `secrets_storage`; they must not include secret values or claim a real venue-connected node was started in contract tests.
+
+Minimum regression coverage:
+
+```bash
+rtk pytest tests/execution_lane/test_credential_slots.py tests/execution_lane/test_tradingnode_runtime_contract.py tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_tradingnode_routes.py tests/web/test_execution_lane_ui_contract.py -q
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+cd apps/web && npm run typecheck
+```

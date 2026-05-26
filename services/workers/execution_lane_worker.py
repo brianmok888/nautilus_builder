@@ -22,13 +22,18 @@ def run_execution_lane_worker_once(
     command = service.claim_next(runtime_profile_id=runtime_profile_id, worker_id=worker_id)
     profile = service.get_profile(runtime_profile_id)
     plan = service.build_trading_node_runtime_plan(runtime_profile_id=runtime_profile_id, command_id=command.command_id)
+    plan_payload = plan.model_dump(mode="json")
+    plan_payload["risk_gate_status"] = "PASS" if plan.readiness_status == "READY" else "BLOCKED"
+    plan_payload["credential_slot_bound"] = bool(plan.credential_slot_ref)
+    plan_payload["credential_slot_ref"] = plan.credential_slot_ref
+    plan_payload["secrets_storage"] = "local_env_file_ref" if plan.credential_slot_ref else "not_bound"
     return service.record_report(
         command_id=command.command_id,
         payload={
             "report_type": "tradingnode_runtime_plan",
             "venue": profile.venue or command.venue,
             "instrument_id": command.order_intent.get("instrument_id", "UNKNOWN"),
-            "payload": plan.model_dump(mode="json"),
+            "payload": plan_payload,
         },
     )
 

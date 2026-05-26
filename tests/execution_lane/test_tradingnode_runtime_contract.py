@@ -220,3 +220,29 @@ def test_worker_claims_command_and_records_tradingnode_runtime_report() -> None:
     assert report.payload["may_submit_order"] is False
     assert report.payload["strategy_lane_coupled"] is False
     assert service.snapshot(runtime_profile_id="rp_paper_tradingnode")["reported_commands"] == 1
+
+def test_worker_report_includes_credential_slot_and_risk_gate_without_secrets(tmp_path) -> None:
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    slot = service.create_credential_slot(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "lane_mode": "paper",
+            "requested_by": "ops_user",
+            "credential_values": {"BINANCE_API_KEY": "test-binance-key"},
+        }
+    )
+    profile = _paper_profile()
+    profile["credential_slot_ref"] = slot.credential_slot_ref
+    service.register_profile(profile)
+    service.enqueue_command(_paper_command())
+
+    report = run_execution_lane_worker_once(service=service, runtime_profile_id="rp_paper_tradingnode", worker_id="exec_worker_1")
+
+    assert report.payload["risk_gate_status"] == "PASS"
+    assert report.payload["credential_slot_bound"] is True
+    assert report.payload["credential_slot_ref"] == slot.credential_slot_ref
+    assert "test-binance-key" not in str(report.model_dump(mode="json"))

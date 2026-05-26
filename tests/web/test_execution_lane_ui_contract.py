@@ -21,8 +21,14 @@ def test_config_page_exposes_execution_lane_venue_feature_panel() -> None:
     assert "Live controls" in component
     assert "credential inputs allowed: false" in component
     assert "server-side credential slot only" in component
-    assert 'type="password"' not in component
-    assert "api_key" not in component.lower()
+    assert "Credential slot bootstrap" in component
+    assert "Save credential slot" in component
+    assert "Credential variable 1" in component
+    assert "Credential value 1" in component
+    assert "Input.Password" in component
+    assert "NEXT_PUBLIC" not in component
+    assert "saveExecutionLaneCredentialSlot" in api
+    assert "/api/execution-lane/credential-slots" in api
     assert "ExecutionLaneStatus" in types
     assert "ExecutionLaneProfile" in types
     assert "ExecutionLaneCommand" in types

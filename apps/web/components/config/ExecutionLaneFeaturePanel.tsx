@@ -23,8 +23,10 @@ import {
   fetchExecutionLaneStatus,
   registerExecutionLaneProfile,
   runExecutionLaneWorkerOnce,
+  saveExecutionLaneCredentialSlot,
 } from "../../lib/api";
 import type {
+  ExecutionCredentialSlot,
   ExecutionLaneCommand,
   ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
@@ -39,6 +41,7 @@ const fallbackStatus: ExecutionLaneStatus = {
   claimed_commands: 0,
   reported_commands: 0,
   reports: 0,
+  credential_slots: 0,
   venue_bindings: [],
   ui_features: {
     execution_lane_ui_enabled: false,
@@ -66,6 +69,14 @@ type PaperWireDraft = {
   strategy_version_id: string;
 };
 
+type CredentialDraft = {
+  requested_by: string;
+  variable_1: string;
+  value_1: string;
+  variable_2: string;
+  value_2: string;
+};
+
 const defaultWireDraft: PaperWireDraft = {
   tenant_id: "tenant_a",
   project_id: "project_alpha",
@@ -81,6 +92,14 @@ const defaultWireDraft: PaperWireDraft = {
   strategy_version_id: "strategy_001_v004",
 };
 
+const defaultCredentialDraft: CredentialDraft = {
+  requested_by: "ops_user",
+  variable_1: "",
+  value_1: "",
+  variable_2: "",
+  value_2: "",
+};
+
 function boolText(value: boolean): string {
   return value ? "true" : "false";
 }
@@ -89,8 +108,8 @@ function streamName(draft: PaperWireDraft): string {
   return `builder.execution.commands.paper.${draft.project_id}.${draft.venue.toLowerCase()}`;
 }
 
-function profilePayload(draft: PaperWireDraft): Record<string, unknown> {
-  return {
+function profilePayload(draft: PaperWireDraft, credentialSlotRef?: string): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     tenant_id: draft.tenant_id,
     project_id: draft.project_id,
     runtime_profile_id: draft.runtime_profile_id,
@@ -106,6 +125,8 @@ function profilePayload(draft: PaperWireDraft): Record<string, unknown> {
     live_controls_enabled: false,
     consumes_stream: streamName(draft),
   };
+  if (credentialSlotRef) payload.credential_slot_ref = credentialSlotRef;
+  return payload;
 }
 
 function commandPayload(draft: PaperWireDraft): Record<string, unknown> {
@@ -134,15 +155,41 @@ function commandPayload(draft: PaperWireDraft): Record<string, unknown> {
   };
 }
 
+function credentialValues(draft: CredentialDraft): Record<string, string> {
+  return Object.fromEntries(
+    [
+      [draft.variable_1, draft.value_1],
+      [draft.variable_2, draft.value_2],
+    ]
+      .map(([key, value]) => [key.trim().toUpperCase(), value] as const)
+      .filter(([key, value]) => key && value.trim()),
+  );
+}
+
+function credentialPayload(wireDraft: PaperWireDraft, credentialDraft: CredentialDraft): Record<string, unknown> {
+  return {
+    tenant_id: wireDraft.tenant_id,
+    project_id: wireDraft.project_id,
+    runtime_profile_id: wireDraft.runtime_profile_id,
+    adapter_id: wireDraft.adapter_id,
+    venue: wireDraft.venue,
+    lane_mode: "paper",
+    requested_by: credentialDraft.requested_by,
+    credential_values: credentialValues(credentialDraft),
+  };
+}
+
 export function ExecutionLaneFeaturePanel() {
   const [status, setStatus] = useState<ExecutionLaneStatus>(fallbackStatus);
   const [wireDraft, setWireDraft] = useState<PaperWireDraft>(defaultWireDraft);
+  const [credentialDraft, setCredentialDraft] = useState<CredentialDraft>(defaultCredentialDraft);
+  const [credentialSlot, setCredentialSlot] = useState<ExecutionCredentialSlot | null>(null);
   const [runtimePlan, setRuntimePlan] = useState<ExecutionLaneRuntimePlan | null>(null);
   const [command, setCommand] = useState<ExecutionLaneCommand | null>(null);
   const [workerReport, setWorkerReport] = useState<ExecutionLaneReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"profile" | "command" | "worker" | null>(null);
+  const [action, setAction] = useState<"credential" | "profile" | "command" | "worker" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,8 +217,9 @@ export function ExecutionLaneFeaturePanel() {
 
   const features = status.ui_features ?? fallbackStatus.ui_features;
   const bindings = status.venue_bindings ?? [];
-  const profilePreview = useMemo(() => profilePayload(wireDraft), [wireDraft]);
+  const profilePreview = useMemo(() => profilePayload(wireDraft, credentialSlot?.credential_slot_ref), [credentialSlot?.credential_slot_ref, wireDraft]);
   const commandPreview = useMemo(() => commandPayload(wireDraft), [wireDraft]);
+  const credentialPreview = useMemo(() => credentialPayload(wireDraft, credentialDraft), [credentialDraft, wireDraft]);
   const preview = useMemo(
     () => ({
       mode: status.mode,
@@ -180,6 +228,8 @@ export function ExecutionLaneFeaturePanel() {
       strategy_lane_coupled: status.strategy_lane_coupled,
       may_submit_order: status.may_submit_order,
       credential_policy: "server-side credential slot only",
+      credential_slot_ref: credentialSlot?.credential_slot_ref ?? null,
+      credential_slot_redacted_keys: credentialSlot?.redacted_keys ?? [],
       runtime_plan: runtimePlan
         ? {
             readiness_status: runtimePlan.readiness_status,
@@ -192,7 +242,7 @@ export function ExecutionLaneFeaturePanel() {
       command_id: command?.command_id ?? null,
       worker_report_id: workerReport?.report_id ?? null,
     }),
-    [bindings, command, features, runtimePlan, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
+    [bindings, command, credentialSlot, features, runtimePlan, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
   );
 
   function updateWireField<K extends keyof PaperWireDraft>(field: K, value: PaperWireDraft[K]) {
@@ -200,11 +250,38 @@ export function ExecutionLaneFeaturePanel() {
     setRuntimePlan(null);
     setCommand(null);
     setWorkerReport(null);
+    setCredentialSlot(null);
   }
 
   async function refreshStatus(runtimeProfileId = wireDraft.runtime_profile_id) {
     const next = await fetchExecutionLaneStatus(runtimeProfileId);
     setStatus(next);
+  }
+
+  function updateCredentialField<K extends keyof CredentialDraft>(field: K, value: CredentialDraft[K]) {
+    setCredentialDraft((current) => ({ ...current, [field]: value }));
+    setCredentialSlot(null);
+    setRuntimePlan(null);
+    setCommand(null);
+    setWorkerReport(null);
+  }
+
+  async function onSaveCredentialSlot() {
+    setAction("credential");
+    setError(null);
+    setRuntimePlan(null);
+    setCommand(null);
+    setWorkerReport(null);
+    try {
+      const slot = await saveExecutionLaneCredentialSlot(credentialPreview as Parameters<typeof saveExecutionLaneCredentialSlot>[0]);
+      setCredentialSlot(slot);
+      setCredentialDraft((current) => ({ ...current, value_1: "", value_2: "" }));
+      await refreshStatus(wireDraft.runtime_profile_id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setAction(null);
+    }
   }
 
   async function onWireProfile() {
@@ -257,6 +334,7 @@ export function ExecutionLaneFeaturePanel() {
     }
   }
 
+  const canSaveCredentialSlot = Object.keys(credentialValues(credentialDraft)).length > 0;
   const canQueue = Boolean(runtimePlan && runtimePlan.readiness_status === "READY");
   const canRunWorker = Boolean(command?.command_id);
 
@@ -267,7 +345,7 @@ export function ExecutionLaneFeaturePanel() {
           <Typography.Text className="hero-kicker">Execution Lane / Config</Typography.Text>
           <Typography.Title level={3}>Feature visibility matrix</Typography.Title>
           <Typography.Paragraph type="secondary">
-            Venue binding, paper controls visibility only, live controls visibility only, and no browser credentials.
+            Venue binding, paper controls visibility only, live controls visibility only, and no browser runtime authority.
           </Typography.Paragraph>
         </div>
 
@@ -326,6 +404,74 @@ export function ExecutionLaneFeaturePanel() {
               </Card>
             </Col>
           </Row>
+        </Card>
+
+        <Card title="Credential slot bootstrap" size="small">
+          <Typography.Paragraph type="secondary">
+            Local/dev bootstrap only: the browser sends venue-scoped credential variables once,
+            the backend writes them to a gitignored local env file, and the UI keeps only a credential_slot_ref.
+            Secrets are cleared after save and never echoed in reports.
+          </Typography.Paragraph>
+          <Form layout="vertical" className="form-grid">
+            <Form.Item label="Requested by">
+              <Input
+                aria-label="Credential requested by"
+                value={credentialDraft.requested_by}
+                onChange={(event) => updateCredentialField("requested_by", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Credential variable 1">
+              <Input
+                aria-label="Credential variable 1"
+                placeholder="BINANCE_API_KEY"
+                value={credentialDraft.variable_1}
+                onChange={(event) => updateCredentialField("variable_1", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Credential value 1">
+              <Input.Password
+                aria-label="Credential value 1"
+                value={credentialDraft.value_1}
+                onChange={(event) => updateCredentialField("value_1", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Credential variable 2">
+              <Input
+                aria-label="Credential variable 2"
+                placeholder="BINANCE_API_SECRET"
+                value={credentialDraft.variable_2}
+                onChange={(event) => updateCredentialField("variable_2", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Credential value 2">
+              <Input.Password
+                aria-label="Credential value 2"
+                value={credentialDraft.value_2}
+                onChange={(event) => updateCredentialField("value_2", event.target.value)}
+              />
+            </Form.Item>
+          </Form>
+          <Space wrap>
+            <Button disabled={!canSaveCredentialSlot} loading={action === "credential"} onClick={onSaveCredentialSlot}>
+              Save credential slot
+            </Button>
+            <Tag color="blue">writes .env.execution.local</Tag>
+            <Tag color="green">browser secret echo: false</Tag>
+          </Space>
+          {credentialSlot ? (
+            <Alert
+              showIcon
+              type="success"
+              title="Credential slot ready"
+              description={
+                <Space orientation="vertical" size={2}>
+                  <Typography.Text>{credentialSlot.credential_slot_ref}</Typography.Text>
+                  <Typography.Text>redacted keys: {credentialSlot.redacted_keys.join(", ")}</Typography.Text>
+                  <Typography.Text>env file: {credentialSlot.env_file_path}</Typography.Text>
+                </Space>
+              }
+            />
+          ) : null}
         </Card>
 
         <Card title="Paper TradingNode wire" size="small">
@@ -417,6 +563,7 @@ export function ExecutionLaneFeaturePanel() {
                   <Typography.Text>{runtimePlan.runtime_label}</Typography.Text>
                   <Typography.Text>runtime_environment: {runtimePlan.runtime_environment}</Typography.Text>
                   <Typography.Text>future_runtime: {runtimePlan.future_runtime}</Typography.Text>
+                  <Typography.Text>credential_slot_ref: {runtimePlan.credential_slot_ref ?? "none"}</Typography.Text>
                 </Space>
               </Col>
               <Col xs={24} md={12}>
@@ -480,8 +627,8 @@ export function ExecutionLaneFeaturePanel() {
           </Row>
           <Divider />
           <Typography.Paragraph type="secondary">
-            server-side credential slot only; the web app never collects exchange
-            secrets, passwords, or venue signing material.
+            server-side credential slot only; profile, command, worker report, and runtime-plan payloads never
+            carry raw exchange secrets, passwords, or venue signing material.
           </Typography.Paragraph>
           {error ? <Alert type="error" showIcon title="Execution lane request failed" description={error} /> : null}
         </Card>

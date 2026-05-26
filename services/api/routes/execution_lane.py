@@ -14,6 +14,19 @@ def execution_lane_status_payload(
     return service.snapshot(runtime_profile_id=runtime_profile_id)
 
 
+def create_execution_lane_credential_slot_payload(
+    payload: dict[str, object],
+    *,
+    service: ExecutionLaneService | None = None,
+) -> ApiResponse:
+    service = service or default_execution_lane_service()
+    try:
+        slot = service.create_credential_slot(payload)
+    except ValueError as exc:
+        return ApiResponse({"error": "invalid_execution_lane_credential_slot", "details": str(exc)}, status_code=422)
+    return ApiResponse(slot.model_dump(mode="json"), status_code=201)
+
+
 def register_execution_lane_profile_payload(
     payload: dict[str, object],
     *,

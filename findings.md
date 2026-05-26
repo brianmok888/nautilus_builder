@@ -2524,3 +2524,54 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 ```
 
 Master status for this segment: closed for the browser-to-backend BacktestNode run trigger and observational evidence display. Remaining work is production worker queue/durable persistence and richer artifact detail views, not this segment's core web/run contract.
+
+## Closure progress — 2026-05-26 Execution credential-slot bootstrap
+
+**Status:** implementation segment completed locally; master verification gate pending after documentation reconciliation.
+
+Closed / improved findings:
+
+- **HIGH: Execution lane needed a safe path from UI intent to server-side credential slot.** Added `POST /api/execution-lane/credential-slots` and a UI credential-slot bootstrap card. The route writes a gitignored `.env.execution.local` and returns only redacted slot metadata.
+- **HIGH: Raw credentials must not flow through StrategySpec/profile/command/worker payloads.** Runtime profiles and commands still reject secret-shaped fields; credential bootstrap is isolated in `packages/execution_lane/credentials.py` and response models set `browser_secret_echo=false`.
+- **HIGH: FastAPI credential bootstrap needed bearer scope.** FastAPI now requires bearer auth for credential-slot creation and rejects project mismatches with `project_scope_mismatch`.
+- **MEDIUM: Runtime plans did not show bound credential evidence for paper/sandbox venue connectivity.** READY paper/live runtime plans can now include a server-side `credential_slot_ref` while paper still keeps `may_submit_order=false`.
+- **MEDIUM: Worker reports did not expose risk-gate/credential-slot evidence.** The execution-lane worker report now emits `risk_gate_status`, `credential_slot_bound`, and `secrets_storage` without secret values.
+
+Remaining non-claims / risks:
+
+- This does **not** start a real venue-connected Nautilus `TradingNode` from the browser.
+- This does **not** make live trading production-ready; live remains fail-closed without all manual/risk/testing/reconciliation gates.
+- `.env.execution.local` is local/dev storage. Production needs an operator-managed secret store or deployment-specific environment injection.
+- Existing `credslot://server/...` refs are accepted as externally managed server-side slots; only Builder-created `credslot://local-env/...` refs are scope-validated against the in-memory store.
+
+Targeted verification captured:
+
+```bash
+rtk pytest tests/execution_lane/test_credential_slots.py tests/api/test_execution_lane_credentials_routes.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope -q
+# 7 passed
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py::test_worker_report_includes_credential_slot_and_risk_gate_without_secrets -q
+# 1 passed
+rtk pytest tests/execution_lane tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope tests/web/test_execution_lane_ui_contract.py -q
+# 34 passed
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# 12 passed
+cd apps/web && npm run typecheck
+# passed
+```
+
+### Master reconciliation — Execution credential-slot bootstrap
+
+Verification gate evidence:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 391 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 16 files / 37 tests passed; Next build passed; Playwright 4 passed
+```
+
+Master status for this segment: closed for safe local/dev credential-slot bootstrap and redacted execution-lane evidence. Remaining work is real operator-managed secret-store integration and venue-specific paper/live node startup after adapter evidence gates, not browser-side credential or order authority.

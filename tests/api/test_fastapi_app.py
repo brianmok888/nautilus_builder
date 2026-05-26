@@ -543,3 +543,45 @@ def test_fastapi_backtest_job_events_require_auth_and_project_scope(monkeypatch)
     assert cross_scope.status_code == 403
     assert same_scope.status_code == 200
     assert same_scope.json()["events"][0]["stage"] == "RUNNING"
+
+
+def test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope(monkeypatch, tmp_path) -> None:
+    from packages.auth import AuthTokenService
+    from packages.execution_lane import ExecutionLaneService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    app = create_fastapi_app(auth_token_service=auth, execution_lane_service=service)
+    payload = {
+        "tenant_id": "tenant_a",
+        "project_id": "project_beta",
+        "runtime_profile_id": "rp_paper_tradingnode",
+        "adapter_id": "BINANCE_PERP",
+        "venue": "BINANCE",
+        "lane_mode": "paper",
+        "requested_by": "ops_user",
+        "credential_values": {"BINANCE_API_KEY": "test-binance-key"},
+    }
+
+    missing = app.routes[("POST", "/api/execution-lane/credential-slots")](payload)
+    cross_scope = app.routes[("POST", "/api/execution-lane/credential-slots")](
+        payload,
+        authorization=f"Bearer {token.token}",
+    )
+    same_scope = app.routes[("POST", "/api/execution-lane/credential-slots")](
+        {**payload, "project_id": "project_alpha"},
+        authorization=f"Bearer {token.token}",
+    )
+
+    assert missing.status_code == 401
+    assert cross_scope.status_code == 403
+    assert cross_scope.json()["error"] == "project_scope_mismatch"
+    assert same_scope.status_code == 201
+    assert "test-binance-key" not in str(same_scope.json())
