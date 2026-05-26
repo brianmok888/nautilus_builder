@@ -170,15 +170,16 @@ def cancel_backtest_job_payload(
     return ApiResponse(_job_response(job))
 
 
-def backtest_job_events_payload(job_id: str) -> ApiResponse:
+def backtest_job_events_payload(job_id: str, *, service=None) -> ApiResponse:
     stream_name = RedisRuntimeEventStream.STREAM_PATTERN.format(job_id=job_id)
+    events = [] if service is None else [event.model_dump(mode="json") for event in service.replay_events(job_id)]
     return ApiResponse(
         {
             "job_id": job_id,
             "stream_name": stream_name,
             "status": "observing",
             "mode": "observational",
-            "events": [],
+            "events": events,
         }
     )
 
@@ -222,6 +223,7 @@ def _status_from_stage(stage: str) -> str:
         "RUNNING": "running",
         "SUCCEEDED": "succeeded",
         "CANCEL_REQUESTED": "cancel_requested",
+        "FAILED": "failed",
     }.get(stage, stage.lower())
 
 

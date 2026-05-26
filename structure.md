@@ -2214,3 +2214,51 @@ cd apps/web && npm run typecheck && npm test
 cd apps/web && npm run build && npm run test:e2e
 # build passed; 4 Playwright tests passed
 ```
+
+## Implementation progress — Segment BacktestNode execution trigger
+
+**Completed:** 2026-05-26
+
+Purpose:
+
+- Wire the Builder testing ladder through a backend-owned run trigger:
+  `StrategySpec -> validate/compile lineage -> BacktestNode catalog replay -> artifact refs -> manual promotion evidence`.
+- Keep `TradingNode` paper/live testing separated into the execution lane; this segment does **not** grant browser, worker-shell, credential, or live order authority.
+
+Files changed:
+
+- `services/api/routes/backtest_execution.py` — new `run_backtest_job_payload()` helper for scoped, backend-owned synchronous/local BacktestNode execution of an already-created job.
+- `services/api/fastapi_app.py` — mounted `POST /api/backtest-jobs/{job_id}/run` behind bearer auth and shared runtime-event service; job events now replay emitted worker events only after bearer-auth/project-scope checks.
+- `services/api/app.py` — dependency-free local app can mount the same run helper when an artifact store/catalog registry are injected.
+- `packages/strategy_spec/repository.py` — added `spec_for_version()` so backtest execution resolves a saved StrategySpec by `strategy_version_id` rather than trusting browser payloads.
+- `packages/catalog_datasets/service.py` — exposed `catalog_root` so execution can pass the same allowlisted root into Nautilus catalog replay.
+- `services/api/routes/backtest_jobs.py` — `/events` can return actual in-memory runtime events while retaining the observational default.
+- `tests/api/test_backtest_job_execution_routes.py` — TDD coverage for successful BacktestNode catalog replay, typed dependency errors, cross-project denial, and pre-run cancellation.
+- `tests/api/test_fastapi_app.py` — FastAPI bootstrap now asserts the run route is mounted.
+
+Execution path now enforced:
+
+```text
+POST /api/backtest-jobs
+  -> strict auth scope + registry-backed dataset selection
+POST /api/backtest-jobs/{job_id}/run
+  -> load stored StrategySpec by strategy_version_id
+  -> recompute backtest compile_hash and compare to job.compile_hash
+  -> select project-scoped catalog dataset under catalog_root
+  -> services.workers.nautilus_backtest_worker.run_backtest_job(...)
+  -> packages.backtest_runner.strategy_spec_replay.run_strategy_spec_catalog_replay(...)
+  -> nautilus_trader.backtest.node.BacktestNode(configs=[...]).run()
+  -> LocalJsonArtifactStore artifact://builder/... result ref
+  -> RuntimeEventService RUNNING/SUCCEEDED events, or FAILED on started replay errors
+```
+
+Segment verification:
+
+```bash
+python3 -m compileall -q packages services tests
+rtk pytest tests/api tests/backtest_runner tests/catalog_datasets tests/strategy_spec tests/runtime_events -q
+# Pytest: 130 passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 372 passed
+```

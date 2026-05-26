@@ -1605,3 +1605,22 @@ Segment evidence:
 cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx components/dashboard/BuilderDashboard.test.tsx
 # 5 passed after RED/GREEN cycle
 ```
+
+## Segment guard — BacktestNode execution trigger
+
+Backtest execution must remain backend-owned:
+
+- UI/browser may request `POST /api/backtest-jobs/{job_id}/run`, but it must not supply StrategySpec payloads, catalog paths, worker commands, credentials, or shell instructions for execution.
+- The backend must resolve the saved `StrategySpec` from `strategy_version_id`, recompute the backtest `compile_hash`, select the registered project-scoped `CatalogDataset`, and pass the registry-owned `catalog_root` into Nautilus replay.
+- A run may proceed only when the selected dataset is under the configured catalog root and belongs to the authenticated user/project scope.
+- BacktestNode remains the main historical/repeatable testing lane.
+- TradingNode paper remains a separate execution-lane gate after backtest evidence and manual promotion review.
+- Result artifacts must be persisted under `artifact://builder/{project_id}/{user_id}/...` and referenced from the job; do not fabricate result refs.
+- FastAPI backtest event replay must require bearer auth and job project scope before returning worker events or artifact metadata.
+- Keep no-order invariants: StrategySpec replay artifacts must preserve `execution_authority == false`, `credentials_used == false`, `orders == 0`, and `positions == 0` for Builder signal-preview/backtest evidence.
+
+Minimum regression coverage for this segment:
+
+```bash
+rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+```

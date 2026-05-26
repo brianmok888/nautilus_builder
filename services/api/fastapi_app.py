@@ -16,11 +16,13 @@ from packages.strategy_spec.repository import InMemoryStrategyRepository
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
+from services.api.routes.backtest_execution import run_backtest_job_payload
 from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
+from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
@@ -42,6 +44,7 @@ def create_fastapi_app(
     ai_audit_store: DraftAuditStoreProtocol | None = None,
     execution_lane_service: ExecutionLaneService | None = None,
     llm_config_service: LlmConfigService | None = None,
+    runtime_event_service: RuntimeEventService | None = None,
 ):
     from fastapi import FastAPI, Header
     from fastapi.responses import JSONResponse
@@ -55,6 +58,7 @@ def create_fastapi_app(
     ai_builder_service = AiBuilderService.from_env(store=_default_ai_audit_store(ai_audit_store))
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
+    runtime_event_service = runtime_event_service or RuntimeEventService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
     def require_context(authorization: str | None) -> tuple[UserProjectContext | None, ApiResponse | None]:
@@ -122,6 +126,34 @@ def create_fastapi_app(
             JSONResponse,
         )
 
+    @app.post("/api/backtest-jobs/{job_id}/run")
+    def run_backtest_job_route(
+        job_id: str,
+        payload: dict[str, Any],
+        user_id: str | None = None,
+        project_id: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        _ = payload
+        return _fastapi_response(
+            run_backtest_job_payload(
+                backtest_job_service,
+                job_id,
+                events=runtime_event_service,
+                strategy_repository=strategy_repository,
+                dataset_registry=catalog_dataset_registry,
+                artifact_store=artifact_store,
+                context=context,
+                user_id=user_id,
+                project_id=project_id,
+                strict_scope=True,
+            ),
+            JSONResponse,
+        )
+
     @app.post("/api/backtest-jobs/{job_id}/cancel")
     def cancel_backtest_job(
         job_id: str,
@@ -146,8 +178,19 @@ def create_fastapi_app(
         )
 
     @app.get("/api/backtest-jobs/{job_id}/events")
-    def backtest_job_events(job_id: str) -> Any:
-        return _fastapi_response(backtest_job_events_payload(job_id), JSONResponse)
+    def backtest_job_events(job_id: str, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        scope_check = backtest_job_payload(
+            backtest_job_service,
+            job_id,
+            context=context,
+            strict_scope=True,
+        )
+        if scope_check.status_code != 200:
+            return _fastapi_response(scope_check, JSONResponse)
+        return _fastapi_response(backtest_job_events_payload(job_id, service=runtime_event_service), JSONResponse)
 
     @app.get("/api/execution-lane/status")
     def execution_lane_status(runtime_profile_id: str | None = None, authorization: str | None = Header(default=None)) -> Any:

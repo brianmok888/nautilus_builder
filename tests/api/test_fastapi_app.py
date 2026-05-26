@@ -52,6 +52,7 @@ def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
     assert ("POST", "/api/strategies") in app.routes
     assert ("GET", "/api/strategies") in app.routes
     assert ("GET", "/api/strategies/{strategy_id}") in app.routes
+    assert ("POST", "/api/backtest-jobs/{job_id}/run") in app.routes
 
 
 def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
@@ -427,6 +428,7 @@ def test_fastapi_results_route_does_not_expose_fixture_fallback_as_production_re
     assert response.status_code == 404
     assert response.json()["error"] == "result_not_found"
 
+
 def test_fastapi_bootstrap_registers_env_dev_bearer_token(monkeypatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
@@ -445,3 +447,99 @@ def test_fastapi_bootstrap_registers_env_dev_bearer_token(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["accepted"] is True
+
+
+def test_fastapi_backtest_run_route_ignores_client_worker_identity(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+    from packages.auth import UserProjectContext
+    from packages.backtest_jobs.service import BacktestJobService
+    from packages.runtime_events.service import RuntimeEventService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    context = UserProjectContext(user_id="user_123", project_id="project_alpha")
+    jobs = BacktestJobService()
+    events = RuntimeEventService()
+    job = jobs.create_job(
+        {
+            "strategy_spec_version_id": "strategy_001_v001",
+            "adapter_profile_id": "BINANCE_PERP",
+            "instrument_id": "BTCUSDT-PERP",
+            "compile_hash": "a" * 64,
+            "validation_report_id": "validation_001",
+            "user_id": context.user_id,
+            "project_id": context.project_id,
+        }
+    )
+    jobs.request_cancel(job.job_id, context=context)
+    app = create_fastapi_app(auth_token_service=auth, backtest_job_service=jobs, runtime_event_service=events)
+
+    response = app.routes[("POST", "/api/backtest-jobs/{job_id}/run")](
+        job.job_id,
+        {"worker_image": "attacker-controlled-worker"},
+        authorization=f"Bearer {token.token}",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"] is None
+    assert events.replay_events(job.job_id)[0].actor_id == "nautilus-builder-backtest-worker:local"
+
+
+def test_fastapi_backtest_job_events_require_auth_and_project_scope(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+    from packages.backtest_jobs.service import BacktestJobService
+    from packages.runtime_events.service import RuntimeEventService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_456", project_id="project_beta")
+    jobs = BacktestJobService()
+    events = RuntimeEventService()
+    job = jobs.create_job(
+        {
+            "strategy_spec_version_id": "strategy_001_v001",
+            "adapter_profile_id": "BINANCE_PERP",
+            "instrument_id": "BTCUSDT-PERP",
+            "compile_hash": "a" * 64,
+            "validation_report_id": "validation_001",
+            "user_id": "user_123",
+            "project_id": "project_alpha",
+        }
+    )
+    events.append_event(
+        job_id=job.job_id,
+        stage="RUNNING",
+        level="INFO",
+        message="Backtest worker started",
+        progress_pct=1.0,
+        actor_type="worker",
+        actor_id="nautilus-builder-backtest-worker:local",
+    )
+    app = create_fastapi_app(auth_token_service=auth, backtest_job_service=jobs, runtime_event_service=events)
+
+    missing = app.routes[("GET", "/api/backtest-jobs/{job_id}/events")](job.job_id)
+    cross_scope = app.routes[("GET", "/api/backtest-jobs/{job_id}/events")](
+        job.job_id,
+        authorization=f"Bearer {beta.token}",
+    )
+    same_scope = app.routes[("GET", "/api/backtest-jobs/{job_id}/events")](
+        job.job_id,
+        authorization=f"Bearer {alpha.token}",
+    )
+
+    assert missing.status_code == 401
+    assert cross_scope.status_code == 403
+    assert same_scope.status_code == 200
+    assert same_scope.json()["events"][0]["stage"] == "RUNNING"

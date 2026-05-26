@@ -1,6 +1,7 @@
 from services.api.router import ApiApp
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
+from services.api.routes.backtest_execution import run_backtest_job_payload
 from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
@@ -11,9 +12,12 @@ from services.api.routes.strategy_registry import list_external_strategy_payload
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
+from packages.artifact_store import LocalJsonArtifactStore
 from packages.backtest_jobs.service import BacktestJobService
+from packages.catalog_datasets import CatalogDatasetRegistryService
 from packages.execution_lane import ExecutionLaneService
 from packages.llm_config import LlmConfigService
+from packages.runtime_events.service import RuntimeEventService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 
 
@@ -23,12 +27,16 @@ def create_app(
     backtest_job_service: BacktestJobService | None = None,
     execution_lane_service: ExecutionLaneService | None = None,
     llm_config_service: LlmConfigService | None = None,
+    catalog_dataset_registry: CatalogDatasetRegistryService | None = None,
+    artifact_store: LocalJsonArtifactStore | None = None,
+    runtime_event_service: RuntimeEventService | None = None,
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
     backtest_job_service = backtest_job_service or BacktestJobService()
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
+    runtime_event_service = runtime_event_service or RuntimeEventService()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/adapters", adapters_payload)
@@ -39,7 +47,21 @@ def create_app(
     app.route("POST", "/api/backtest-jobs", lambda payload: create_backtest_job_payload(backtest_job_service, payload))
     app.route("GET", "/api/backtest-jobs/{job_id}", lambda job_id, user_id=None, project_id=None: backtest_job_payload(backtest_job_service, job_id, user_id=user_id, project_id=project_id))
     app.route("POST", "/api/backtest-jobs/{job_id}/cancel", lambda job_id, payload, user_id=None, project_id=None: cancel_backtest_job_payload(backtest_job_service, job_id, user_id=user_id, project_id=project_id))
-    app.route("GET", "/api/backtest-jobs/{job_id}/events", backtest_job_events_payload)
+    app.route(
+        "POST",
+        "/api/backtest-jobs/{job_id}/run",
+        lambda job_id, payload, user_id=None, project_id=None: run_backtest_job_payload(
+            backtest_job_service,
+            job_id,
+            events=runtime_event_service,
+            strategy_repository=strategy_repository,
+            dataset_registry=catalog_dataset_registry,
+            artifact_store=artifact_store,
+            user_id=user_id,
+            project_id=project_id,
+        ),
+    )
+    app.route("GET", "/api/backtest-jobs/{job_id}/events", lambda job_id: backtest_job_events_payload(job_id, service=runtime_event_service))
     app.route("POST", "/api/strategies", lambda payload: create_strategy_payload(strategy_repository, payload))
     app.route("GET", "/api/strategies", lambda: list_strategies_payload(strategy_repository))
     app.route("GET", "/api/strategies/{strategy_id}", lambda strategy_id: strategy_detail_payload(strategy_repository, strategy_id))

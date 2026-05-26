@@ -2351,3 +2351,29 @@ cd apps/web && npm run typecheck && npm test
 cd apps/web && npm run build && npm run test:e2e
 # Next build passed; Playwright 4 passed
 ```
+
+## Segment closure — BacktestNode execution trigger
+
+**Status:** Closed for the current backend-owned local/dev run segment on 2026-05-26.
+
+Closed / improved findings:
+
+- **HIGH: Backtest Center/API did not execute real backend job path.** Added `POST /api/backtest-jobs/{job_id}/run` to execute an already-created scoped job through the backend worker and the real `BacktestNode` catalog replay path.
+- **HIGH: StrategySpec replay evidence needed to prove user-selected catalog ingestion.** The new route resolves the stored `StrategySpec`, selects the registry-approved `CatalogDataset`, passes the registry `catalog_root`, and persists replay evidence with `dataset_source == "user_catalog"` and `engine_mode == "strategy_spec_catalog_replay"`.
+- **MEDIUM: Compile lineage needed binding before run.** The run helper recomputes the stored StrategySpec backtest compile hash and rejects jobs whose `compile_hash` does not match the saved StrategySpec lineage.
+- **MEDIUM: Runtime events were mounted as empty observational payloads only.** Event replay can now return actual RUNNING/SUCCEEDED/FAILED/CANCEL_REQUESTED worker events for the injected runtime-event service, with FastAPI bearer-auth/project-scope checks before event disclosure.
+
+Safety notes:
+
+- Browser/UI still does not own worker shell, credentials, or order authority.
+- The route is backend-owned and scoped by bearer auth in FastAPI.
+- The `cancel_requested` state is honored before worker start and does not require catalog/artifact dependencies; started replay failures move the job to `FAILED` and emit an ERROR event.
+- Artifacts remain project/user-scoped `artifact://builder/...` JSON records.
+- This is still BacktestNode/historical replay, not TradingNode paper or live execution.
+
+Remaining actionable risks:
+
+- Add asynchronous worker queue/claiming when moving beyond local/dev synchronous runs.
+- Add durable job/event persistence for production deployments; current FastAPI injection can still be in-memory depending on boot configuration.
+- Add UI wiring to call the run route only after validation/compile/job creation evidence exists.
+- Add result-dashboard artifact read/display wiring for the persisted `strategy_spec_replay` artifact.

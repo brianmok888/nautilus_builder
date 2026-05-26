@@ -51,6 +51,12 @@ class CatalogDatasetRegistryService:
             self.register_dataset(dataset)
 
     @property
+    def catalog_root(self) -> Path | None:
+        if self._path_policy is None:
+            return None
+        return self._path_policy.root
+
+    @property
     def has_root_policy(self) -> bool:
         return self._path_policy is not None
 

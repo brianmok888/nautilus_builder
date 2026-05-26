@@ -55,6 +55,20 @@ class InMemoryStrategyRepository:
         versions.append(spec)
         return self._record(strategy_id, spec, len(versions))
 
+    def spec_for_version(
+        self,
+        strategy_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> StrategySpec | None:
+        for strategy_id, versions in self._records.items():
+            if not self._scope_matches(strategy_id, context):
+                continue
+            for index, spec in enumerate(versions, start=1):
+                if self._version_id(strategy_id, index) == strategy_version_id:
+                    return spec
+        return None
+
     def list(self, *, context: UserProjectContext | None = None) -> list[dict[str, object]]:
         return [
             {
