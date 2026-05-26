@@ -1198,3 +1198,35 @@ Execution lane worker smoke:
 python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
 # emitted execution_lane JSON with strategy_lane_coupled=false and may_submit_order=false
 ```
+
+## 22. Execution lane venue/UI feature guard
+
+Execution lane profiles and commands must be venue-bound before any worker or UI treats them as active.
+
+- Enabled execution profiles require `adapter_id` and `venue`.
+- Commands must match the profile's tenant, project, lane mode, adapter ID, venue, and optional venue account ID before enqueueing.
+- Execution status payloads may expose `venue_bindings` and `ui_features`, but `credential_inputs_allowed` must remain `false`.
+- Browser UI can show/hide execution lane, paper-control, and live-control surfaces from backend flags only. Do not add exchange secret, password, private-key, or signing-material inputs.
+- Paper controls are simulated-only and must not set `may_submit_order`, `execution_authority`, or `live_trading_enabled`.
+- Live controls require full live authority gates: live mode, enabled profile, manual review, reconciliation, risk profile, server-side credential slot, activation identity/time, config checksum, `live_trading_enabled=true`, `execution_authority=true`, and `may_submit_order=true`.
+- Venue binding does not prove real adapter connectivity. Future Nautilus `LiveNode`/adapter work still needs ExecTester/reconciliation evidence and explicit live-readiness review.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/web/test_execution_lane_ui_contract.py tests/infrastructure/test_builder_execution_lane_venue_migration.py -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+```
+
+Segment EXEC-2 evidence:
+
+```bash
+git diff --check
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/web/test_execution_lane_ui_contract.py tests/infrastructure/test_builder_execution_lane_venue_migration.py -q
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql -f /tmp/004.sql
+# focused tests 17 passed; targeted Python suite 334 passed; Vitest 21 passed; Playwright 4 passed; high audit gate exited 0; migrations 001-004 applied in disposable PostgreSQL 16.
+```

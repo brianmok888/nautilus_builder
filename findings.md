@@ -1833,3 +1833,49 @@ Worker smoke:
 python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
 # emitted execution_lane JSON with strategy_lane_coupled=false and may_submit_order=false
 ```
+
+## Closure update — Segment EXEC-2 venue-bound execution lane and UI feature flags
+
+**Status:** CLOSED locally on 2026-05-26 after full verification.
+
+### Finding
+
+- **HIGH-ARCH-2026-05-26-3:** Execution lane commands could be queued independently, but the lane was not yet bound to a venue/adapter/account. That left a future risk that execution workers could accept commands for the wrong Nautilus venue or that UI controls could appear without a backend-selected venue.
+- **MEDIUM-UX-2026-05-26-4:** The web app had no explicit feature-flag surface for showing/hiding execution-lane controls. Operators needed a visible config panel that explains which execution features are enabled while still blocking browser-side credentials.
+
+### Resolution
+
+- Added adapter/venue/account fields to execution profiles, commands, reports, status snapshots, route tests, and focused policy tests.
+- Enforced profile/command adapter and venue matching before command enqueueing.
+- Enforced enabled-profile venue binding and live-control authority gates.
+- Added migration `004_builder_execution_lane_venue_ui.sql` with columns, constraints, and indexes for venue binding and UI flags.
+- Added frontend `ExecutionLaneFeaturePanel` and `fetchExecutionLaneStatus()` typed helper. The panel displays venue bindings and backend UI flags but intentionally contains no password/API-key fields.
+
+### Review verdict
+
+**Recommendation:** APPROVE for EXEC-2. **Architectural Status:** CLEAR for venue binding and UI feature visibility.
+
+The change links execution lanes to approved adapter venues and gives the UI a read-only feature-control surface. It does not add real broker submission, browser credential capture, exchange account setup, automatic promotion, or strategy-lane coupling.
+
+### Evidence
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/web/test_execution_lane_ui_contract.py tests/infrastructure/test_builder_execution_lane_venue_migration.py -q
+# Pytest: 17 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 334 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 21 tests passed; Next build passed; Playwright 4 passed
+
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql -f /tmp/004.sql
+# migration chain applied successfully in disposable PostgreSQL 16
+```
+
+### Remaining watch items
+
+- Real Nautilus `LiveNode`/adapter submission is still a future segment and must require ExecTester/reconciliation evidence before live-readiness claims.
+- The `/config` execution panel currently reads backend status; future mutation APIs for toggling flags must remain backend-auth-derived and must not accept browser-supplied credentials or live authority.
+- `npm audit --omit=dev --audit-level=moderate` still reports the known moderate Next/PostCSS advisory with a breaking `npm audit fix --force` path; this segment kept the high-severity gate clean and did not apply the unsafe force-fix.

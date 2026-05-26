@@ -1711,3 +1711,44 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql
 # migrations 001 + 002 + 003 applied successfully in disposable PostgreSQL 16 container
 ```
+
+## Execution lane venue/UI binding — Segment EXEC-2
+
+**Completed:** 2026-05-26 14:09:16Z
+
+Context: after the standalone execution lane scaffold, the lane needed an explicit venue/adapter binding so paper/live workers can be associated with a selected Nautilus venue while strategy authoring/research continues independently.
+
+Segment EXEC-2 implementation:
+
+- Extended `packages/execution_lane` profiles, commands, reports, and service snapshots with `adapter_id`, `venue`, optional `venue_account_id`, and backend-owned UI feature flags.
+- Added profile/command policy: enabled lanes require adapter + venue; command adapter/venue/account must match the runtime profile; live UI controls require the same strict live-authority gates as live command submission.
+- Added `/api/execution-lane/status` payload fields for `venue_bindings` and `ui_features` so frontend controls can be shown/hidden without granting authority.
+- Added `infra/migrations/004_builder_execution_lane_venue_ui.sql` to bind lane runs/commands/reports to adapter venues and persist UI feature flags.
+- Added `/config` execution-lane feature panel using AntD cards/switches for visibility only. It displays backend flags and venue bindings but does not collect browser credentials.
+
+Runtime separation remains intact:
+
+- Execution lane is still strategy-lane decoupled (`strategy_lane_coupled=false`).
+- UI feature switches are backend-read-only in the browser; they do not create orders, credentials, approval records, or live adapter sessions.
+- Paper controls are simulated-only. Live controls remain hidden/false unless profile gates prove live mode, risk profile, credential slot, reconciliation, activation identity/time, config checksum, and authority flags.
+
+Verification evidence:
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/web/test_execution_lane_ui_contract.py tests/infrastructure/test_builder_execution_lane_venue_migration.py -q
+# Pytest: 17 passed
+
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 334 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql -f /tmp/004.sql
+# migrations 001 + 002 + 003 + 004 applied successfully in disposable PostgreSQL 16
+```

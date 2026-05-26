@@ -14,6 +14,9 @@ def _paper_profile() -> dict[str, object]:
         "lane_mode": "paper",
         "enabled": True,
         "paper_trading_enabled": True,
+        "adapter_id": "BINANCE_PERP",
+        "venue": "BINANCE",
+        "venue_account_id": "SIM-BINANCE-001",
         "consumes_stream": "builder.execution.commands.paper.project_alpha",
     }
 
@@ -24,6 +27,9 @@ def _paper_command() -> dict[str, object]:
         "project_id": "project_alpha",
         "runtime_profile_id": "rp_paper_001",
         "lane_mode": "paper",
+        "adapter_id": "BINANCE_PERP",
+        "venue": "BINANCE",
+        "venue_account_id": "SIM-BINANCE-001",
         "trade_action_id": "ta_001",
         "source_event_id": "gate_evt_001",
         "idempotency_key": "gate_evt_001:ta_001",
@@ -96,6 +102,8 @@ def test_live_command_requires_explicit_live_profile_and_all_gates() -> None:
             "profile_name": "Disabled live lane",
             "lane_mode": "live",
             "enabled": False,
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
             "consumes_stream": "builder.execution.commands.live.project_alpha",
         }
     )
@@ -128,6 +136,9 @@ def test_live_command_can_be_queued_only_with_profile_authority_and_risk_approva
             "profile_name": "Live execution lane",
             "lane_mode": "live",
             "enabled": True,
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "venue_account_id": "MAIN-BINANCE-001",
             "advisory_only": False,
             "manual_review_required": True,
             "live_trading_enabled": True,
@@ -154,6 +165,9 @@ def test_live_command_can_be_queued_only_with_profile_authority_and_risk_approva
             "promotion_approval_id": "approval_001",
             "risk_profile_id": "risk_live_001",
             "credential_slot_ref": "credslot://server/binance_main",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "venue_account_id": "MAIN-BINANCE-001",
             "risk_decision": {"status": "approved", "risk_profile_id": "risk_live_001"},
         }
     )

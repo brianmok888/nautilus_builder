@@ -71,7 +71,9 @@ class ExecutionLaneService:
         report_payload.setdefault("tenant_id", command.tenant_id)
         report_payload.setdefault("project_id", command.project_id)
         report_payload.setdefault("lane_mode", command.lane_mode)
-        report_payload.setdefault("venue", command.order_intent.get("venue", command.order_intent.get("instrument_id", "SIM")))
+        report_payload.setdefault("adapter_id", command.adapter_id)
+        report_payload.setdefault("venue", command.venue)
+        report_payload.setdefault("venue_account_id", command.venue_account_id)
         report_payload.setdefault("instrument_id", command.order_intent.get("instrument_id", "UNKNOWN"))
         report_payload.setdefault("payload", {})
         report = ExecutionLaneReport.model_validate(report_payload)
@@ -84,16 +86,38 @@ class ExecutionLaneService:
         reports = list(self._reports.values())
         if runtime_profile_id is not None:
             reports = [report for report in reports if report.runtime_profile_id == runtime_profile_id]
+        profiles = self.list_profiles()
+        if runtime_profile_id is not None:
+            profiles = [profile for profile in profiles if profile.runtime_profile_id == runtime_profile_id]
         return {
             "mode": "execution_lane",
             "runtime_profile_id": runtime_profile_id,
-            "profiles": len(self.list_profiles()),
+            "profiles": len(profiles),
             "queued_commands": sum(command.status == ExecutionCommandStatus.QUEUED for command in commands),
             "claimed_commands": sum(command.status == ExecutionCommandStatus.CLAIMED for command in commands),
             "reported_commands": sum(command.status == ExecutionCommandStatus.REPORTED for command in commands),
             "reports": len(reports),
             "strategy_lane_coupled": False,
             "may_submit_order": any(command.may_submit_order for command in commands),
+            "venue_bindings": [
+                {
+                    "runtime_profile_id": profile.runtime_profile_id,
+                    "adapter_id": profile.adapter_id,
+                    "venue": profile.venue,
+                    "venue_account_id": profile.venue_account_id,
+                    "lane_mode": profile.lane_mode.value,
+                    "enabled": profile.enabled,
+                }
+                for profile in profiles
+                if profile.adapter_id and profile.venue
+            ],
+            "ui_features": {
+                "execution_lane_ui_enabled": any(profile.ui_enabled for profile in profiles),
+                "paper_controls_enabled": any(profile.enabled and profile.paper_controls_enabled and profile.lane_mode.value == "paper" for profile in profiles),
+                "live_controls_enabled": any(profile.live_controls_enabled and profile.is_live_enabled for profile in profiles),
+                "credential_inputs_allowed": False,
+                "strategy_lane_coupled": False,
+            },
         }
 
     @staticmethod
@@ -102,6 +126,12 @@ class ExecutionLaneService:
             raise ValueError("execution lane command scope does not match runtime profile")
         if profile.lane_mode != command.lane_mode:
             raise ValueError("execution lane command mode does not match runtime profile")
+        if profile.adapter_id != command.adapter_id:
+            raise ValueError("execution lane command adapter_id does not match runtime profile")
+        if profile.venue != command.venue:
+            raise ValueError("execution lane command venue does not match runtime profile")
+        if profile.venue_account_id and command.venue_account_id and profile.venue_account_id != command.venue_account_id:
+            raise ValueError("execution lane command venue_account_id does not match runtime profile")
         if command.may_submit_order or command.execution_authority or command.live_trading_enabled:
             if not profile.is_live_enabled:
                 raise ValueError("execution lane profile is not live-enabled")

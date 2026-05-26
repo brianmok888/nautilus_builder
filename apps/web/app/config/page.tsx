@@ -1,3 +1,4 @@
+import { ExecutionLaneFeaturePanel } from "../../components/config/ExecutionLaneFeaturePanel";
 import { ModelConfigTabs } from "../../components/config/ModelConfigTabs";
 
 export default function ConfigPage() {
@@ -17,6 +18,7 @@ export default function ConfigPage() {
         </nav>
       </section>
       <ModelConfigTabs />
+      <ExecutionLaneFeaturePanel />
     </main>
   );
 }

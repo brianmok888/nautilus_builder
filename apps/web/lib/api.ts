@@ -8,6 +8,7 @@ import type {
   BacktestJobStatus,
   BacktestProfileValidation,
   DataAvailability,
+  ExecutionLaneStatus,
   InstrumentSummary,
   PromotionRequestResult,
   ResultDashboardPayload,
@@ -113,6 +114,15 @@ export async function apiFetch<T>(
 
 export async function fetchBackendHealth(): Promise<BackendHealth> {
   return apiFetch<BackendHealth>("/health/backend");
+}
+
+export async function fetchExecutionLaneStatus(
+  runtimeProfileId?: string,
+): Promise<ExecutionLaneStatus> {
+  const params = runtimeProfileId
+    ? `?${new URLSearchParams({ runtime_profile_id: runtimeProfileId }).toString()}`
+    : "";
+  return apiFetch<ExecutionLaneStatus>(`/api/execution-lane/status${params}`);
 }
 
 export async function fetchAdapters(): Promise<AdapterSummary[]> {

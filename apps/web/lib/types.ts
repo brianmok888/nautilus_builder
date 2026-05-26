@@ -1,3 +1,34 @@
+export type ExecutionLaneVenueBinding = {
+  runtime_profile_id: string;
+  adapter_id: string;
+  venue: string;
+  venue_account_id?: string | null;
+  lane_mode: "paper" | "live" | string;
+  enabled: boolean;
+};
+
+export type ExecutionLaneUiFeatures = {
+  execution_lane_ui_enabled: boolean;
+  paper_controls_enabled: boolean;
+  live_controls_enabled: boolean;
+  credential_inputs_allowed: false;
+  strategy_lane_coupled: false;
+};
+
+export type ExecutionLaneStatus = {
+  mode: "execution_lane" | string;
+  runtime_profile_id: string | null;
+  profiles?: number;
+  queued_commands?: number;
+  claimed_commands?: number;
+  reported_commands?: number;
+  reports?: number;
+  venue_bindings: ExecutionLaneVenueBinding[];
+  ui_features: ExecutionLaneUiFeatures;
+  strategy_lane_coupled: false;
+  may_submit_order: boolean;
+};
+
 export type BackendHealth = {
   status: string;
   service: string;

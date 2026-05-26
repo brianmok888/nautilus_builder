@@ -48,6 +48,12 @@ class ExecutionLaneProfile(BaseModel):
     enabled: bool = False
     status: ExecutionLaneStatus = ExecutionLaneStatus.CREATED
     consumes_stream: str = Field(min_length=1)
+    adapter_id: str | None = None
+    venue: str | None = None
+    venue_account_id: str | None = None
+    ui_enabled: bool = False
+    paper_controls_enabled: bool = False
+    live_controls_enabled: bool = False
     strategy_lane_coupled: Literal[False] = False
     advisory_only: bool = True
     manual_review_required: bool = True
@@ -72,15 +78,24 @@ class ExecutionLaneProfile(BaseModel):
 
     @model_validator(mode="after")
     def validate_authority(self) -> "ExecutionLaneProfile":
+        if self.enabled:
+            missing_binding = [name for name in ("adapter_id", "venue") if not _present(getattr(self, name))]
+            if missing_binding:
+                raise ValueError(f"enabled execution lane profile requires {', '.join(missing_binding)}")
+
         if self.lane_mode == ExecutionLaneMode.PAPER:
             if self.live_trading_enabled or self.execution_authority or self.may_submit_order:
                 raise ValueError("paper execution lanes cannot enable live authority")
             if self.enabled and not self.paper_trading_enabled:
                 raise ValueError("enabled paper execution lanes require paper_trading_enabled")
+            if self.live_controls_enabled:
+                raise ValueError("live UI controls require live authority")
             return self
 
         if self.lane_mode == ExecutionLaneMode.LIVE:
             wants_live_authority = self.live_trading_enabled or self.execution_authority or self.may_submit_order
+            if self.live_controls_enabled and not self.is_live_enabled:
+                raise ValueError("live UI controls require live authority")
             if not wants_live_authority:
                 return self
             missing = []
@@ -136,6 +151,9 @@ class ExecutionLaneCommand(BaseModel):
     project_id: str = Field(min_length=1)
     runtime_profile_id: str = Field(min_length=1)
     lane_mode: ExecutionLaneMode
+    adapter_id: str = Field(min_length=1)
+    venue: str = Field(min_length=1)
+    venue_account_id: str | None = None
     trade_action_id: str = Field(min_length=1)
     source_event_id: str = Field(min_length=1)
     idempotency_key: str = Field(min_length=1)
@@ -224,6 +242,8 @@ class ExecutionLaneReport(BaseModel):
     tenant_id: str = Field(min_length=1)
     project_id: str = Field(min_length=1)
     lane_mode: ExecutionLaneMode
+    adapter_id: str = Field(min_length=1)
+    venue_account_id: str | None = None
     report_type: str = Field(min_length=1)
     venue: str = Field(min_length=1)
     instrument_id: str = Field(min_length=1)
