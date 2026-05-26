@@ -24,4 +24,19 @@ def test_config_page_exposes_execution_lane_venue_feature_panel() -> None:
     assert 'type="password"' not in component
     assert "api_key" not in component.lower()
     assert "ExecutionLaneStatus" in types
+    assert "ExecutionLaneProfile" in types
+    assert "ExecutionLaneCommand" in types
+    assert "ExecutionLaneRuntimePlan" in types
+    assert "ExecutionLaneReport" in types
     assert "fetchExecutionLaneStatus" in api
+    assert "registerExecutionLaneProfile" in api
+    assert "fetchExecutionLaneRuntimePlan" in api
+    assert "enqueueExecutionLaneCommand" in api
+    assert "runExecutionLaneWorkerOnce" in api
+    assert "Wire paper profile" in component
+    assert "Queue paper command" in component
+    assert "Run backend worker plan" in component
+    assert "Runtime plan" in component
+    assert "Worker report" in component
+    assert "paper sandbox only" in component
+    assert "/api/execution-lane/worker/run-once" in api

@@ -1656,3 +1656,47 @@ Minimum regression coverage for this segment:
 rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py tests/api/test_execution_lane_tradingnode_routes.py -q
 rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_execution_lane_tradingnode_routes.py tests/infrastructure -q
 ```
+
+## Segment guard — Execution lane full web wire
+
+The `/config` execution-lane UI may orchestrate only this paper/sandbox contract sequence:
+
+```text
+register paper profile -> fetch runtime plan -> enqueue paper command -> backend worker run-once -> display report
+```
+
+Preserve these rules:
+
+- The browser may not collect API keys, private keys, passwords, authorization tokens, raw credentials, shell commands, worker process handles, or venue signing material.
+- The browser may not expose a `Submit order` / `Cancel order` / `Modify order` action. It may enqueue a paper execution-lane command request only after a backend runtime plan is READY.
+- `POST /api/execution-lane/worker/run-once` must remain a backend-owned local/dev worker seam; it may emit a `tradingnode_runtime_plan` report but must not start real venue connectivity in contract tests.
+- Paper runtime plans must keep `runtime_environment=sandbox`, `live_trading_enabled=false`, `execution_authority=false`, `may_submit_order=false`, `browser_credentials_allowed=false`, and `credential_inputs_allowed=false`.
+- UI text must keep the authority boundary visible: no browser credentials, backend worker only, paper sandbox only, and no strategy-lane coupling.
+- Live mode must remain unavailable from this browser wire unless all live execution-lane gates in the previous TradingNode guard are satisfied and reviewed.
+- Keep `python_live_integration_specific` labeling for Python `TradingNode`; do not rename it into a universal `LiveNode` claim.
+
+Minimum regression coverage:
+
+```bash
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/web/test_execution_lane_ui_contract.py -q
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts components/dashboard/BuilderDashboard.test.tsx
+cd apps/web && npm run typecheck
+```
+
+### Master reconciliation guard — Execution lane full web wire
+
+This segment is considered complete only while the following remains true:
+
+- The UI shows the paper wire as sandbox/backend-worker-only.
+- `runExecutionLaneWorkerOnce()` exists only as an API helper to a backend route; the browser never starts a process or opens a shell.
+- Contract tests assert no API-key field and no submit-order button in the UI.
+- Python and frontend verification continue to pass with the execution-lane route, API wrappers, and component test included.
+
+Evidence captured for this closure:
+
+```bash
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/execution_lane tests/web/test_execution_lane_ui_contract.py -q
+# 26 passed
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts components/dashboard/BuilderDashboard.test.tsx
+# 12 passed
+```

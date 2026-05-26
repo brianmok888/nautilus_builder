@@ -2429,3 +2429,52 @@ python3 -m compileall -q packages services tests
 rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
 # 380 passed
 ```
+
+## Closure progress — 2026-05-26 Execution lane full web wire
+
+**Status:** implementation segment completed locally; final master verification recorded after the verification gate.
+
+Closed / improved findings:
+
+- **HIGH: TradingNode paper/live execution lane was not runnable from web UI.** The `/config` UI now wires the paper lane through backend contracts: profile registration, runtime-plan fetch, command enqueue, worker run-once, and report rendering.
+- **HIGH: Browser/API boundary needed explicit worker separation.** The UI calls a backend-owned `POST /api/execution-lane/worker/run-once` adapter that delegates to `services.workers.execution_lane_worker.run_execution_lane_worker_once()`; it does not expose shell/process controls or raw worker internals.
+- **MEDIUM: Runtime-plan evidence was API-only.** The UI now displays `Runtime plan READY`, `python_live_integration_specific`, sandbox/paper status, credential restrictions, and `Worker report: tradingnode_runtime_plan` after the backend seam reports.
+- **MEDIUM: Full-wire UI lacked contract tests.** Added Vitest coverage for the fetch sequence and Python source-scan coverage for API wrappers/types/buttons/routes.
+
+Remaining non-claims / risks:
+
+- This is a paper/sandbox contract wire only. It does not start a real Nautilus `TradingNode`, connect to a venue, or submit/cancel/modify orders.
+- The browser still supplies only a paper command request shape; real paper/live venue readiness still requires adapter-specific DataTester, ExecTester, reconciliation, credential-slot, and manual approval evidence.
+- Worker run-once is synchronous/local-dev scaffolding; production execution still needs durable queue/claim/retry semantics and persistent event/report storage.
+- Live mode remains fail-closed and is not exposed as a browser order-submission path.
+
+Implementation evidence:
+
+```bash
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/web/test_execution_lane_ui_contract.py -q
+# Pytest: 5 passed
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts components/dashboard/BuilderDashboard.test.tsx
+# 12 passed
+cd apps/web && npm run typecheck
+# passed
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/execution_lane tests/web/test_execution_lane_ui_contract.py -q
+# 26 passed
+```
+
+### Reconciliation — Execution lane full web wire
+
+Verification gate evidence:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 382 passed
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest 33 passed; Next build passed
+cd apps/web && npm run test:e2e
+# Playwright 4 passed
+```
+
+Master status for this segment: closed for paper/sandbox full-wire UI contracts. Do not escalate this into a live-trading readiness claim without real venue adapter evidence, credential-slot integration, durable worker persistence, and operator approval gates.

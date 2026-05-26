@@ -8,6 +8,10 @@ import type {
   BacktestJobStatus,
   BacktestProfileValidation,
   DataAvailability,
+  ExecutionLaneCommand,
+  ExecutionLaneProfile,
+  ExecutionLaneReport,
+  ExecutionLaneRuntimePlan,
   ExecutionLaneStatus,
   InstrumentSummary,
   LlmConfig,
@@ -150,6 +154,46 @@ export async function fetchExecutionLaneStatus(
     ? `?${new URLSearchParams({ runtime_profile_id: runtimeProfileId }).toString()}`
     : "";
   return apiFetch<ExecutionLaneStatus>(`/api/execution-lane/status${params}`);
+}
+
+export async function registerExecutionLaneProfile(
+  payload: Record<string, unknown>,
+): Promise<ExecutionLaneProfile> {
+  return apiFetch<ExecutionLaneProfile>("/api/execution-lane/profiles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchExecutionLaneRuntimePlan(
+  runtimeProfileId: string,
+  commandId?: string,
+): Promise<ExecutionLaneRuntimePlan> {
+  const params = new URLSearchParams({ runtime_profile_id: runtimeProfileId });
+  if (commandId) params.set("command_id", commandId);
+  return apiFetch<ExecutionLaneRuntimePlan>(`/api/execution-lane/runtime-plan?${params.toString()}`);
+}
+
+export async function enqueueExecutionLaneCommand(
+  payload: Record<string, unknown>,
+): Promise<ExecutionLaneCommand> {
+  return apiFetch<ExecutionLaneCommand>("/api/execution-lane/commands", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function runExecutionLaneWorkerOnce(payload: {
+  runtime_profile_id: string;
+  worker_id?: string;
+}): Promise<ExecutionLaneReport> {
+  return apiFetch<ExecutionLaneReport>("/api/execution-lane/worker/run-once", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function fetchAdapters(): Promise<AdapterSummary[]> {

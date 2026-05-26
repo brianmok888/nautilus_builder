@@ -2298,3 +2298,76 @@ Segment reconciliation:
 - The new runtime-plan seam validates against the installed NautilusTrader Python API shape without constructing venue clients.
 - Contract tests and full Python suite passed after the live-gate strengthening.
 - No frontend files were changed in this segment; UI can consume `/api/execution-lane/runtime-plan` in a later section.
+
+## Segment 2026-05-26 — Execution lane full web wire
+
+**Completed:** 2026-05-26
+
+Purpose:
+
+- Wire the `/config` UI through the existing backend execution-lane contracts for paper-mode operational rehearsal.
+- Preserve the separation between StrategySpec authoring, BacktestNode historical replay, and TradingNode paper/live execution.
+- Keep browser authority limited to configuration/profile/command requests; the backend service and worker seam remain the source of runtime truth.
+
+New web/backend flow:
+
+```text
+apps/web/components/config/ExecutionLaneFeaturePanel.tsx
+  -> POST /api/execution-lane/profiles
+  -> GET /api/execution-lane/runtime-plan?runtime_profile_id=...
+  -> POST /api/execution-lane/commands
+  -> GET /api/execution-lane/runtime-plan?runtime_profile_id=...&command_id=...
+  -> POST /api/execution-lane/worker/run-once
+  -> ExecutionLaneReport(report_type="tradingnode_runtime_plan")
+```
+
+Changed structure:
+
+- `apps/web/components/config/ExecutionLaneFeaturePanel.tsx` — adds a compact paper TradingNode wire panel with runtime-profile fields, command enqueue, backend worker run-once, and report display.
+- `apps/web/components/config/ExecutionLaneFeaturePanel.test.tsx` — locks the full browser-to-backend fetch sequence and verifies no browser credential/API-key/order-submit controls are introduced.
+- `apps/web/lib/api.ts` and `apps/web/lib/types.ts` — add typed wrappers and DTOs for execution profile registration, runtime-plan fetch, command enqueue, and worker run-once reports.
+- `services/api/routes/execution_lane.py` — adds a thin `run_execution_lane_worker_once_payload()` adapter over the backend worker seam.
+- `services/api/app.py` and `services/api/fastapi_app.py` — mount `POST /api/execution-lane/worker/run-once` for the dependency-free test app and bearer-auth FastAPI app.
+- `tests/api/test_execution_lane_tradingnode_routes.py` — adds API contract coverage for claiming a queued paper command and returning a TradingNode runtime-plan report.
+- `tests/web/test_execution_lane_ui_contract.py` — extends the source-scan contract for the new full-wire UI/API surface.
+
+Safety notes:
+
+- The UI can register a paper runtime profile, fetch a guarded runtime plan, enqueue a paper command, and ask the backend worker seam to emit a report.
+- The browser still cannot start a Nautilus node, mutate worker memory directly, collect credentials, or submit/modify/cancel orders.
+- Paper mode remains `runtime_environment=sandbox` with `may_submit_order=false`; live mode remains gated/fail-closed by the execution-lane contract.
+- `TradingNode` remains labeled `python_live_integration_specific`; Rust `LiveNode` remains a future runtime target.
+
+Targeted verification during implementation:
+
+```bash
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/web/test_execution_lane_ui_contract.py -q
+# Pytest: 5 passed
+
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts components/dashboard/BuilderDashboard.test.tsx
+# 3 files / 12 Vitest tests passed
+
+cd apps/web && npm run typecheck
+# tsc --noEmit passed
+
+rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/execution_lane tests/web/test_execution_lane_ui_contract.py -q
+# Pytest: 26 passed
+```
+
+### Reconciliation — Execution lane full web wire
+
+The execution-lane UI now consumes the same backend contracts used by the paper/live runtime-plan seam. It can complete the local/dev paper wire from profile to worker report without introducing browser credentials, shell access, or live order authority.
+
+Master verification after documentation updates:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 382 passed
+cd apps/web && npm run typecheck && npm test && npm run build
+# typecheck passed; Vitest 16 files / 33 tests passed; Next build passed
+cd apps/web && npm run test:e2e
+# Playwright: 4 passed
+```

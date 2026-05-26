@@ -29,6 +29,93 @@ export type ExecutionLaneStatus = {
   may_submit_order: boolean;
 };
 
+
+export type ExecutionLaneProfile = {
+  tenant_id: string;
+  project_id: string;
+  runtime_profile_id: string;
+  profile_name: string;
+  lane_mode: "paper" | "live";
+  enabled: boolean;
+  consumes_stream: string;
+  adapter_id?: string | null;
+  venue?: string | null;
+  venue_account_id?: string | null;
+  ui_enabled?: boolean;
+  paper_controls_enabled?: boolean;
+  live_controls_enabled?: boolean;
+  paper_trading_enabled?: boolean;
+  live_trading_enabled?: boolean;
+  execution_authority?: boolean;
+  may_submit_order?: boolean;
+  strategy_lane_coupled?: false;
+};
+
+export type ExecutionLaneCommand = {
+  command_id: string;
+  tenant_id: string;
+  project_id: string;
+  runtime_profile_id: string;
+  lane_mode: "paper" | "live";
+  adapter_id: string;
+  venue: string;
+  venue_account_id?: string | null;
+  trade_action_id: string;
+  source_event_id: string;
+  idempotency_key: string;
+  strategy_lineage_id: string;
+  strategy_version_id: string;
+  order_intent: Record<string, unknown>;
+  risk_decision: Record<string, unknown>;
+  status: string;
+  may_submit_order: boolean;
+  strategy_lane_coupled: false;
+};
+
+export type ExecutionLaneRuntimePlan = {
+  schema_version: "execution_lane.tradingnode.v1" | string;
+  tenant_id: string;
+  project_id: string;
+  runtime_profile_id: string;
+  lane_mode: "paper" | "live" | string;
+  readiness_status: "READY" | "BLOCKED" | string;
+  blocked_reasons: string[];
+  node_runtime: "python_trading_node" | string;
+  runtime_label: "python_live_integration_specific" | string;
+  future_runtime: "rust_live_node" | string;
+  runtime_environment: "sandbox" | "live" | string;
+  adapter_id: string;
+  venue: string;
+  venue_account_id?: string | null;
+  strategy_lane_coupled: false;
+  browser_credentials_allowed: false;
+  credential_inputs_allowed: false;
+  live_trading_enabled: boolean;
+  execution_authority: boolean;
+  may_submit_order: boolean;
+  credential_slot_ref?: string | null;
+  evidence_refs?: Record<string, string>;
+  nautilus_imports?: string[];
+  config_contract: Record<string, unknown>;
+  nautilus_trader_version?: string | null;
+};
+
+export type ExecutionLaneReport = {
+  report_id: string;
+  command_id: string;
+  runtime_profile_id: string;
+  tenant_id: string;
+  project_id: string;
+  lane_mode: "paper" | "live" | string;
+  adapter_id: string;
+  venue_account_id?: string | null;
+  report_type: string;
+  venue: string;
+  instrument_id: string;
+  payload: Record<string, unknown>;
+  strategy_lane_coupled: false;
+};
+
 export type BackendHealth = {
   status: string;
   service: string;
