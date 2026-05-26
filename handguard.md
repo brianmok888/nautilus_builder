@@ -1305,3 +1305,46 @@ print(md.version('nautilus_trader'), getattr(nautilus_trader, '__version__', 'un
 PY
 rtk pytest tests/backtest_runner/test_runtime_dependency_check.py tests/backtest_runner/test_real_nautilus_engine_smoke.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
 ```
+
+
+## 25. Headless backend runtime guard
+
+Builder backend readiness must not depend on the web UI or the private Nautilus-Daedalus checkout.
+
+- Keep a backend-only diagnostic surface in `packages/backend_runtime` / `services.backend_runtime`.
+- Preserve `web_ui_required=false` and `nautilus_daedalus_required=false` in the headless runtime report unless the product direction explicitly changes.
+- Keep `services.api.dev_server` dependency-free for local contract checks.
+- Run the production-style FastAPI app through the project dependency environment (`uv run uvicorn 'services.api.fastapi_app:create_fastapi_app' --factory ...`).
+- Keep execution-lane worker entrypoints separate from strategy authoring modules; worker scaffold output must keep `strategy_lane_coupled=false` and `may_submit_order=false`.
+- Do not add imports from `apps/web`, `nautilus_actors`, `nautilus_runtime`, `nautilus_strategies`, `nautilus_brain`, or `nautilus_adapters` into backend runtime checks.
+- NautilusTrader remains the pinned upstream Python dependency and must be checked with `check_nautilus_runtime_version()`.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py -q
+python3 -m services.backend_runtime --runtime-profile-id rp_paper_001
+uv run python -c "from services.api.fastapi_app import create_fastapi_app; app=create_fastapi_app(); print(app.title, len(app.routes))"
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
+```
+
+Segment HEADLESS-BACKEND-1 focused evidence:
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py -q
+# 6 passed
+```
+
+
+Segment HEADLESS-BACKEND-1 final evidence:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/integration/test_headless_backend_runtime.py tests/api/test_fastapi_app.py tests/api/test_route_mounts.py tests/execution_lane tests/backtest_runner/test_runtime_dependency_check.py tests/backtest_runner/test_real_nautilus_engine_smoke.py -q
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+uv run nautilus-builder-backend-check --runtime-profile-id rp_paper_001
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+# diff/compile passed; focused Python 38 passed; full Python 347 passed; backend check emitted no web/Daedalus imports and pinned NT match; Vitest 22 passed; Playwright 4 passed; high audit gate exited 0 with only existing moderate Next/PostCSS advisory.
+```

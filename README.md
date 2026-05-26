@@ -49,6 +49,7 @@ Representative modules:
 - `packages/catalog_datasets/service.py`
 - `packages/strategy_registry/service.py`
 - `packages/ai_builder/service.py`
+- `packages/backend_runtime/service.py`
 
 ## Important boundaries
 
@@ -58,6 +59,26 @@ Representative modules:
 - UX must remain **authoring/observational only** and must not own runtime.
 - Builder must not create `TradeAction` or call `submit_order`.
 - AI remains advisory only; all output must remain draft-stage and pass Builder validation/lifecycle rules.
+
+## Headless backend operation
+
+The backend can run without the Next.js web UI and without a Nautilus-Daedalus checkout. Supported entrypoints are:
+
+```bash
+# Dependency-free local API contract server
+python3 -m services.api.dev_server --host 0.0.0.0 --port 8000
+
+# FastAPI server in the project dependency environment
+uv run uvicorn 'services.api.fastapi_app:create_fastapi_app' --factory --host 0.0.0.0 --port 8000
+
+# Standalone execution-lane worker scaffold
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001
+
+# Runtime contract check
+python3 -m services.backend_runtime --runtime-profile-id rp_paper_001
+```
+
+Installed-package scripts mirror those module entrypoints: `nautilus-builder-api`, `nautilus-builder-execution-worker`, and `nautilus-builder-backend-check`. The backend check emits JSON evidence for API health, adapter route availability, execution-lane decoupling, the pinned NautilusTrader runtime version, and absence of web/Daedalus imports. If the check is run outside the `uv` project environment, the dependency-free API can still run while the FastAPI report records the missing optional runtime dependency instead of claiming it is mounted.
 
 ## Verification
 
@@ -85,4 +106,5 @@ Current implemented scaffolds include `pyproject.toml`, `services/api/fastapi_ap
 - local JSON artifact store evidence and tenant-scoped catalog dataset contracts exist, but production object-storage provisioning remains deployment work
 - route-level scoped access contracts exist, but production still needs real auth middleware/token propagation into those package checks
 - promotion requests are shadow/signal-preview only and require evidence before readiness can be claimed
+- headless backend entrypoints and diagnostics exist, but production service supervision, object storage, and CI/deployment gates remain incremental
 - verification remains contract-heavy and local; production deployment, object storage, and CI gates remain incremental

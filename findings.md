@@ -1965,3 +1965,69 @@ The backend dependency direction is explicit and remains in force:
 - Backend code imports official `nautilus_trader` modules directly for real-engine smoke and catalog replay seams.
 - Backend package structure should follow NautilusTrader domains and lifecycle concepts first, while using Nautilus-Daedalus only as a read-only/reference architecture for clean-room adoption.
 - Do not replace the pip dependency with a vendored NautilusTrader checkout, frontend-only API proxy, or ND runtime dependency.
+
+
+## Closure update — Segment HEADLESS-BACKEND-1 headless backend runtime
+
+**Status:** CLOSED locally on 2026-05-26 after focused, full Python, and web verification.
+
+### Finding
+
+- **MEDIUM-RUNTIME-2026-05-26-7:** Builder had API and worker modules that could be run manually, but no single backend-owned contract proved the system can operate without the web UI or a Nautilus-Daedalus checkout. This made it too easy to conflate UI readiness with backend readiness.
+
+### Resolution
+
+- Added a `backend_runtime` package with a strict `HeadlessBackendRuntimeReport`.
+- Added a CLI (`services.backend_runtime`) and installed script entrypoint (`nautilus-builder-backend-check`) that emits JSON evidence.
+- Added headless entrypoint scripts for `services.api.dev_server` and `services.workers.execution_lane_worker`.
+- Added an integration test that verifies dependency-free API health/adapters, FastAPI factory mounting under `uv run`, execution-lane decoupling, NautilusTrader pin status, and absence of web/Daedalus imports.
+- Documented backend-only commands in `README.md`.
+
+### Review verdict
+
+**Recommendation:** APPROVE for HEADLESS-BACKEND-1. **Architectural Status:** CLEAR for headless backend contracts.
+
+The segment does not add live order authority, browser credentials, Nautilus-Daedalus imports, or new live adapter connectivity. It adds runtime evidence and command surfaces for backend-only operation.
+
+### Focused evidence so far
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py -q
+# 6 passed
+
+uv run python -c "from services.api.fastapi_app import create_fastapi_app; app=create_fastapi_app(); print(app.title, len(app.routes))"
+# Nautilus Builder API 32
+```
+
+### Final verification — Segment HEADLESS-BACKEND-1
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py tests/api/test_fastapi_app.py tests/api/test_route_mounts.py tests/execution_lane tests/backtest_runner/test_runtime_dependency_check.py tests/backtest_runner/test_real_nautilus_engine_smoke.py -q
+# Pytest: 38 passed
+
+git diff --check
+# passed
+
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 347 passed
+
+uv run nautilus-builder-backend-check --runtime-profile-id rp_paper_001
+# emitted JSON with web_ui_required=false, nautilus_daedalus_required=false, FastAPI mounted true / 32 routes, and nautilus_trader==1.223.0
+
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
+# emitted execution_lane JSON with strategy_lane_coupled=false and may_submit_order=false
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 12 files / 22 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
+
+### Remaining watch items
+
+- The dependency-free dev server is a local contract server; production FastAPI service supervision remains deployment work.
+- Running `services.backend_runtime` outside `uv` may report FastAPI as missing while still proving dependency-free API/worker contracts.

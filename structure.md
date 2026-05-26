@@ -1827,3 +1827,69 @@ Per current product direction, NautilusTrader is the backend engine dependency, 
 - Builder backend packages import `nautilus_trader` directly for Strategy, BacktestEngine/BacktestNode, ParquetDataCatalog, model data, and test-kit smoke seams.
 - Backend structure should continue to follow NautilusTrader concepts first: strategy components, adapter/data catalog contracts, backtest/replay contracts, live/execution lane contracts, and official DataTester/ExecTester/reconciliation evidence requirements.
 - Nautilus-Daedalus remains a private/reference architecture source only. Builder may clean-room-adopt ND lane boundaries and operational lessons, but must not import ND internals or require an ND checkout.
+
+
+## Headless backend runtime — Segment HEADLESS-BACKEND-1
+
+**Started:** 2026-05-26
+
+Context: after confirming Builder should be able to run even when the web UI is absent, the backend needed an executable contract that proves API and worker seams are independent from `apps/web` and from the private Nautilus-Daedalus runtime.
+
+Segment implementation:
+
+- Added `packages/backend_runtime/` with strict Pydantic report models and `verify_headless_backend_runtime()`.
+- Added `services/backend_runtime.py` CLI for JSON runtime evidence.
+- Added package script entrypoints in `pyproject.toml` for the dependency-free API server, execution worker, and backend check.
+- Added `tests/integration/test_headless_backend_runtime.py` covering entrypoints, dependency-free API health/adapters, FastAPI factory under `uv run`, execution-lane strategy decoupling, NautilusTrader pin evidence, and no web/Daedalus imports.
+- Updated `README.md` with exact headless backend commands.
+
+Backend-only run surfaces now documented/tested:
+
+```bash
+python3 -m services.api.dev_server --host 0.0.0.0 --port 8000
+uv run uvicorn 'services.api.fastapi_app:create_fastapi_app' --factory --host 0.0.0.0 --port 8000
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001
+python3 -m services.backend_runtime --runtime-profile-id rp_paper_001
+```
+
+Boundary reconciliation:
+
+- `web_ui_required=false` and `nautilus_daedalus_required=false` are explicit runtime-report fields.
+- The dependency-free API remains usable with system Python for local contract checks.
+- The FastAPI server remains the project dependency entrypoint and is verified under `uv run`.
+- The execution-lane worker remains strategy-lane decoupled and reports `may_submit_order=false` for the scaffold mode.
+- NautilusTrader remains the pinned upstream Python dependency (`nautilus_trader==1.223.0`); Builder still does not vendor NT or require ND.
+
+Focused TDD evidence so far:
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py -q
+# RED before implementation: 2 passed, 3 failed for missing scripts/package/CLI
+# GREEN after implementation: 6 passed
+```
+
+
+### HEADLESS-BACKEND-1 final verification
+
+```bash
+rtk pytest tests/integration/test_headless_backend_runtime.py tests/api/test_fastapi_app.py tests/api/test_route_mounts.py tests/execution_lane tests/backtest_runner/test_runtime_dependency_check.py tests/backtest_runner/test_real_nautilus_engine_smoke.py -q
+# Pytest: 38 passed
+
+git diff --check
+# passed
+
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 347 passed
+
+uv run nautilus-builder-backend-check --runtime-profile-id rp_paper_001
+# emitted headless backend JSON with FastAPI mounted under uv, no web imports, no Daedalus imports, and pinned NautilusTrader match
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 12 files / 22 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
