@@ -1593,3 +1593,67 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 - Frontend gates: TypeScript, Vitest, Next production build, and Playwright E2E passed.
 - Guardrail grep remains expected-only: live-order, credential, LangChain/LangGraph/EvoMap, and Vue terms appear in guard docs, negative tests, explicit false authority fields, or approved dependency-denial tests; no runtime authority path was added.
 - `npm audit --omit=dev --audit-level=high` exits 0. The remaining Next/PostCSS advisory is moderate and still points to a breaking `npm audit fix --force`; this segment intentionally does not apply that unsafe force-fix.
+
+## Closure update — Segment AI-UI-1 prompt-to-StrategySpec UI and compact workflow
+
+**Status:** CLOSED locally on 2026-05-26 pending final verification/commit.
+
+### Finding
+
+- **HIGH-UX-2026-05-26-1:** Natural-language strategy input was not implemented in the web UI. The backend AI draft/apply endpoints existed, but `AiStrategyCopilot` only displayed placeholder copy and an inert Apply button.
+- **MEDIUM-UX-2026-05-26-2:** The dashboard workflow was visually overwhelming; too many surfaces had equal weight before the user reached the actual AI → StrategySpec path.
+
+### Resolution
+
+- Added a real prompt-to-StrategySpec UI with `Input.TextArea`, Generate StrategySpec, accepted/rejected status, validation errors, JSON preview, and accepted-only Apply to Builder.
+- Defaulted the main dashboard workspace to the AI prompt tab and made downstream tabs numbered: AI prompt → StrategySpec → Runtime → Promotion.
+- Reduced AntD density through `componentSize="small"`, smaller theme tokens, smaller card bodies, compact steps, and compact spec preview styling.
+
+### Review verdict
+
+**Recommendation:** APPROVE after final verification. **Architectural Status:** CLEAR for this frontend segment.
+
+The change is UI/API-client scoped. It does not add live order authority, Daedalus execution coupling, automatic backtest, automatic promotion, browser-side LLM secrets, or backend policy bypasses.
+
+### Evidence so far
+
+```bash
+cd apps/web && npm test -- --run components/ai-builder/AiStrategyCopilot.test.tsx
+# 1 file / 2 tests passed
+
+pytest tests/web/test_ai_copilot_frontend.py -q
+# 3 passed
+```
+
+### Reference review addendum — QuantDinger / QuantDinger-Vue
+
+**Checked:** 2026-05-26.
+
+The reference project confirms the direction: users need a product information architecture, not a raw contract-demo screen. QuantDinger-Vue divides the frontend into analysis/research, strategy/IDE/backtesting, execution/portfolio, and user/platform areas, with source folders for API modules, layouts, router, store, utilities, and page-level views.
+
+For Nautilus Builder, the useful carry-over is the page/workflow organization and compact operator layout. The unsafe carry-over is execution UX: QuickTradePanel, exchange account binding, portfolio execution, and live trading output do not belong in Builder. Builder should keep a narrower prompt-first workflow: AI prompt → StrategySpec draft → validation → backtest evidence → manual promotion.
+
+This segment implements the first concrete step of that mapping by making AI prompt input the default workspace and shrinking the dashboard density.
+
+### Final verification — Segment AI-UI-1
+
+```bash
+git diff --check
+# passed
+
+pytest tests/web/test_ai_copilot_frontend.py -q
+# 3 passed
+
+cd apps/web && npm test -- --run components/ai-builder/AiStrategyCopilot.test.tsx
+# 1 file / 2 tests passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# Pytest: 285 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest: 11 files / 20 tests passed; Next build passed; Playwright: 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exit 0; only moderate Next/PostCSS advisory remains with a breaking force-fix path
+```

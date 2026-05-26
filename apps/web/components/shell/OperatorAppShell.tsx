@@ -56,6 +56,7 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
 
   return (
     <ConfigProvider
+      componentSize="small"
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
@@ -65,7 +66,10 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
           colorBgBase: "#07111f",
           colorBgContainer: "#101827",
           colorBorder: "rgba(148, 163, 184, 0.24)",
-          borderRadius: 14,
+          borderRadius: 10,
+          controlHeight: 30,
+          fontSize: 13,
+          lineHeight: 1.35,
           fontFamily:
             "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
         },

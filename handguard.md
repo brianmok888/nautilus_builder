@@ -1056,3 +1056,28 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 cd apps/web && npm audit --omit=dev --audit-level=high
 # diff check passed; Pytest focused 15 passed; Pytest targeted 284 passed; Vitest 18 passed; Playwright 4 passed; audit high exited 0 with only moderate Next/PostCSS advisory.
 ```
+
+## 19. AI prompt UI and compact workflow guard
+
+The AI prompt UI is allowed to turn operator text into advisory Builder StrategySpec drafts only.
+
+- Keep `Apply to Builder` disabled unless the draft response has `accepted: true`.
+- Show validation errors and rejected status for invalid drafts; do not silently repair or apply rejected output in the browser.
+- Preserve `ai_thread_id`, `improvement_cycle_id`, `strategy_lineage_id`, and `strategy_version_id` in apply payloads.
+- Do not add browser-side OpenAI/API-key/password inputs to this prompt UI.
+- Do not let this UI create backtest jobs, submit live orders, create promotion approvals, or bypass `validate_strategy_spec()`.
+- Keep the dashboard prompt-first and compact; avoid reintroducing equal-weight scaffold panels that obscure the natural user workflow.
+
+Minimum regression commands:
+
+```bash
+pytest tests/web/test_ai_copilot_frontend.py -q
+cd apps/web && npm test -- --run components/ai-builder/AiStrategyCopilot.test.tsx
+```
+
+Reference-project boundary note:
+
+- QuantDinger / QuantDinger-Vue may be used as product-structure inspiration only.
+- Do not copy source code, styling, branding, or licensed assets from the source-available frontend.
+- Do not port Vue, Vuex, Ant Design Vue, QuickTradePanel, exchange account binding, live execution output, or portfolio trading controls into Nautilus Builder.
+- Allowed carry-over: high-level information architecture, compact operator layout patterns, prompt → strategy → backtest → review workflow ordering, and clear separation between API, layout, page, and reusable component modules.

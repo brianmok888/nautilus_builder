@@ -8,7 +8,7 @@ import {
   RobotOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
+import { Alert, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../strategy-builder/StrategyBuilderWorkspace";
@@ -24,7 +24,7 @@ const workflowSteps = [
 
 export function BuilderDashboard() {
   return (
-    <Space orientation="vertical" size="large" className="builder-dashboard">
+    <Space orientation="vertical" size="middle" className="builder-dashboard compact-dashboard">
       <Card className="dashboard-hero-card">
         <Row gutter={[24, 24]} align="middle">
           <Col xs={24} xl={15}>
@@ -33,7 +33,7 @@ export function BuilderDashboard() {
                 Builder-only / observational runtime
               </Tag>
               <div>
-                <Typography.Title>Nautilus Builder</Typography.Title>
+                <Typography.Title level={2}>Nautilus Builder</Typography.Title>
                 <Typography.Paragraph>
                   Draft StrategySpecs, validate market data profiles, inspect
                   backtest evidence, and request safe shadow promotion without
@@ -47,7 +47,7 @@ export function BuilderDashboard() {
                 description="AI output is advisory, StrategySpec drafts require backend validation, and promotion remains manual."
               />
               <Space wrap>
-                <Button type="primary" icon={<RobotOutlined />}>Apply to Builder</Button>
+                <Tag color="blue" icon={<RobotOutlined />}>Start with AI prompt tab</Tag>
                 <Tag color="warning">Requires validation before backtest</Tag>
               </Space>
             </Space>
@@ -79,32 +79,32 @@ export function BuilderDashboard() {
         </Row>
       </Card>
 
-      <Card title="AI to backtest workflow" extra={<Tag color="green">signal_preview_only</Tag>}>
-        <Steps current={1} items={workflowSteps} />
+      <Card className="compact-workflow-card" size="small" title="Prompt-first workflow" extra={<Tag color="green">signal_preview_only</Tag>}>
+        <Steps size="small" current={0} items={workflowSteps} />
       </Card>
 
-      <Row gutter={[16, 16]} className="surface-overview">
+      <Row gutter={[8, 8]} className="surface-overview compact-surface-overview">
         <Col xs={24} lg={6}>
-          <Card>
+          <Card size="small">
             <Typography.Title level={2}>Strategy draft authoring</Typography.Title>
             <Typography.Paragraph>Build StrategySpec drafts from blocks, market profiles, and AI suggestions.</Typography.Paragraph>
           </Card>
         </Col>
         <Col xs={24} lg={6}>
-          <Card>
+          <Card size="small">
             <Typography.Title level={2}>Observational runtime console</Typography.Title>
             <Typography.Paragraph>Inspect job state and request cancellation without exposing a shell.</Typography.Paragraph>
           </Card>
         </Col>
         <Col xs={24} lg={6}>
-          <Card>
+          <Card size="small">
             <Typography.Title level={2}>Advisory AI drafting</Typography.Title>
             <Typography.Paragraph>Turn operator prompts into validated StrategySpec candidates.</Typography.Paragraph>
             <Typography.Paragraph>ai_thread_id and improvement_cycle_id are required lane identifiers.</Typography.Paragraph>
           </Card>
         </Col>
         <Col xs={24} lg={6}>
-          <Card>
+          <Card size="small">
             <Typography.Title level={2}>Safe promotion request</Typography.Title>
             <Typography.Paragraph>Prepare manual promotion evidence after backtest review.</Typography.Paragraph>
             <Typography.Paragraph>approval_state: manual_approval_pending</Typography.Paragraph>
@@ -116,13 +116,23 @@ export function BuilderDashboard() {
 
       <Tabs
         className="operator-workspace-tabs"
-        defaultActiveKey="builder"
+        defaultActiveKey="ai"
         items={[
           {
+            key: "ai",
+            label: "1. AI prompt",
+            children: (
+              <Card size="small" title="Advisory AI drafting" extra={<Tag color="gold">Advisory</Tag>}>
+                <AiStrategyCopilot />
+              </Card>
+            ),
+          },
+          {
             key: "builder",
-            label: "Strategy draft authoring",
+            label: "2. StrategySpec",
             children: (
               <Card
+                size="small"
                 title="Strategy draft authoring"
                 extra={<Tag color="green">Draft only</Tag>}
               >
@@ -132,9 +142,10 @@ export function BuilderDashboard() {
           },
           {
             key: "runtime",
-            label: "Observational runtime console",
+            label: "3. Runtime",
             children: (
               <Card
+                size="small"
                 title="Observational runtime console"
                 extra={<Tag color="gold">Observational</Tag>}
               >
@@ -145,19 +156,11 @@ export function BuilderDashboard() {
             ),
           },
           {
-            key: "ai",
-            label: "Advisory AI drafting",
-            children: (
-              <Card title="Advisory AI drafting" extra={<Tag color="gold">Advisory</Tag>}>
-                <AiStrategyCopilot />
-              </Card>
-            ),
-          },
-          {
             key: "promotion",
-            label: "Safe promotion request",
+            label: "4. Promotion",
             children: (
               <Card
+                size="small"
                 title="Safe promotion request"
                 extra={<Tag icon={<CheckCircleOutlined />} color="blue">Manual gate</Tag>}
               >

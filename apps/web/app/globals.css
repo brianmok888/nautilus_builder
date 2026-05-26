@@ -507,3 +507,94 @@ pre {
   border-color: rgba(56, 189, 248, 0.42);
   background: rgba(56, 189, 248, 0.08);
 }
+
+/* Compact operator workflow: prompt-first, less visual weight, no live order authority. */
+.compact-dashboard {
+  font-size: 0.88rem;
+}
+
+.compact-dashboard .ant-card,
+.compact-dashboard .panel {
+  border-radius: 14px;
+}
+
+.compact-dashboard .ant-card-body {
+  padding: 0.85rem !important;
+}
+
+.compact-dashboard .ant-typography,
+.compact-dashboard p,
+.compact-dashboard li {
+  line-height: 1.42;
+}
+
+.compact-dashboard .ant-typography h1,
+.compact-dashboard .ant-typography h2,
+.compact-dashboard .ant-typography h3,
+.compact-dashboard h1,
+.compact-dashboard h2,
+.compact-dashboard h3 {
+  letter-spacing: -0.035em;
+  margin-bottom: 0.35rem !important;
+}
+
+.compact-workflow-card .ant-steps-item-title {
+  font-size: 0.82rem;
+}
+
+.compact-surface-overview .ant-card-body {
+  min-height: 8.2rem;
+}
+
+.compact-surface-overview h2 {
+  font-size: 1rem !important;
+}
+
+.compact-ai-copilot {
+  padding: 0;
+}
+
+.ai-copilot-stack {
+  width: 100%;
+}
+
+.ai-copilot-title-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.ai-copilot-title-row h3 {
+  margin-top: 0 !important;
+}
+
+.ai-copilot-form .ant-form-item {
+  margin-bottom: 0.65rem;
+}
+
+.ai-audit-grid .ant-form-item-label > label {
+  font-size: 0.74rem;
+}
+
+.compact-action-row {
+  margin-top: -0.15rem;
+}
+
+.ai-draft-result {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.compact-error-list {
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 12px;
+  margin: 0;
+  padding: 0.65rem 0.9rem 0.65rem 1.4rem;
+}
+
+.compact-spec-preview {
+  font-size: 0.76rem;
+  max-height: 18rem;
+  padding: 0.75rem;
+}

@@ -1449,3 +1449,89 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 cd apps/web && npm audit --omit=dev --audit-level=high
 # exit 0; only moderate next/postcss advisory remains, with a breaking force-fix path
 ```
+
+## Brainstorming implementation plan — Segment AI-UI-1 prompt-to-StrategySpec UI and compact workflow
+
+**Started:** 2026-05-26
+
+Context: after the AntD operator shell landed, the natural-language Builder workflow was still incomplete: the backend AI draft/apply endpoints and frontend API wrappers existed, but `AiStrategyCopilot` did not provide a user text input, result preview, validation status, or real apply action. The dashboard also exposed too many equal-weight surfaces before the user reached the actual prompt-first workflow.
+
+Design approved by user direction:
+
+1. Add a compact AntD prompt panel where the operator describes the strategy in plain text.
+2. Call `generateAiDraft()` with durable `ai_thread_id` / `improvement_cycle_id` audit IDs and show accepted/rejected status, validation errors, explanation, and strict StrategySpec JSON preview.
+3. Enable `Apply to Builder` only after the generated draft is accepted; send lineage/version IDs to `applyAiDraftToBuilder()`.
+4. Make the dashboard prompt-first and smaller: compact AntD provider sizing, default the main workspace tab to AI prompt, reduce card/body/font weight, and keep StrategySpec/backtest/promotion as downstream tabs.
+5. Preserve hardguards: advisory-only, draft lifecycle only, no live order controls, no browser LLM secrets, no automatic backtest/promotion.
+
+## Implementation progress — Segment AI-UI-1 prompt-to-StrategySpec UI and compact workflow
+
+**Completed locally:** 2026-05-26
+
+Files changed:
+
+- `apps/web/components/ai-builder/AiStrategyCopilot.tsx` — replaced placeholder text/button with a real compact AntD flow: strategy prompt textarea, audit/lineage inputs, Generate StrategySpec action, accepted/rejected result panel, JSON preview, validation errors, and Apply to Builder action gated by accepted drafts.
+- `apps/web/components/ai-builder/AiStrategyCopilot.test.tsx` — added Vitest coverage for successful prompt → draft → apply and rejected draft guard behavior.
+- `apps/web/components/dashboard/BuilderDashboard.tsx` — moved the operator workspace to prompt-first (`defaultActiveKey="ai"`), compacted steps/cards, and made downstream workflow tabs numbered.
+- `apps/web/components/shell/OperatorAppShell.tsx` — set AntD `componentSize="small"` and smaller theme tokens.
+- `apps/web/app/globals.css` — added compact dashboard, compact workflow, compact AI copilot, and compact spec preview sizing rules.
+- `tests/web/test_ai_copilot_frontend.py` — locks the prompt input, generate/apply wiring, accepted-gated apply behavior, and compact prompt-first dashboard contract.
+
+TDD evidence:
+
+```bash
+cd apps/web && npm test -- --run components/ai-builder/AiStrategyCopilot.test.tsx
+# RED before implementation: 2 failed; missing Strategy prompt label and flow UI
+# GREEN after implementation: 1 file / 2 tests passed
+
+pytest tests/web/test_ai_copilot_frontend.py -q
+# RED before implementation: 3 failed for missing prompt, accepted-gated apply, and compact workflow
+# GREEN after implementation: 3 passed
+```
+
+Reconciliation:
+
+- The frontend now performs the intended user workflow: user words → AI draft endpoint → accepted StrategySpec preview → apply endpoint with provenance IDs.
+- Apply remains disabled until the backend reports `accepted: true`; rejected drafts display validation errors and cannot be applied from the UI.
+- This segment does not create a backtest job, promotion request, live order action, or browser-side provider secret input.
+- If a staged FastAPI deployment requires bearer auth, the UI will surface the API error through the existing safe `apiFetch()` error path; auth/session UX remains a separate segment.
+
+## Reference UI architecture review — QuantDinger / QuantDinger-Vue
+
+**Checked:** 2026-05-26
+
+Sources reviewed:
+
+- `https://github.com/brianmok888/QuantDinger/blob/main/docs/screenshots/architecture.png`
+- `https://github.com/brokermr810/QuantDinger-Vue`
+
+Reference takeaways:
+
+- QuantDinger presents the product as a full AI quant operating system: client/agent access, market/user/news inputs, gateway/auth, engine layers for indicator/signal/strategy/backtesting/AI analysis, optional execution/output, multi-agent workflow, infrastructure, safety/compliance, and a closed-loop AI workflow.
+- QuantDinger-Vue groups user-facing pages into clear product areas: analysis/research, strategy/IDE/backtesting, execution/portfolio, and billing/community/user settings.
+- Its frontend structure separates API modules, shared components, config, app bootstrap/core, layouts, router, state store, utilities, i18n, and page-level views.
+- The stack is Vue 2 / Ant Design Vue / charting / CodeMirror / Axios / vue-i18n, but Nautilus Builder remains Next.js/React/AntD React by prior decision.
+
+Nautilus Builder mapping:
+
+| QuantDinger reference area | Nautilus Builder equivalent | Boundary |
+| --- | --- | --- |
+| AI analysis / dashboard / indicator analysis | `AiStrategyCopilot`, dashboard, future market-research pages | Advisory-only; no execution authority. |
+| Indicator IDE / backtest center / trading assistant / trading bot | StrategySpec builder, backtest jobs, results | StrategySpec and Nautilus replay evidence only. |
+| QuickTradePanel / portfolio / exchange account modal | Not a Builder feature | Do not add quick trade, exchange credentials, or portfolio execution controls. |
+| Billing / community / profile / user / settings | `/config` today; future user/settings only if auth/session UX is added | No browser-side model/exchange secrets. |
+| `src/api`, `layouts`, `router`, `store`, `views` | `apps/web/lib/api.ts`, `components/shell`, Next `app/`, local component state | Keep Next app router; do not migrate to Vue. |
+
+Current segment alignment:
+
+- The new prompt-first AI tab now matches the reference's closed-loop shape at UI level: idea/prompt → StrategySpec draft → validation → later backtest → later manual promotion.
+- The dashboard was compacted to reduce the scaffold feel and make the first user action obvious.
+- The Builder scope intentionally omits reference execution widgets such as quick trade and exchange account binding.
+
+Final verification summary for Segment AI-UI-1:
+
+- `pytest tests/web/test_ai_copilot_frontend.py -q` — 3 passed.
+- `cd apps/web && npm test -- --run components/ai-builder/AiStrategyCopilot.test.tsx` — 2 passed.
+- Full targeted Python suite — 285 passed after `compileall`.
+- Frontend gates — typecheck, Vitest 20 tests, Next build, and Playwright 4 tests passed.
+- `npm audit --omit=dev --audit-level=high` exited 0 with only the existing moderate Next/PostCSS advisory.
