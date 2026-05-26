@@ -2478,3 +2478,49 @@ cd apps/web && npm run test:e2e
 ```
 
 Master status for this segment: closed for paper/sandbox full-wire UI contracts. Do not escalate this into a live-trading readiness claim without real venue adapter evidence, credential-slot integration, durable worker persistence, and operator approval gates.
+
+## Closure progress — 2026-05-26 BacktestNode web run full wire
+
+**Status:** implementation segment completed locally; final verification pending master gate.
+
+Closed / improved findings:
+
+- **HIGH: Web UI could create a backtest job but could not actually call the backend run route.** `BacktestLaunchPanel` now exposes a `Run BacktestNode` action after job creation and calls `POST /api/backtest-jobs/{job_id}/run` through the typed frontend API client.
+- **HIGH: Backtest run evidence was not visible in the launch workflow.** The panel now renders returned `RUNNING` / `SUCCEEDED` / `FAILED` events, BacktestNode mode, replay engine mode, dataset source, artifact refs, worker identity, and no-order evidence flags.
+- **MEDIUM: Frontend API contract lacked a typed run response.** Added `BacktestRunResponse` / `RuntimeEvent` types and `runBacktestJob()` wrapper tests.
+- **MEDIUM: UI source-scan coverage did not enforce the run trigger.** Added Python web contract coverage for the route wrapper and section surface.
+
+Preserved non-claims / risks:
+
+- This does **not** give the browser shell, worker-process, catalog-path, StrategySpec-payload, credential, paper, live, or order authority.
+- The run remains a backend-owned local/dev synchronous trigger over the existing worker seam; production deployment still needs durable queue/claim/retry/event persistence.
+- Artifacts are displayed by ref only; full artifact read/detail dashboards remain a later Results/Research wiring task.
+- TradingNode paper/live remains separate from BacktestNode historical replay and stays behind manual promotion and execution-lane gates.
+
+Implementation evidence:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx lib/api.test.ts
+# 2 files / 12 tests passed
+rtk pytest tests/web/test_frontend_data_wiring.py tests/web/test_sectioned_operator_ui.py -q
+# 11 passed
+```
+
+### Reconciliation — BacktestNode web run full wire
+
+Verification gate evidence:
+
+```bash
+git diff --check
+# passed
+rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# 15 passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 383 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 35 passed; Next build passed; Playwright 4 passed
+```
+
+Master status for this segment: closed for the browser-to-backend BacktestNode run trigger and observational evidence display. Remaining work is production worker queue/durable persistence and richer artifact detail views, not this segment's core web/run contract.

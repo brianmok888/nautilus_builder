@@ -74,7 +74,8 @@ def test_market_dataset_section_surfaces_adapter_venue_instrument_and_catalog_gu
 def test_backtest_center_section_has_job_status_artifacts_and_observational_terminal() -> None:
     page = _read("app/backtests/[jobId]/page.tsx")
     client = _read("app/backtests/[jobId]/BacktestJobClient.tsx")
-    backtest_surface = page + client
+    launch_panel = _read("components/backtests/BacktestLaunchPanel.tsx")
+    backtest_surface = page + client + launch_panel
 
     for token in (
         "Backtest Center",
@@ -83,6 +84,7 @@ def test_backtest_center_section_has_job_status_artifacts_and_observational_term
         "Artifact manifest",
         "Observational terminal",
         "request cancel",
+        "Run BacktestNode",
     ):
         assert token in backtest_surface
     assert "may_submit_order: false" in backtest_surface

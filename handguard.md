@@ -1700,3 +1700,42 @@ rtk pytest tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_ex
 cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts components/dashboard/BuilderDashboard.test.tsx
 # 12 passed
 ```
+
+## Segment guard — BacktestNode web run full wire
+
+The `Run BacktestNode` UI action must preserve the backend-owned execution boundary:
+
+- The browser may call only `POST /api/backtest-jobs/{job_id}/run` for an already-created backend job.
+- The browser payload for run must remain empty; do not add StrategySpec JSON, catalog paths, worker image/name overrides, shell commands, credentials, API keys, private keys, or venue credentials.
+- UI may display returned job state, runtime events, artifact refs, and replay evidence flags, but it must not mutate worker state directly or fabricate artifacts.
+- The backend remains responsible for StrategySpec lookup, compile-hash recomputation, catalog dataset selection, catalog-root policy, artifact persistence, and event emission.
+- Keep BacktestNode as historical/repeatable evidence only. Do not route TradingNode paper/live controls through this panel.
+- Preserve no-order evidence display: `orders: 0`, `positions: 0`, `execution_authority: false`, and `credentials_used: false` for Builder signal-preview/catalog replay evidence.
+- Manual promotion review remains required before any paper/live execution-lane work.
+
+Minimum regression coverage for this segment:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx lib/api.test.ts
+rtk pytest tests/web/test_frontend_data_wiring.py tests/web/test_sectioned_operator_ui.py -q
+rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+```
+
+### Master reconciliation guard — BacktestNode web run full wire
+
+This segment is considered complete only while the following remains true:
+
+- `runBacktestJob(jobId)` sends `POST /api/backtest-jobs/${jobId}/run` with `{}` only.
+- `BacktestLaunchPanel` exposes `Run BacktestNode` only after a backend job exists and displays backend-returned events/artifact refs/result evidence.
+- Frontend tests assert the create-job -> run-job sequence and no API-key / submit-order UI.
+- Source-scan tests assert the run wrapper/route string and section surface.
+- Backend regression tests for scoped BacktestNode replay, worker integration, and catalog replay keep passing.
+
+Evidence captured for this closure:
+
+```bash
+rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# 15 passed
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx lib/api.test.ts
+# 12 passed
+```

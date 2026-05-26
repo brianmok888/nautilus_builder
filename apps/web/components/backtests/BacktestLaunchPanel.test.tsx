@@ -63,6 +63,113 @@ describe("BacktestLaunchPanel", () => {
     expect(screen.queryByText(/deploy live/i)).not.toBeInTheDocument();
   });
 
+
+  it("runs the created job through the backend BacktestNode trigger and displays events/artifacts", async () => {
+    const artifactRef = "artifact://builder/project_alpha/user_123/backtests/bt_backtest_001/strategy_spec_replay.json";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/backtest-jobs") {
+        return Response.json(
+          {
+            job_id: "bt_backtest_001",
+            status: "queued",
+            stage: "CREATED",
+            lifecycle_status: "CREATED",
+            strategy_spec_version_id: "sv_validated_001",
+            adapter_profile_id: "BINANCE_PERP",
+            instrument_id: "BTCUSDT-PERP",
+            dataset_id: "ds_binance_btcusdt_1m",
+            worker_id: "unassigned",
+            result_artifact_refs: {},
+            event_stream_id: "builder:runtime:bt_backtest_001",
+            cancel_requested: false,
+            compile_hash: "a".repeat(64),
+            mode: "backend_owned",
+          },
+          { status: 201 },
+        );
+      }
+      expect(url).toBe("/api/backtest-jobs/bt_backtest_001/run");
+      expect(init?.method).toBe("POST");
+      expect(String(init?.body)).toBe("{}");
+      return Response.json({
+        mode: "backend_owned_backtestnode",
+        job: {
+          job_id: "bt_backtest_001",
+          status: "succeeded",
+          stage: "SUCCEEDED",
+          lifecycle_status: "SUCCEEDED",
+          strategy_spec_version_id: "sv_validated_001",
+          adapter_profile_id: "BINANCE_PERP",
+          instrument_id: "BTCUSDT-PERP",
+          dataset_id: "ds_binance_btcusdt_1m",
+          worker_id: "nautilus-builder-worker:test",
+          result_artifact_refs: { strategy_spec_replay: artifactRef },
+          event_stream_id: "builder:runtime:bt_backtest_001",
+          cancel_requested: false,
+          compile_hash: "a".repeat(64),
+          mode: "backend_owned",
+        },
+        result: {
+          engine_mode: "strategy_spec_catalog_replay",
+          dataset_source: "user_catalog",
+          catalog_backed: true,
+          orders: 0,
+          positions: 0,
+          execution_authority: false,
+          credentials_used: false,
+        },
+        events: [
+          {
+            event_id: "bt_backtest_001_evt_000001",
+            job_id: "bt_backtest_001",
+            actor_type: "worker",
+            actor_id: "nautilus-builder-worker:test",
+            stage: "RUNNING",
+            level: "INFO",
+            message: "Backtest worker started",
+            timestamp: "2026-05-26T00:00:00Z",
+            metadata: {},
+            progress_pct: 5,
+          },
+          {
+            event_id: "bt_backtest_001_evt_000002",
+            job_id: "bt_backtest_001",
+            actor_type: "worker",
+            actor_id: "nautilus-builder-worker:test",
+            stage: "SUCCEEDED",
+            level: "INFO",
+            message: "Backtest worker succeeded",
+            timestamp: "2026-05-26T00:00:01Z",
+            metadata: { artifact_refs: { strategy_spec_replay: artifactRef } },
+            progress_pct: 100,
+          },
+        ],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BacktestLaunchPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Create backtest job" }));
+
+    await waitFor(() => expect(screen.getByText("Job queued: bt_backtest_001")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Run BacktestNode" }));
+
+    await waitFor(() => expect(screen.getByText("BacktestNode run succeeded")).toBeInTheDocument());
+    expect(screen.getAllByText("backend_owned_backtestnode").length).toBeGreaterThan(0);
+    expect(screen.getByText("strategy_spec_catalog_replay")).toBeInTheDocument();
+    expect(screen.getByText("artifact://builder/project_alpha/user_123/backtests/bt_backtest_001/strategy_spec_replay.json")).toBeInTheDocument();
+    expect(screen.getByText("RUNNING")).toBeInTheDocument();
+    expect(screen.getByText("SUCCEEDED")).toBeInTheDocument();
+    expect(screen.getByText("orders: 0")).toBeInTheDocument();
+    expect(screen.getByText("positions: 0")).toBeInTheDocument();
+    expect(screen.getByText("execution_authority: false")).toBeInTheDocument();
+    expect(screen.getByText("credentials_used: false")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Run BacktestNode/ })).toBeDisabled());
+    expect(screen.queryByText(/api key/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/submit order/i)).not.toBeInTheDocument();
+  });
+
   it("blocks job creation when compile evidence is not a sha256 hash", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

@@ -2371,3 +2371,56 @@ cd apps/web && npm run typecheck && npm test && npm run build
 cd apps/web && npm run test:e2e
 # Playwright: 4 passed
 ```
+
+## Segment 2026-05-26 — BacktestNode web run full wire
+
+Implementation plan / design record:
+
+1. Preserve Builder lane separation: StrategySpec authoring creates/validates specs, BacktestNode performs historical replay, and TradingNode paper/live remains under the separate execution lane after manual promotion.
+2. Keep the browser as a scoped request surface only. The UI may call `POST /api/backtest-jobs/{job_id}/run`, but it must not send StrategySpec payloads, catalog paths, worker commands, credentials, shell input, or order authority.
+3. Reuse the existing backend-owned BacktestNode route and worker evidence path. The backend remains responsible for loading the saved StrategySpec, recomputing compile lineage, selecting the registered catalog dataset, emitting runtime events, and persisting artifact refs.
+4. Add a compact BacktestLaunchPanel run section that follows the operator workflow: create job -> run BacktestNode -> inspect status/events/artifacts -> manual promotion review.
+5. Add TDD coverage around the exact frontend/API call sequence and source-scan guards.
+
+Changed structure:
+
+- `apps/web/lib/types.ts` — adds `RuntimeEvent` and `BacktestRunResponse` DTOs for the run route response.
+- `apps/web/lib/api.ts` — adds `runBacktestJob(jobId)` calling `POST /api/backtest-jobs/${jobId}/run` with an empty browser payload.
+- `apps/web/components/backtests/BacktestLaunchPanel.tsx` — adds `Run BacktestNode`, run status, result/evidence flags, artifact refs, and runtime events rendering.
+- `apps/web/components/backtests/BacktestLaunchPanel.test.tsx` — locks create-job -> run-job -> display events/artifacts behavior and secret/order-authority absence.
+- `apps/web/lib/api.test.ts` — locks the typed run-route wrapper.
+- `tests/web/test_frontend_data_wiring.py` and `tests/web/test_sectioned_operator_ui.py` — assert the UI/API source wiring includes BacktestNode run trigger without exposing a submit-order control.
+
+Authoritative alignment notes:
+
+- NautilusTrader's current backtesting docs describe `BacktestNode` as the high-level API for config-driven runs and the recommended production backtesting path for multiple run configurations / catalog-backed workflows.
+- Builder keeps this as historical replay evidence only; paper/live venue connectivity remains in the execution lane and requires separate DataTester, ExecTester, reconciliation, credential-slot, and manual approval gates.
+
+TDD evidence:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx lib/api.test.ts
+# RED: runBacktestJob missing; Run BacktestNode button missing
+# GREEN: 2 files / 12 Vitest tests passed
+rtk pytest tests/web/test_frontend_data_wiring.py tests/web/test_sectioned_operator_ui.py -q
+# 11 passed
+```
+
+### Reconciliation — BacktestNode web run full wire
+
+Segment verification after documentation updates:
+
+```bash
+git diff --check
+# passed
+rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+# 15 passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 383 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 16 files / 35 tests passed; Next build passed; Playwright 4 passed
+```
+
+Master reconciliation: the web UI can now complete the BacktestNode local/dev flow from job creation to backend-owned run trigger and evidence display. The boundary remains evidence-only and no-order; it does not start paper/live venue connectivity or expose credentials.

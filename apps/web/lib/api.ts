@@ -6,6 +6,7 @@ import type {
   BackendHealth,
   BacktestJobEvents,
   BacktestJobStatus,
+  BacktestRunResponse,
   BacktestProfileValidation,
   DataAvailability,
   ExecutionLaneCommand,
@@ -252,6 +253,16 @@ export async function fetchBacktestJob(
   jobId: string,
 ): Promise<BacktestJobStatus> {
   return apiFetch<BacktestJobStatus>(`/api/backtest-jobs/${jobId}`);
+}
+
+export async function runBacktestJob(
+  jobId: string,
+): Promise<BacktestRunResponse> {
+  return apiFetch<BacktestRunResponse>(`/api/backtest-jobs/${jobId}/run`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
 }
 
 export async function cancelBacktestJob(

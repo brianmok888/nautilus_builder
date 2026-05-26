@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Alert, Button, Card, Col, Descriptions, Form, Input, Row, Space, Tag, Typography } from "antd";
-import { createBacktestJob } from "../../lib/api";
-import type { BacktestJobStatus } from "../../lib/types";
+import { createBacktestJob, runBacktestJob } from "../../lib/api";
+import type { BacktestJobStatus, BacktestRunResponse, RuntimeEvent } from "../../lib/types";
 
 const DEFAULT_COMPILE_HASH = "a".repeat(64);
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -34,11 +34,41 @@ const defaultManifest: RunManifestDraft = {
   market_type: "crypto_perp",
 };
 
+function textValue(value: unknown, fallback = "pending"): string {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function runTitle(response: BacktestRunResponse | null): string {
+  const stage = response?.job?.stage ?? response?.job?.lifecycle_status ?? response?.job?.status ?? "pending";
+  const normalized = String(stage).toLowerCase();
+  if (normalized.includes("succeed")) return "BacktestNode run succeeded";
+  if (normalized.includes("fail")) return "BacktestNode run failed";
+  return `BacktestNode run ${stage}`;
+}
+
+function eventColor(event: RuntimeEvent): string {
+  const stage = event.stage.toUpperCase();
+  if (stage.includes("SUCCEEDED")) return "green";
+  if (stage.includes("FAILED") || stage.includes("ERROR")) return "red";
+  if (stage.includes("RUNNING")) return "blue";
+  return "default";
+}
+
+function isTerminalJob(job: BacktestJobStatus | null): boolean {
+  const state = `${job?.stage ?? ""} ${job?.lifecycle_status ?? ""} ${job?.status ?? ""}`.toLowerCase();
+  return state.includes("succeed") || state.includes("fail") || state.includes("cancel");
+}
+
 export function BacktestLaunchPanel() {
   const [manifest, setManifest] = useState<RunManifestDraft>(defaultManifest);
   const [job, setJob] = useState<BacktestJobStatus | null>(null);
+  const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const missingFields = useMemo(
     () => Object.entries(manifest).filter(([, value]) => !value.trim()).map(([key]) => key),
@@ -58,17 +88,25 @@ export function BacktestLaunchPanel() {
     }),
     [manifest],
   );
+  const resultPayload = runResult?.result ?? {};
+  const artifactRefs = runResult?.job.result_artifact_refs ?? job?.result_artifact_refs ?? {};
+  const jobTerminal = isTerminalJob(job);
+  const jobCardTitle = job ? (runResult ? `Job ${job.status}: ${job.job_id}` : `Job queued: ${job.job_id}`) : "Backtest job";
 
   function updateField(field: keyof RunManifestDraft, value: string) {
     setManifest((current) => ({ ...current, [field]: value }));
     setJob(null);
+    setRunResult(null);
+    setRunError(null);
   }
 
   async function onCreateJob() {
     if (!ready) return;
     setIsCreating(true);
     setError(null);
+    setRunError(null);
     setJob(null);
+    setRunResult(null);
     try {
       const created = await createBacktestJob({
         ...manifest,
@@ -80,6 +118,22 @@ export function BacktestLaunchPanel() {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function onRunBacktestNode() {
+    if (!job) return;
+    setIsRunning(true);
+    setRunError(null);
+    setRunResult(null);
+    try {
+      const response = await runBacktestJob(job.job_id);
+      setRunResult(response);
+      setJob(response.job);
+    } catch (caught) {
+      setRunError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setIsRunning(false);
     }
   }
 
@@ -97,6 +151,7 @@ export function BacktestLaunchPanel() {
             <Tag color="gold">may_submit_order: false</Tag>
             <Tag color="blue">manual promotion after review</Tag>
             <Tag color="green">dataset profile required</Tag>
+            <Tag color="purple">backend_owned_backtestnode</Tag>
           </Space>
         </div>
 
@@ -104,7 +159,7 @@ export function BacktestLaunchPanel() {
           showIcon
           type="info"
           title="Backtest launch is evidence-only"
-          description="The browser submits a run manifest to the backend job queue and then links to the observational job console. It does not hold shell, worker, credential, or order authority."
+          description="The browser submits a run manifest to the backend job queue and can request the backend-owned BacktestNode replay trigger. It does not hold shell, worker, credential, or order authority."
         />
 
         <Card title="Run manifest" size="small">
@@ -199,7 +254,7 @@ export function BacktestLaunchPanel() {
         {error ? <Alert showIcon type="error" title="Backtest job creation failed" description={error} /> : null}
 
         {job ? (
-          <Card title={`Job queued: ${job.job_id}`} size="small" aria-label="created backtest job">
+          <Card title={jobCardTitle} size="small" aria-label="created backtest job">
             <Row gutter={[12, 12]}>
               <Col xs={24} lg={14}>
                 <Descriptions column={1} size="small" bordered>
@@ -213,10 +268,70 @@ export function BacktestLaunchPanel() {
               <Col xs={24} lg={10}>
                 <Space orientation="vertical" size="small">
                   <Typography.Text>Job state is backend-owned; review artifacts before manual promotion.</Typography.Text>
+                  <Button onClick={onRunBacktestNode} loading={isRunning} disabled={isRunning || jobTerminal}>
+                    Run BacktestNode
+                  </Button>
+                  <Typography.Text type="secondary">
+                    Runs POST /api/backtest-jobs/{job.job_id}/run without StrategySpec payloads, catalog paths, worker commands, shell, or credentials from the browser.
+                  </Typography.Text>
                   <a href={`/backtests/${job.job_id}`}>Open job console</a>
                 </Space>
               </Col>
             </Row>
+          </Card>
+        ) : null}
+
+        {runError ? <Alert showIcon type="error" title="BacktestNode run failed" description={runError} /> : null}
+
+        {runResult ? (
+          <Card title={runTitle(runResult)} size="small" aria-label="backtestnode run result">
+            <Space orientation="vertical" size="small" className="config-stack">
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label="Mode">{runResult.mode}</Descriptions.Item>
+                <Descriptions.Item label="Engine mode">{textValue(resultPayload.engine_mode)}</Descriptions.Item>
+                <Descriptions.Item label="Dataset source">{textValue(resultPayload.dataset_source)}</Descriptions.Item>
+                <Descriptions.Item label="Catalog backed">{textValue(resultPayload.catalog_backed)}</Descriptions.Item>
+              </Descriptions>
+              <Space wrap>
+                <Tag color="gold">orders: {textValue(resultPayload.orders, "0")}</Tag>
+                <Tag color="gold">positions: {textValue(resultPayload.positions, "0")}</Tag>
+                <Tag color="blue">execution_authority: {textValue(resultPayload.execution_authority, "false")}</Tag>
+                <Tag color="blue">credentials_used: {textValue(resultPayload.credentials_used, "false")}</Tag>
+              </Space>
+              <div>
+                <Typography.Text strong>Artifact manifest</Typography.Text>
+                {Object.entries(artifactRefs).length ? (
+                  <ul>
+                    {Object.entries(artifactRefs).map(([key, value]) => (
+                      <li key={key}>
+                        <Typography.Text>{key}: </Typography.Text>
+                        <Typography.Text code>{String(value)}</Typography.Text>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Typography.Paragraph type="secondary">No artifact refs returned yet.</Typography.Paragraph>
+                )}
+              </div>
+              <div>
+                <Typography.Text strong>Runtime events</Typography.Text>
+                {runResult.events.length ? (
+                  <Space orientation="vertical" size="small">
+                    {runResult.events.map((event, index) => (
+                      <Space key={event.event_id ?? `${event.stage}-${index}`} wrap>
+                        <Tag color={eventColor(event)}>{event.stage}</Tag>
+                        <Typography.Text>{event.message ?? event.actor_id ?? "event"}</Typography.Text>
+                        {typeof event.progress_pct === "number" ? (
+                          <Typography.Text type="secondary">{event.progress_pct}%</Typography.Text>
+                        ) : null}
+                      </Space>
+                    ))}
+                  </Space>
+                ) : (
+                  <Typography.Paragraph type="secondary">No runtime events returned yet.</Typography.Paragraph>
+                )}
+              </div>
+            </Space>
           </Card>
         ) : null}
 

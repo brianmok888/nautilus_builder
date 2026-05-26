@@ -40,3 +40,14 @@ def test_strategy_pages_expose_list_detail_and_builder_entrypoints() -> None:
     assert "Version history" in detail_client
     assert "Open in Builder" in detail_client
     assert "strategy_lineage_id" in detail_client
+
+
+def test_frontend_api_client_declares_backtestnode_run_trigger() -> None:
+    client = (ROOT / "apps" / "web" / "lib" / "api.ts").read_text()
+    launch_panel = (ROOT / "apps" / "web" / "components" / "backtests" / "BacktestLaunchPanel.tsx").read_text()
+
+    assert "runBacktestJob" in client
+    assert "/api/backtest-jobs/${jobId}/run" in client
+    assert "Run BacktestNode" in launch_panel
+    assert "backend_owned_backtestnode" in launch_panel
+    assert "Submit order" not in launch_panel

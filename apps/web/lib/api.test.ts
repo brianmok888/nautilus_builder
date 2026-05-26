@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiFetch } from "./api";
+import { ApiError, apiFetch, runBacktestJob } from "./api";
 
 describe("apiFetch", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -72,6 +72,29 @@ describe("apiFetch", () => {
     ).rejects.not.toThrow(/empty response body/i);
   });
 
+
+
+  it("posts to the backend-owned BacktestNode run route", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("/api/backtest-jobs/bt_backtest_001/run");
+      expect(init?.method).toBe("POST");
+      expect(String(init?.body)).toBe("{}");
+      return Response.json({
+        mode: "backend_owned_backtestnode",
+        job: { job_id: "bt_backtest_001", status: "succeeded", stage: "SUCCEEDED" },
+        result: { engine_mode: "strategy_spec_catalog_replay", orders: 0 },
+        events: [{ stage: "RUNNING" }, { stage: "SUCCEEDED" }],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(runBacktestJob("bt_backtest_001")).resolves.toMatchObject({
+      mode: "backend_owned_backtestnode",
+      job: { status: "succeeded" },
+      result: { engine_mode: "strategy_spec_catalog_replay" },
+      events: [{ stage: "RUNNING" }, { stage: "SUCCEEDED" }],
+    });
+  });
 
   it("attaches configured local bearer token to API requests when no Authorization header is provided", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));

@@ -191,12 +191,32 @@ export type BacktestJobStatus = {
   mode?: string;
 };
 
+export type RuntimeEvent = {
+  event_id?: string;
+  job_id?: string;
+  actor_type?: string;
+  actor_id?: string;
+  stage: string;
+  level?: string;
+  message?: string;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
+  progress_pct?: number;
+};
+
 export type BacktestJobEvents = {
   job_id: string;
   stream_name: string;
   status?: string;
   mode: "observational";
-  events: unknown[];
+  events: RuntimeEvent[];
+};
+
+export type BacktestRunResponse = {
+  mode: "backend_owned_backtestnode" | string;
+  job: BacktestJobStatus;
+  result: Record<string, unknown> | null;
+  events: RuntimeEvent[];
 };
 
 export type ReportSummary = {
