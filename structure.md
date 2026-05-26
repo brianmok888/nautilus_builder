@@ -1893,3 +1893,63 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 cd apps/web && npm audit --omit=dev --audit-level=high
 # exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
 ```
+
+
+## Deep review — NT/AI/backend alignment inventory (2026-05-26)
+
+**Scope:** current `master` after `971c6f3 Prove Builder backend can run without UI coupling`. Review used the repo source docs (`doc/`, `README.md`, prior `structure.md`/`findings.md`/`handguard.md`), current code under `packages/`, `services/`, `apps/web`, `infra`, and tests, plus official/reference sources:
+
+- NautilusTrader official repo: <https://github.com/nautechsystems/nautilus_trader>.
+- NautilusTrader latest developer guide: <https://nautilustrader.io/docs/latest/developer_guide>.
+- NautilusTrader adapter guide: <https://nautilustrader.io/docs/latest/developer_guide/adapters/>.
+- NautilusTrader execution testing guide: <https://nautilustrader.io/docs/latest/developer_guide/spec_exec_testing/>.
+- EvoMap/evolver README for auditable evolution patterns: <https://github.com/EvoMap/evolver>.
+- LangChain/LangGraph repos/docs for LLM application and stateful-agent workflow expectations: <https://github.com/langchain-ai/langchain> and <https://github.com/langchain-ai/langgraph>.
+- `/home/mok/projects/Nautilus-Daedalus` was treated as reference-only; no ND files were edited.
+
+### Current executable structure observed
+
+- `packages/strategy_spec` and `packages/strategy_validation` remain the StrategySpec schema/validation authority, but current validation is still schema-light for time ranges, rule operands, and backtest-before-shadow semantics.
+- `packages/strategy_compiler` currently emits deterministic metadata/hash artifacts only; it does not yet lower StrategySpec rules into a fully executable signal strategy.
+- `packages/nautilus_rule_graph` contains the current Nautilus strategy bridge. `RuleGraphBacktestStrategy` subscribes to quote ticks and records observation count; it does not yet evaluate StrategySpec indicators/rules/risk.
+- `packages/backtest_runner` contains both fixture/injected-engine normalizers and a real Nautilus `BacktestNode` catalog replay seam. The StrategySpec replay is a real NT runtime/catalog smoke, not full strategy-performance evidence.
+- `packages/catalog_datasets` has a strong `CatalogPathPolicy`, including symlink traversal checks, but the registry can still be constructed without a root policy for non-strict package consumers.
+- `packages/artifact_store`, `packages/promotions`, and `packages/backtest_runner/contracts` define scoped artifact/evidence models. Strict FastAPI promotion evidence resolves `artifact://builder/...` refs with checksums, but legacy fixture/non-builder refs still exist in compatibility paths.
+- `packages/workflow_spine` has both in-memory workflow models and a `PostgresWorkflowRepository` name, but that repository is currently SQLite-style (`sqlite3.Connection`, `insert or replace`) rather than a real psycopg/Postgres implementation.
+- `packages/execution_lane` now models a strategy-decoupled paper/live lane with venue binding and live-authority gates. It remains an in-memory contract service and not an NT `LiveNode`/adapter execution runtime.
+- `packages/ai_builder` now supports OpenAI-compatible chat-completions via `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL`, plus validation and audit records. Default FastAPI audit storage is still in-memory unless an injected store is supplied.
+- `services/api/fastapi_app.py` is the production-style FastAPI bootstrap and requires bearer auth for protected routes. `services/api/app.py` / `dev_server.py` are dependency-free contract surfaces and remain unauthenticated.
+- `apps/web` is an AntD/Next operator shell with prompt-to-StrategySpec UI, config tabs, StrategySpec editor, market setup, result panels, and execution-lane visibility panels. It does not yet propagate a FastAPI bearer token.
+- `infra/migrations` define Builder-owned Postgres-shaped tables and safety checks, but runtime repositories/services are still largely in-memory or SQLite-test backed.
+
+### NT alignment status
+
+Aligned:
+
+- NautilusTrader is installed/imported as a backend Python dependency, not vendored.
+- The catalog replay seam uses `ParquetDataCatalog`, `BacktestDataConfig`, `ImportableStrategyConfig`, and `BacktestNode` patterns consistent with NT backtest docs.
+- Adapter/live readiness is not overclaimed; current adapter registry disables paper/live execution and no DataTester/ExecTester evidence exists.
+- The execution lane keeps live authority gated by server-side credential-slot/risk/reconciliation/manual activation fields.
+
+Not yet aligned / high-friction:
+
+- Backtest semantics are still observational. StrategySpec rules are not transformed into NT indicator/rule execution, so results are not strategy-performance evidence.
+- Live execution is a Builder contract lane, not a Nautilus `TradingNode`/`LiveNode` adapter runtime with reconciliation reports.
+- Database/runtime persistence is not yet aligned with the Postgres migrations or production FastAPI auth/session story.
+- Frontend protected flows are not yet wired to auth context, so a real FastAPI deployment will reject many UI requests until token propagation/session middleware exists.
+
+### Inventory-first semantic legacy/deprecation closure
+
+Resolved or controlled:
+
+- No Builder package imports Nautilus-Daedalus runtime modules.
+- No Builder strategy/backtest/promotion authoring path calls `submit_order`.
+- `backtest_order_intent` is absent from the current source-truth paths checked by the integration guard.
+- `Nautilus Strategy Lab` remains only as an old/deprecated naming note in docs.
+
+Still open:
+
+- `fixture://` evidence remains reachable through dependency-free compatibility/result paths.
+- `dummy`/`fixture`/`placeholder` language remains in tests/docs and some frontend/result scaffolds; mostly intentional, but must not be used in readiness claims.
+- `PostgresWorkflowRepository` is a semantic misnomer until it becomes a real Postgres/psycopg repository.
+- `created_from="imported"` is schema-allowed but rejected by the raw-code substring scanner because `imported` contains `import`.

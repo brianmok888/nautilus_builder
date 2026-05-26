@@ -2031,3 +2031,90 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 
 - The dependency-free dev server is a local contract server; production FastAPI service supervision remains deployment work.
 - Running `services.backend_runtime` outside `uv` may report FastAPI as missing while still proving dependency-free API/worker contracts.
+
+
+## Deep review findings — NT/AI/backend alignment (2026-05-26)
+
+**Review verdict:** REQUEST CHANGES for production/beta-readiness claims. COMMENT/APPROVE only for the current contract-prototype scope. No critical issue found that adds live order authority today, but several high-priority gaps would mislead users if the system is described as a fully working AI-to-Nautilus backtesting builder.
+
+### CRITICAL
+
+- None found in the current reviewed tree. No direct `submit_order` path, browser credential field, or Nautilus-Daedalus runtime import was found in Builder implementation code.
+
+### HIGH
+
+1. **StrategySpec validation accepts unsafe or incoherent backtest semantics.**
+   - Evidence: `packages/strategy_validation/validators.py` checks `bar_close_only` and `no_lookahead_required`, but not `requires_backtest_before_shadow`; `packages/strategy_spec/models.py` treats `DataRange.start/end` as unconstrained strings and `RuleClause` operands as arbitrary-length lists.
+   - Reproduced locally: `requires_backtest_before_shadow=false`, reversed/invalid dates, and one-/three-operand `gt` clauses all validate as `is_valid=True`.
+   - Risk: AI-generated StrategySpecs can pass the primary validation gate while bypassing stated backtest-before-shadow policy or carrying rules/date ranges that cannot map cleanly to Nautilus backtests.
+   - Fix: add validators/tests for ISO datetime parsing, start < end, exact operator arity, indicator/rule reference resolution, and `requires_backtest_before_shadow is True`.
+
+2. **StrategySpec-generated Nautilus replay does not execute the StrategySpec logic yet.**
+   - Evidence: `packages/nautilus_rule_graph/strategy.py` only loads the instrument, subscribes to quote ticks, and increments `observed_quote_ticks`; `packages/backtest_runner/strategy_spec_replay.py` passes the spec into config but returns zero-order/zero-position observational evidence.
+   - Risk: the current replay proves NT catalog/runtime wiring, not whether the user/AI strategy works. Promotion/research UX must not treat these results as strategy-performance backtests.
+   - Fix: implement a rule-graph signal evaluator/indicator bridge or relabel the current replay as catalog/runtime smoke only until signals/metrics are actually derived from StrategySpec rules.
+
+3. **The web UI has no bearer-auth propagation for protected FastAPI routes.**
+   - Evidence: `services/api/fastapi_app.py` requires bearer auth for strategies, backtest jobs, runtime replay, AI draft/apply, promotion, workflow results, and execution-lane routes. `apps/web/lib/api.ts` never attaches `Authorization`, and frontend tests mock `fetch` rather than exercising the real FastAPI auth boundary.
+   - Risk: live VM deployments using FastAPI will return `401 auth_required` for many interactive UI flows even when the proxy/base URL is correct.
+   - Fix: add an auth/session bootstrap, server-side token exchange or dev-token injection for local mode, typed auth errors in UI, and integration tests that run the Next proxy against FastAPI with a real bearer context.
+
+4. **Unauthenticated dependency-free API docs/diagnostics advertise public binding.**
+   - Evidence: `services/api/dev_server.py` defaults to `127.0.0.1`, but `README.md` and `packages/backend_runtime/service.py` list `python3 -m services.api.dev_server --host 0.0.0.0 --port 8000`; `services/api/app.py` routes are dependency-free and unauthenticated by design.
+   - Risk: a remote VM can expose contract/dev routes without auth if operators copy the documented command.
+   - Fix: document `127.0.0.1` as the default for the dev server, add explicit “not production / do not bind publicly” warnings, and reserve `0.0.0.0` examples for the FastAPI path with real auth/proxy controls.
+
+### MEDIUM
+
+1. **`PostgresWorkflowRepository` is SQLite-style despite the Postgres name and migrations.**
+   - Evidence: `packages/workflow_spine/postgres_repository.py` imports `sqlite3.Connection`, creates flattened `builder_*` tables, and uses `insert or replace`; tests use `sqlite3.connect(":memory:")`. The repo also ships psycopg and Postgres-shaped SQL migrations under `infra/migrations`.
+   - Risk: database setup is not production-ready or actually aligned with the declared Postgres/ND-like storage direction.
+   - Fix: rename this to a SQLite contract repository or implement a real psycopg repository against `infra/migrations` tables.
+
+2. **Strategy module registry metadata points to a missing config class.**
+   - Evidence: `packages/strategy_registry/service.py` registers `packages.nautilus_rule_graph.config:RuleGraphStrategyConfig`, but `packages/nautilus_rule_graph/config.py` defines only `RuleGraphProfile`; resolving the metadata raises `AttributeError`.
+   - Risk: future registry-to-backtest resolution will fail despite current metadata-only tests passing.
+   - Fix: change the registry to `packages.nautilus_rule_graph.strategy:RuleGraphBacktestStrategyConfig` or add the missing config class and test import resolution in a safe allowlisted mode.
+
+3. **Backtest job creation treats `compile_artifact_id` as `compile_hash` without digest validation.**
+   - Evidence: `services/api/routes/backtest_jobs.py` requires `compile_artifact_id` and stores it as `compile_hash`; tests use values like `compile_001`.
+   - Risk: job/run/evidence lineage can claim a compile hash that is not the compiler’s deterministic SHA-256 hash, weakening promotion binding and reproducibility.
+   - Fix: accept an explicit `compile_hash`, validate 64 hex chars, and keep any artifact ID in a separate field.
+
+4. **Artifact URI schemes are not consistent across result paths.**
+   - Evidence: `packages/artifact_store` and strict promotion require `artifact://builder/...`; `packages/backtest_runner/result_normalizer.py` emits `artifact://backtests/{job_id}/result.json` for non-fixture injected-engine results; `services/api/routes/workflow_results.py` still has explicit `fixture://` fallback for the lightweight API.
+   - Risk: non-fixture results may not be consumable by strict promotion evidence checks, while dev fixture refs can remain accidentally reachable in compatibility flows.
+   - Fix: normalize all project artifacts to `artifact://builder/<project>/<user>/<type>/<id>` and gate fixture fallback behind an explicit dev flag.
+
+5. **Catalog root policy is optional outside strict FastAPI paths.**
+   - Evidence: `CatalogDatasetRegistryService(catalog_root=None)` returns datasets without path normalization/root checks unless strict mode is requested; the lightweight API path accepts caller-supplied catalog fields.
+   - Risk: package consumers or dev routes can bypass the rooted/allowlisted catalog policy already used by strict FastAPI backtest creation.
+   - Fix: require a root policy by default for any write/replay path, and keep no-root registries read-only/test-only.
+
+6. **AI audit persistence defaults to process memory.**
+   - Evidence: `create_fastapi_app()` builds `AiBuilderService.from_env(store=RecordedAiDraftStore())` unless an audit store is injected.
+   - Risk: prompt/response metadata needed for continuous improvement, incident analysis, and EvoMap-style auditable evolution disappears on restart.
+   - Fix: wire the default FastAPI app to a durable DB-backed audit store or fail closed when production mode lacks one.
+
+7. **Semantic import closure is too broad.**
+   - Evidence: schema allows `CreatedFrom.IMPORTED`, but `validate_strategy_spec()` scans all strings for the substring `import`, so a valid imported draft is rejected as raw code.
+   - Risk: clean-room imports from existing strategy registries will fail or require bypassing the main validator.
+   - Fix: distinguish raw code tokens from safe enum values; use token/AST-ish matching instead of substring matching across all schema fields.
+
+### LOW / WATCH
+
+1. **NautilusTrader pin drift watch.**
+   - Evidence: Builder pins `nautilus_trader==1.223.0`, while official latest docs describe installing the latest release and current docs may reflect newer APIs.
+   - Risk: docs/skill guidance may drift from the pinned runtime. This is acceptable only if the Daedalus-matched pin is intentional and claims say “pinned 1.223.0,” not “latest NT.”
+   - Fix: keep a version-compatibility note and retest before upgrading.
+
+2. **Frontend remains an operator shell, not a polished production app.**
+   - Evidence: UI has AntD shell/tabs and prompt controls, but tests are mostly mocked/contract-level, chart sections are placeholders, and protected API/auth E2E is absent.
+   - Risk: VM demos can look interactive while backend-driven flows are still incomplete.
+   - Fix: add end-to-end tests with real FastAPI + auth + proxy + seeded data before calling it user-ready.
+
+### Architecture watchlist
+
+- Execution lane contracts are useful, but there is no Nautilus `LiveNode`/`TradingNode`, adapter factory, DataTester, ExecTester, or reconciliation evidence. Treat it as a decoupled execution-lane model only.
+- LangChain/LangGraph/EvoMap alignment is conceptual today: Builder has an OpenAI-compatible provider and audit records, but no stateful graph/checkpointed AI improvement lane yet.
+- The DB direction should converge: either keep explicit in-memory/SQLite contract storage for open-source demo mode or implement the Postgres migrations end to end. Do not call the current SQLite repository production Postgres.

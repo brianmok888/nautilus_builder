@@ -1348,3 +1348,88 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 cd apps/web && npm audit --omit=dev --audit-level=high
 # diff/compile passed; focused Python 38 passed; full Python 347 passed; backend check emitted no web/Daedalus imports and pinned NT match; Vitest 22 passed; Playwright 4 passed; high audit gate exited 0 with only existing moderate Next/PostCSS advisory.
 ```
+
+
+## 26. Deep review guardrails — NT/AI/backend alignment (2026-05-26)
+
+These guards are active until the 2026-05-26 deep-review findings are closed with tests and runtime evidence.
+
+### StrategySpec validation guard
+
+- Do not claim AI-generated StrategySpecs are safe just because Pydantic validation passes.
+- Add/maintain tests proving:
+  - `validation.requires_backtest_before_shadow` must be `true`.
+  - `data_range.start` and `data_range.end` parse as datetimes and `start < end`.
+  - rule operators have exact, supported arity.
+  - rule operands reference known indicators/fields/constants.
+  - safe enum values such as `created_from="imported"` are not rejected by raw-code substring checks.
+
+Minimum regression target:
+
+```bash
+rtk pytest tests/strategy_validation tests/strategy_spec -q
+python3 - <<'PY'
+from tests.strategy_spec.test_schema_valid import make_valid_spec
+from packages.strategy_validation.validators import validate_strategy_spec
+spec = make_valid_spec()
+spec['validation']['requires_backtest_before_shadow'] = False
+assert not validate_strategy_spec(spec).is_valid
+PY
+```
+
+### Nautilus backtest semantics guard
+
+- Treat `run_strategy_spec_catalog_replay()` as NT catalog/runtime smoke until `RuleGraphBacktestStrategy` evaluates indicators, rules, and risk from the StrategySpec.
+- Do not use zero-order/zero-position replay output as proof of strategy profitability, rule correctness, or promotion readiness.
+- Before stronger backtest claims, add evidence that StrategySpec rules produce deterministic signal/position/order-intent observations under Nautilus replay without live order authority.
+
+Minimum regression target:
+
+```bash
+rtk pytest tests/backtest_runner/test_strategy_spec_catalog_replay.py tests/backtest_runner/test_catalog_backed_nautilus_replay_smoke.py -q
+# plus new tests proving rule/indicator evaluation, not only quote-tick observation
+```
+
+### FastAPI/web auth guard
+
+- Protected FastAPI routes require bearer auth; frontend API helpers must either propagate a valid auth context or present a clear local-dev mode.
+- Do not claim web/API integration is fixed from mocked component tests alone.
+- Any VM deployment using FastAPI must verify the browser-to-Next-proxy-to-FastAPI path with an actual token.
+
+Minimum regression target:
+
+```bash
+rtk pytest tests/api/test_fastapi_app.py -q
+cd apps/web && npm test -- --run lib/api.test.ts
+# plus an e2e/proxy test that proves Authorization reaches FastAPI for /api/strategies and /api/ai-builder/draft
+```
+
+### Dependency-free API exposure guard
+
+- `services.api.dev_server` is a local contract server, not a production server.
+- Do not recommend `--host 0.0.0.0` for `services.api.dev_server` unless the surrounding text says it is unsafe without a private network/proxy and must not be internet exposed.
+- Production/staging examples should prefer the FastAPI entrypoint with auth middleware/session propagation.
+
+### Database guard
+
+- Do not call `PostgresWorkflowRepository` production Postgres-ready while it uses `sqlite3.Connection` or SQLite `insert or replace` SQL.
+- Keep runtime storage names honest: SQLite/in-memory contract repositories are acceptable for tests/demo, but production DB claims require psycopg-backed implementation against `infra/migrations`.
+
+Minimum regression target:
+
+```bash
+rtk pytest tests/workflow_spine tests/infrastructure -q
+# plus real psycopg/Postgres integration or rename the current SQLite contract repository
+```
+
+### Artifact/evidence guard
+
+- Strict promotion evidence must use scoped `artifact://builder/...` refs with checksums and compile/version binding.
+- Do not feed `artifact://backtests/...` or `fixture://...` refs into production promotion paths.
+- Keep fixture fallback gated as dev-only and visibly labeled.
+
+### AI improvement lane guard
+
+- OpenAI-compatible provider use is advisory-only: no shell, credentials, broker/exchange calls, `submit_order`, or `TradeAction` in prompts/specs/audit output.
+- Default production AI audit must be durable; in-memory `RecordedAiDraftStore` is test/demo only.
+- EvoMap/LangGraph-style continuous improvement claims require durable state/checkpoints, prompt-response metadata, accepted/rejected decisions, and replayable improvement-cycle IDs.
