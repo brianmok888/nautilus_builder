@@ -1158,3 +1158,43 @@ docker run postgres:16-alpine ...
 psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql
 # 001 + 002 migrations applied successfully in a disposable PostgreSQL 16 container
 ```
+
+## 21. Standalone execution lane guard
+
+Builder execution must stay decoupled from strategy authoring/research lanes.
+
+- Execution lane consumes explicit `ExecutionLaneCommand` records, not live strategy process objects.
+- Execution worker code must not import `packages.strategy_*`, `packages.nautilus_rule_graph.strategy`, or user strategy modules.
+- `strategy_lane_coupled` must remain `false` on execution lane profiles, commands, reports, and heartbeats.
+- Paper execution lane is simulated only: `may_submit_order=false`, `live_trading_enabled=false`, no live credentials.
+- Live execution lane remains disabled by default and needs profile + command gates: manual approval, risk profile, credential slot ref, reconciliation, activation identity/time, config checksum, and approved risk decision.
+- Do not store raw exchange credentials in execution commands, reports, API payloads, or database rows. Store only server-side credential slot references.
+- Execution reports are the execution evidence source; strategy/backtest events are not fill/order truth.
+- Future Nautilus `LiveNode` / adapter submission work must build on this lane contract and add ExecTester/reconciliation evidence before live-readiness claims.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/infrastructure/test_builder_execution_lane_migration.py -q
+python3 -m compileall -q packages services tests
+```
+
+Segment EXEC-1 evidence:
+
+```bash
+git diff --check
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/infrastructure/test_builder_execution_lane_migration.py -q
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql
+# focused tests 10 passed; targeted Python suite 326 passed; Vitest 21 passed; Playwright 4 passed; audit high exited 0; migrations 001-003 applied in disposable PostgreSQL 16.
+```
+
+Execution lane worker smoke:
+
+```bash
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
+# emitted execution_lane JSON with strategy_lane_coupled=false and may_submit_order=false
+```

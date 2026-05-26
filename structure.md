@@ -1657,3 +1657,57 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 ```
 
 PostgreSQL syntax verification also applied `001_builder_workflow_storage.sql` plus `002_builder_standalone_platform.sql` successfully in a disposable `postgres:16-alpine` container using `psql -v ON_ERROR_STOP=1`.
+
+## Execution lane decoupling — standalone lane scaffold
+
+**Started:** 2026-05-26
+
+Context: after PLATFORM-1 established the standalone Builder control plane, the next required runtime split is an execution lane that can run independently while the operator continues creating/researching other strategies. The lane must consume explicit execution commands, not live strategy-process objects, so strategy authoring/backtest/research work can continue without owning order lifecycle.
+
+Design/spec written:
+
+- `docs/superpowers/specs/2026-05-26-execution-lane-decoupling-design.md`
+
+Segment EXEC-1 implementation:
+
+- Added `packages/execution_lane/` with strict Pydantic contracts for `ExecutionLaneProfile`, `ExecutionLaneCommand`, `ExecutionLaneReport`, status enums, and `ExecutionLaneService`.
+- Added `services/workers/execution_lane_worker.py` as a backend-only worker scaffold. It imports the execution-lane package only and reports `strategy_lane_coupled=false`.
+- Added API contract routes under `/api/execution-lane/status`, `/api/execution-lane/profiles`, and `/api/execution-lane/commands` in both lightweight `ApiApp` and FastAPI bootstrap.
+- Added `infra/migrations/003_builder_execution_lane.sql` for lane runs, command queue, reports, and worker heartbeats.
+- Added TDD coverage in `tests/execution_lane/`, `tests/api/test_execution_lane_routes.py`, and `tests/infrastructure/test_builder_execution_lane_migration.py`.
+
+Runtime separation:
+
+- Strategy/AI/backtest/research lanes produce drafts, evidence, and candidate approvals.
+- Gate/manual approval path produces an execution command with lineage/version, risk decision, order intent, and idempotency key.
+- Execution lane worker claims commands from its own lane queue and emits lane-owned reports.
+- Existing strategy work can continue because command processing does not import strategy modules or depend on browser/session lifetime.
+
+Authority reconciliation:
+
+- Paper lane is simulated only and keeps `may_submit_order=false`.
+- Live lane remains disabled unless both profile and command carry explicit live authority plus risk profile, credential slot ref, reconciliation, approval, activation identity/time, and approved risk decision.
+- This segment does not submit real broker orders. Nautilus `LiveNode`/adapter-backed submission remains a later segment behind the EXEC-1 contracts.
+
+### EXEC-1 final verification
+
+```bash
+git diff --check
+# passed
+
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/infrastructure/test_builder_execution_lane_migration.py -q
+# 10 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 326 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql
+# migrations 001 + 002 + 003 applied successfully in disposable PostgreSQL 16 container
+```

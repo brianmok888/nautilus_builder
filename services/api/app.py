@@ -1,6 +1,7 @@
 from services.api.router import ApiApp
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
+from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
@@ -10,6 +11,7 @@ from services.api.routes.strategies import create_strategy_payload, create_strat
 from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.backtest_jobs.service import BacktestJobService
+from packages.execution_lane import ExecutionLaneService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 
 
@@ -17,10 +19,12 @@ def create_app(
     workflow_repository: InMemoryWorkflowRepository | None = None,
     strategy_repository: InMemoryStrategyRepository | None = None,
     backtest_job_service: BacktestJobService | None = None,
+    execution_lane_service: ExecutionLaneService | None = None,
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
     backtest_job_service = backtest_job_service or BacktestJobService()
+    execution_lane_service = execution_lane_service or ExecutionLaneService()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
     app.route("GET", "/api/adapters", adapters_payload)
@@ -38,6 +42,9 @@ def create_app(
     app.route("POST", "/api/strategies/{strategy_id}/draft", lambda strategy_id, payload: update_strategy_draft_payload(strategy_repository, strategy_id, payload))
     app.route("POST", "/api/strategies/{strategy_id}/versions", lambda strategy_id, payload: create_strategy_version_payload(strategy_repository, strategy_id, payload))
     app.route("GET", "/api/runtime-events/replay", replay_runtime_events_payload)
+    app.route("GET", "/api/execution-lane/status", lambda runtime_profile_id=None: execution_lane_status_payload(service=execution_lane_service, runtime_profile_id=runtime_profile_id))
+    app.route("POST", "/api/execution-lane/profiles", lambda payload: register_execution_lane_profile_payload(payload, service=execution_lane_service))
+    app.route("POST", "/api/execution-lane/commands", lambda payload: enqueue_execution_lane_command_payload(payload, service=execution_lane_service))
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/ai-builder/apply", apply_ai_draft_payload)

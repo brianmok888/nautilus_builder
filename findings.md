@@ -1762,3 +1762,74 @@ Review notes:
 - Artifact scope now matches the existing `BacktestArtifactRef` contract (`project_artifact` / `fixture_dev_only`) and requires Builder artifact or fixture URI prefixes.
 - No service/API/frontend code path was added for live order submission.
 - Remaining risk is intentionally deferred: future services must add FK/application-level enforcement when paper/live runtime code is introduced.
+
+## Closure update — Segment EXEC-1 standalone execution lane scaffold
+
+**Status:** CLOSED locally on 2026-05-26 pending final verification/commit.
+
+### Finding
+
+- **HIGH-ARCH-2026-05-26-2:** Builder had platform tables for future paper/live execution, but no package/API/worker contract for running execution independently from strategy authoring/research lanes. Without an explicit lane queue, strategy code could become coupled to order lifecycle and block ongoing strategy iteration.
+
+### Resolution
+
+- Added strict execution-lane contracts and service in `packages/execution_lane`.
+- Added independent execution-lane API routes for status, profile registration, and command enqueueing.
+- Added backend worker scaffold with no strategy imports.
+- Added `003_builder_execution_lane.sql` for durable lane runs, commands, reports, and heartbeats.
+- Added tests proving paper command claim/report flow, idempotency, secret/coupling rejection, live-gate rejection, live-gate acceptance, API policy reuse, worker import separation, and migration inventory.
+
+### Review verdict
+
+**Recommendation:** APPROVE for EXEC-1 after full verification. **Architectural Status:** CLEAR for the scaffold/contract segment.
+
+This segment decouples execution-lane contracts without adding real broker order submission, browser credentials, exchange API calls, or a Nautilus live-node process. Live command authority is representable only behind explicit risk/reconciliation/credential/approval gates.
+
+### TDD evidence so far
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/infrastructure/test_builder_execution_lane_migration.py -q
+# RED before implementation: package/migration missing
+# GREEN after implementation: 10 passed
+```
+
+### Final verification — Segment EXEC-1
+
+```bash
+git diff --check
+# passed
+
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/infrastructure/test_builder_execution_lane_migration.py -q
+# 10 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 326 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql
+# migrations 001 + 002 + 003 applied successfully in disposable PostgreSQL 16 container
+```
+
+### Code-review reconciliation — Segment EXEC-1
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR.
+
+Review notes:
+
+- Execution lane now has a separate package, API contract, worker scaffold, migration, and tests.
+- Strategy-lane coupling is explicitly rejected at model level and checked on the worker scaffold.
+- Paper lane remains simulated/no-order. Live command authority remains gated and disabled unless both profile and command meet risk/reconciliation/credential/approval predicates.
+- No Nautilus live-node or broker adapter submission code was added; that remains a later implementation segment with ExecTester/reconciliation evidence.
+
+Worker smoke:
+
+```bash
+python3 -m services.workers.execution_lane_worker --runtime-profile-id rp_paper_001 --worker-id exec_worker_smoke
+# emitted execution_lane JSON with strategy_lane_coupled=false and may_submit_order=false
+```
