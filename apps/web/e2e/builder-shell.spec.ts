@@ -21,7 +21,7 @@ test("operator MVP routes expose strategies, backtest console, AI, and promotion
 
   await page.goto("/backtests/bt_job_001");
   await expect(page.getByRole("heading", { name: "Observational runtime console" })).toBeVisible();
-  await expect(page.getByText("request cancel")).toBeVisible();
+  await expect(page.getByText("Allowed command: request cancel")).toBeVisible();
 
   await page.goto("/");
   await expect(page.getByText("Apply to Builder")).toBeVisible();
@@ -53,6 +53,6 @@ test("operator can traverse composed observational journey with stable IDs and n
   await page.goto("/");
   await expect(page.getByText("ai_thread_id and improvement_cycle_id")).toBeVisible();
   await expect(page.getByText("approval_state: manual_approval_pending")).toBeVisible();
-  await expect(page.getByText("may_submit_order: false")).toBeVisible();
-  await expect(page.getByText("may_create_trade_action: false")).toBeVisible();
+  await expect(page.getByText("Order authority remains disabled in Builder.")).toBeVisible();
+  await expect(page.getByText("Trade-action creation remains disabled in Builder.")).toBeVisible();
 });

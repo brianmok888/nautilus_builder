@@ -37,33 +37,57 @@ export const StrategyBuilderWorkspace = () => {
   const spec = useMemo(() => graphToStrategySpec(graph), [graph]);
 
   return (
-    <section className="panel-grid">
-      <MarketSelectionPanel />
-      <MarketProfilePanel />
-      <BlockPalette
-        onAddBlock={(block) =>
-          setGraph((current) => addStrategyBlock(current, block))
-        }
-      />
-      <StrategyBuilderCanvas />
-      <StrategyGraphCanvas nodes={graph.nodes} onSelect={setSelectedNodeId} />
-      <BlockInspector
-        selectedNode={selectedNode}
-        onChangeParams={(params) => {
-          if (selectedNode) {
-            setGraph((current) =>
-              updateStrategyBlockParams(current, selectedNode.id, params),
-            );
+    <section className="panel-grid compact-editor-layout" aria-label="strategy spec editor workspace">
+      <header className="editor-section editor-section-full">
+        <p className="hero-kicker">StrategySpec Editor</p>
+        <h2>Compact draft workspace</h2>
+        <p>Backend validation required before any backtest request (backend validation gate).</p>
+      </header>
+
+      <section className="editor-section editor-section-full" aria-label="market data context">
+        <h3>Market context</h3>
+        <MarketSelectionPanel />
+        <MarketProfilePanel />
+      </section>
+
+      <section className="editor-section" aria-label="block canvas">
+        <h3>Block canvas</h3>
+        <BlockPalette
+          onAddBlock={(block) =>
+            setGraph((current) => addStrategyBlock(current, block))
           }
-        }}
-      />
-      <StrategySpecEditor spec={spec} />
-      <ValidationPanel errors={[]} />
-      <p>
-        <span className="status-badge">Backend contracts</span>{" "}
-        {backendDataContracts.length} connected
-      </p>
-      <p>All drafts require backend validation before any backtest request.</p>
+        />
+        <StrategyBuilderCanvas />
+        <StrategyGraphCanvas nodes={graph.nodes} onSelect={setSelectedNodeId} />
+      </section>
+
+      <section className="editor-section" aria-label="inspector">
+        <h3>Inspector</h3>
+        <BlockInspector
+          selectedNode={selectedNode}
+          onChangeParams={(params) => {
+            if (selectedNode) {
+              setGraph((current) =>
+                updateStrategyBlockParams(current, selectedNode.id, params),
+              );
+            }
+          }}
+        />
+        <ValidationPanel errors={[]} />
+      </section>
+
+      <section className="editor-section" aria-label="spec preview">
+        <h3>Spec preview</h3>
+        <StrategySpecEditor spec={spec} />
+      </section>
+
+      <footer className="editor-section editor-section-full">
+        <p>
+          <span className="status-badge">Backend contracts</span>{" "}
+          {backendDataContracts.length} connected
+        </p>
+        <p>Backend validation required before any backtest request (backend validation gate).</p>
+      </footer>
     </section>
   );
 };

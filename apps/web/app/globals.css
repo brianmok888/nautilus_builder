@@ -598,3 +598,53 @@ pre {
   max-height: 18rem;
   padding: 0.75rem;
 }
+
+/* Sectioned operator UI segment: compact section density without adding execution authority. */
+.section-anchor-row {
+  margin-top: 0.65rem;
+}
+
+.dashboard-entry-title {
+  margin-top: 0.15rem !important;
+}
+
+.workflow-trail {
+  color: var(--builder-accent-strong) !important;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.compact-info-strip,
+.editor-section {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 0.75rem;
+}
+
+.compact-info-strip {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.compact-editor-layout {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.editor-section-full {
+  grid-column: 1 / -1;
+}
+
+.editor-section h2,
+.editor-section h3,
+.market-dataset-setup h2,
+.market-dataset-setup h3,
+.backtest-center-shell h3 {
+  font-size: 0.98rem;
+  margin: 0 0 0.45rem;
+}
+
+.compact-backtest-grid {
+  margin: 0.85rem 0;
+}

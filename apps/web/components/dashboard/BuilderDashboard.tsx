@@ -8,7 +8,7 @@ import {
   RobotOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { Alert, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
+import { Alert, Button, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../strategy-builder/StrategyBuilderWorkspace";
@@ -22,6 +22,17 @@ const workflowSteps = [
   { title: "Manual promotion", content: "Human gate only" },
 ];
 
+const workflowTrail = "AI → StrategySpec → Market data → Backtest → Review → Execution Lane";
+
+const sectionAnchors = [
+  "AI Strategy Builder",
+  "StrategySpec Editor",
+  "Market + Dataset Setup",
+  "Backtest Center",
+  "Results / Research",
+  "Execution Lane / Config",
+];
+
 export function BuilderDashboard() {
   return (
     <Space orientation="vertical" size="middle" className="builder-dashboard compact-dashboard">
@@ -33,7 +44,12 @@ export function BuilderDashboard() {
                 Builder-only / observational runtime
               </Tag>
               <div>
+                <Typography.Text className="hero-kicker">Command center</Typography.Text>
                 <Typography.Title level={2}>Nautilus Builder</Typography.Title>
+                <Typography.Title level={3} className="dashboard-entry-title">Describe strategy</Typography.Title>
+                <Typography.Paragraph className="workflow-trail">
+                  {workflowTrail}
+                </Typography.Paragraph>
                 <Typography.Paragraph>
                   Draft StrategySpecs, validate market data profiles, inspect
                   backtest evidence, and request safe shadow promotion without
@@ -47,7 +63,8 @@ export function BuilderDashboard() {
                 description="AI output is advisory, StrategySpec drafts require backend validation, and promotion remains manual."
               />
               <Space wrap>
-                <Tag color="blue" icon={<RobotOutlined />}>Start with AI prompt tab</Tag>
+                <Button type="primary">Start drafting</Button>
+                <Button>Continue to market setup</Button>
                 <Tag color="warning">Requires validation before backtest</Tag>
               </Space>
             </Space>
@@ -74,13 +91,26 @@ export function BuilderDashboard() {
                   <Statistic title="Manual gates" value={1} prefix={<AuditOutlined />} />
                 </Card>
               </Col>
+              <Col span={24}>
+                <Card size="small" title="Execution lane status">
+                  <Typography.Text type="secondary">
+                    Decoupled from strategy drafting; controls stay backend-gated and visibility-only.
+                  </Typography.Text>
+                </Card>
+              </Col>
             </Row>
           </Col>
         </Row>
       </Card>
 
       <Card className="compact-workflow-card" size="small" title="Prompt-first workflow" extra={<Tag color="green">signal_preview_only</Tag>}>
+        <Typography.Paragraph className="workflow-trail">Workflow path: {workflowTrail}</Typography.Paragraph>
         <Steps size="small" current={0} items={workflowSteps} />
+        <Space wrap className="section-anchor-row">
+          {sectionAnchors.map((section) => (
+            <Tag key={section}>{section}</Tag>
+          ))}
+        </Space>
       </Card>
 
       <Row gutter={[8, 8]} className="surface-overview compact-surface-overview">
@@ -108,8 +138,8 @@ export function BuilderDashboard() {
             <Typography.Title level={2}>Safe promotion request</Typography.Title>
             <Typography.Paragraph>Prepare manual promotion evidence after backtest review.</Typography.Paragraph>
             <Typography.Paragraph>approval_state: manual_approval_pending</Typography.Paragraph>
-            <Typography.Paragraph>may_submit_order: false</Typography.Paragraph>
-            <Typography.Paragraph>may_create_trade_action: false</Typography.Paragraph>
+            <Typography.Paragraph>Order authority remains disabled in Builder.</Typography.Paragraph>
+            <Typography.Paragraph>Trade-action creation remains disabled in Builder.</Typography.Paragraph>
           </Card>
         </Col>
       </Row>

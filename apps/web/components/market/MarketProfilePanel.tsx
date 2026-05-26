@@ -24,7 +24,7 @@ const AdapterSelector = ({
   onAdapterChange: (adapterId: string) => void;
 }) => (
   <label>
-    Adapter
+    Adapter / Venue
     <select
       aria-label="adapter"
       value={adapterId}
@@ -57,6 +57,7 @@ const InstrumentSearch = ({
   onSelectInstrument: (instrumentId: string) => void;
 }) => (
   <>
+    <h3>Instrument search</h3>
     <div className="form-grid">
       <label>
         Instrument
@@ -100,6 +101,7 @@ const DataAvailabilityPanel = ({
   if (!availability) {
     return (
       <section className="panel" aria-label="data availability">
+        <h3>Catalog guard</h3>
         Data availability must be confirmed before job creation.
       </section>
     );
@@ -107,6 +109,7 @@ const DataAvailabilityPanel = ({
 
   return (
     <section className="panel" aria-label="data availability">
+      <h3>Catalog guard</h3>
       <p>Selected instrument: {instrumentId}</p>
       <p>Market type: {availability.market_type}</p>
       <p>Data types: {availability.supported_data_types.join(", ")}</p>
@@ -216,7 +219,10 @@ export const MarketProfilePanel = () => {
   }
 
   return (
-    <section className="panel" aria-label="market profile">
+    <section className="panel market-dataset-setup" aria-label="market profile">
+      <p className="hero-kicker">Market + Dataset Setup</p>
+      <h2>Dataset profile</h2>
+      <p>Adapter, venue, instrument, and catalog checks must pass before backtest job creation.</p>
       <AdapterSelector
         adapterId={adapterId}
         adapters={adapters}
@@ -286,7 +292,7 @@ export const MarketProfilePanel = () => {
           disabled={!instrumentId || loading !== ""}
           onClick={validateProfile}
         >
-          Validate profile
+          Validate dataset profile
         </button>
       </div>
 

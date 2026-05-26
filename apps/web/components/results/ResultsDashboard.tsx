@@ -28,11 +28,15 @@ export const ResultsDashboard = ({
   const chartTrail = reportSummary?.chart_sections?.join(" → ") ?? "";
   return (
     <section className="app-shell" aria-label="observational results dashboard">
+      <p className="hero-kicker">Results / Research</p>
       <h2>Backtest results</h2>
       <p>Result: {resultId}</p>
       <p>
         <span className="status-badge warning">Observational</span> Metrics and
         artifacts are observational only; execution capability is not present.
+      </p>
+      <p>
+        <span className="status-badge success">No execution authority</span>
       </p>
       <nav className="result-tabs" aria-label="result tabs">
         <span>Summary</span>
@@ -45,6 +49,7 @@ export const ResultsDashboard = ({
       {payload ? (
         <div className="dashboard-grid">
           <section className="card" aria-label="metrics">
+            <p className="hero-kicker">Metric cards</p>
             <h3>Metrics</h3>
             <dl className="metric-grid">
               {metrics.map((metric) => (
@@ -73,6 +78,14 @@ export const ResultsDashboard = ({
               <p key={index}>{unknownRow(log, index)}</p>
             ))}
           </section>
+          <section className="card" aria-label="research charts">
+            <h3>Equity curve placeholder</h3>
+            <p className="muted">chart library later: wire equity curve after a chart package is deliberately selected.</p>
+            <h3>Drawdown placeholder</h3>
+            <p className="muted">Drawdown placeholder remains static until result artifacts provide chart-ready series.</p>
+            <h3>Research notes</h3>
+            <p className="muted">Capture hypothesis, dataset scope, and follow-up optimizer ideas without execution authority.</p>
+          </section>
           {reportSummary ? (
             <section className="card" aria-label="report summary">
               <h3>Report sections</h3>
@@ -80,7 +93,7 @@ export const ResultsDashboard = ({
               <h3>Chart metadata</h3>
               <p className="muted">{chartTrail || "No chart sections"}</p>
               <p>
-                <span className="status-badge success">No execution authority</span>
+                <span className="status-badge success">Report remains non-authoritative</span>
               </p>
             </section>
           ) : null}

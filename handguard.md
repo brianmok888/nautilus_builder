@@ -1230,3 +1230,78 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql -f /tmp/004.sql
 # focused tests 17 passed; targeted Python suite 334 passed; Vitest 21 passed; Playwright 4 passed; high audit gate exited 0; migrations 001-004 applied in disposable PostgreSQL 16.
 ```
+
+## 23. Sectioned operator UI guard
+
+The Builder UI is now organized as a compact seven-section operator workflow. Preserve the section boundaries:
+
+1. Dashboard / Home
+2. AI Strategy Builder
+3. StrategySpec Editor
+4. Market + Dataset Setup
+5. Backtest Center
+6. Results / Research
+7. Execution Lane / Config
+
+Guardrails:
+
+- The Dashboard may describe order authority in user-friendly terms, but should not embed raw `submit_order` or `TradeAction` strings. Keep raw promotion evidence strings in `PromotionRequestPanel` or backend/API tests.
+- AI Strategy Builder remains prompt/StrategySpec drafting only. It must not run backtests or promotion automatically.
+- StrategySpec Editor must keep block/canvas/inspector/spec-preview roles visible and must say backend validation is required.
+- Market + Dataset Setup must keep adapter/venue, instrument search, dataset profile, and catalog guard visible without browser credential inputs or credential-copy drift.
+- Backtest Center may show `may_submit_order: false` as evidence, but it must remain an observational terminal/status/artifact surface.
+- Results / Research may show metric cards and chart placeholders; do not add deploy/live/submit-order controls.
+- Execution Lane / Config may show backend feature flags and venue bindings only. Paper/live controls are visibility-only in the browser.
+- Do not add new UI dependencies for charts or editors without an explicit segment, TDD coverage, and security/readiness review.
+
+Minimum regression commands:
+
+```bash
+pytest tests/web/test_sectioned_operator_ui.py tests/web/test_execution_lane_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_antd_operator_ui_contract.py tests/web/test_promotion_frontend.py tests/web/test_results_dashboard_frontend.py tests/web/test_frontend_data_wiring.py tests/web/test_ai_copilot_frontend.py -q
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx components/strategy-builder/StrategyBuilderWorkspace.test.tsx components/market/MarketProfilePanel.test.tsx components/results/ResultsDashboard.test.tsx components/config/ModelConfigTabs.test.tsx
+```
+
+Segment UI-SECTIONS-1 focused evidence:
+
+```bash
+pytest tests/web/test_sectioned_operator_ui.py -q
+# 7 passed
+
+pytest tests/web/test_sectioned_operator_ui.py tests/web/test_execution_lane_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_antd_operator_ui_contract.py tests/web/test_promotion_frontend.py tests/web/test_results_dashboard_frontend.py tests/web/test_frontend_data_wiring.py tests/web/test_ai_copilot_frontend.py -q
+# 25 passed
+
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx components/strategy-builder/StrategyBuilderWorkspace.test.tsx components/market/MarketProfilePanel.test.tsx components/results/ResultsDashboard.test.tsx components/config/ModelConfigTabs.test.tsx
+# 6 files / 9 tests passed
+```
+
+Segment UI-SECTIONS-1 final evidence:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+# diff/compile passed; targeted Python suite 341 passed; Vitest 22 passed; Playwright 4 passed; high audit gate exited 0 with only existing moderate Next/PostCSS advisory.
+```
+
+## 24. NautilusTrader backend dependency guard
+
+NautilusTrader must remain an upstream Python package dependency for Builder backend code.
+
+- Keep `nautilus_trader` installed through the backend Python dependency manifest (`pyproject.toml` / lock), not vendored into this repository.
+- Backend code may import official NautilusTrader modules directly for Strategy, BacktestEngine/BacktestNode, ParquetDataCatalog, model data, test-kit smoke, adapter contracts, and live/runtime seams.
+- Structure backend packages around NautilusTrader concepts first: strategy/spec compilation, data catalogs, backtest runner, adapter registry, execution lane, runtime events, promotions/evidence, and live-readiness gates.
+- Use Nautilus-Daedalus as reference architecture only. Clean-room adopt useful boundaries; do not import ND modules, require `DAEDALUS_REPO_PATH`, or copy private runtime internals.
+- Before claiming NT runtime readiness, verify the active environment imports the pinned package version and at least the real-engine/catalog smoke tests pass.
+
+Minimum regression commands:
+
+```bash
+python3 - <<'PY'
+import importlib.metadata as md
+import nautilus_trader
+print(md.version('nautilus_trader'), getattr(nautilus_trader, '__version__', 'unknown'))
+PY
+rtk pytest tests/backtest_runner/test_runtime_dependency_check.py tests/backtest_runner/test_real_nautilus_engine_smoke.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
+```

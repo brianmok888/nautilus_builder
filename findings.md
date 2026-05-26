@@ -1879,3 +1879,89 @@ psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/
 - Real Nautilus `LiveNode`/adapter submission is still a future segment and must require ExecTester/reconciliation evidence before live-readiness claims.
 - The `/config` execution panel currently reads backend status; future mutation APIs for toggling flags must remain backend-auth-derived and must not accept browser-supplied credentials or live authority.
 - `npm audit --omit=dev --audit-level=moderate` still reports the known moderate Next/PostCSS advisory with a breaking `npm audit fix --force` path; this segment kept the high-severity gate clean and did not apply the unsafe force-fix.
+
+## Closure update — Segment UI-SECTIONS-1 sectioned operator UI
+
+**Status:** CLOSED locally on 2026-05-26 after full verification, pending commit/push.
+
+### Finding
+
+- **MEDIUM-UX-2026-05-26-5:** The frontend operator workflow was too scaffold-like and overwhelming. Users needed a smaller, clearer QuantDinger-inspired command-center flow where natural-language strategy intent leads to StrategySpec, market setup, backtest evidence, review, and execution-lane visibility.
+- **MEDIUM-UX-2026-05-26-6:** Execution-lane and promotion information was mixed into the dashboard in developer-token form. That made the UI less user-friendly and risked blurring the dedicated manual-promotion/evidence surfaces.
+
+### Resolution
+
+- Added TDD contract coverage for all seven requested sections and a dashboard render test before implementation.
+- Reworked the dashboard into a compact command center with “Describe strategy,” the full AI-to-execution-lane workflow trail, prompt-first CTAs, and execution-lane status copy.
+- Added explicit AI Builder, StrategySpec Editor, Market + Dataset Setup, Backtest Center, Results / Research, and Execution Lane / Config labels/copy.
+- Kept promotion `may_submit_order=false` / `may_create_trade_action=false` in the dedicated promotion panel and removed those strings from the dashboard source.
+- Updated the Playwright journey to open the Promotion tab before asserting promotion evidence strings.
+
+### Review verdict
+
+**Recommendation:** APPROVE for UI-SECTIONS-1 after final verification. **Architectural Status:** CLEAR for UI organization.
+
+This segment improves information architecture and visual density only. It does not add real broker submission, browser credential capture, live venue connectivity, automatic promotion, or strategy-lane/execution-lane coupling.
+
+### TDD / focused evidence so far
+
+```bash
+pytest tests/web/test_sectioned_operator_ui.py -q
+# RED before implementation: 7 failed
+# GREEN after implementation: 7 passed
+
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx
+# RED before implementation: 1 failed
+# GREEN after implementation: 1 passed
+
+pytest tests/web/test_sectioned_operator_ui.py tests/web/test_execution_lane_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_antd_operator_ui_contract.py tests/web/test_promotion_frontend.py tests/web/test_results_dashboard_frontend.py tests/web/test_frontend_data_wiring.py tests/web/test_ai_copilot_frontend.py -q
+# 25 passed
+
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx components/strategy-builder/StrategyBuilderWorkspace.test.tsx components/market/MarketProfilePanel.test.tsx components/results/ResultsDashboard.test.tsx components/config/ModelConfigTabs.test.tsx
+# 6 files / 9 tests passed
+```
+
+### Remaining watch items
+
+- Results charts remain placeholders until a chart library is explicitly chosen and tested.
+- The execution config panel is read-only; future mutation APIs must remain backend-auth-derived and must not accept browser-supplied secrets or live authority.
+- Real NautilusTrader live/backtest readiness remains governed by pinned NT engine evidence and DataTester/ExecTester/reconciliation gates.
+
+### Final verification — Segment UI-SECTIONS-1
+
+```bash
+git diff --check
+# passed
+
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 341 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 12 files / 22 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
+
+### Code-review reconciliation — Segment UI-SECTIONS-1
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR.
+
+Review notes:
+
+- The new UI sections are copy/layout changes plus tests; no backend live-order or adapter execution path was added.
+- Dashboard source remains free of raw `submit_order` / `TradeAction` tokens; raw promotion evidence remains isolated to the promotion panel and backend/API contracts.
+- Execution config remains a read-only status/visibility panel with server-side credential-slot language and no browser secret fields.
+- The E2E journey now checks user-friendly dashboard authority language while static promotion tests continue to guard promotion evidence fields.
+
+### Architecture clarification — NautilusTrader as backend pip dependency
+
+The backend dependency direction is explicit and remains in force:
+
+- `pyproject.toml` owns the pip dependency pin: `nautilus_trader==1.223.0`.
+- Backend code imports official `nautilus_trader` modules directly for real-engine smoke and catalog replay seams.
+- Backend package structure should follow NautilusTrader domains and lifecycle concepts first, while using Nautilus-Daedalus only as a read-only/reference architecture for clean-room adoption.
+- Do not replace the pip dependency with a vendored NautilusTrader checkout, frontend-only API proxy, or ND runtime dependency.

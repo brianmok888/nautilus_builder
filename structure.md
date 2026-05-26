@@ -1752,3 +1752,78 @@ cd apps/web && npm audit --omit=dev --audit-level=high
 psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql -f /tmp/003.sql -f /tmp/004.sql
 # migrations 001 + 002 + 003 + 004 applied successfully in disposable PostgreSQL 16
 ```
+
+## Sectioned operator UI — Segment UI-SECTIONS-1
+
+**Started:** 2026-05-26
+
+Context: the Builder UI needed to move from a scaffold/contract-demo feel into a compact sectioned operator workflow while preserving the existing Builder-only and execution-lane boundaries.
+
+Section order implemented:
+
+1. Dashboard / Home — command-center landing with a clear “Describe strategy” entry point and workflow trail.
+2. AI Strategy Builder — strategy-intent prompt, prompt examples, validation gate, and separate backtest/manual-promotion language.
+3. StrategySpec Editor — compact editor workspace with market context, block canvas, inspector, spec preview, and backend-validation copy.
+4. Market + Dataset Setup — adapter/venue, instrument search, dataset profile, catalog guard, and validate-dataset-profile flow.
+5. Backtest Center — run configuration, job status, artifact manifest, observational terminal, and `may_submit_order: false` evidence text.
+6. Results / Research — metric cards, trades/fills/logs/artifacts, research notes, and chart placeholders for later chart-library adoption.
+7. Execution Lane / Config — venue binding and backend-owned feature visibility matrix for paper/live controls visibility only.
+
+Files added/changed for this segment:
+
+- `docs/superpowers/specs/2026-05-26-sectioned-operator-ui-design.md`
+- `docs/superpowers/plans/2026-05-26-sectioned-operator-ui.md`
+- `tests/web/test_sectioned_operator_ui.py`
+- `apps/web/components/dashboard/BuilderDashboard.test.tsx`
+- Section components under `apps/web/components/{dashboard,ai-builder,strategy-builder,market,results,config}/`
+- `apps/web/app/backtests/[jobId]/page.tsx`
+- `apps/web/app/globals.css`
+- `apps/web/e2e/builder-shell.spec.ts`
+
+Boundary reconciliation:
+
+- Dashboard no longer embeds developer-facing order-token strings; the promotion panel remains the dedicated evidence surface for `may_submit_order=false` and `may_create_trade_action=false`.
+- The execution lane panel is still read-only from the browser and displays backend status/feature flags only.
+- Market setup copy avoids browser credential language and continues to rely on backend adapter/instrument/profile validation.
+- No real Nautilus live-node, adapter connectivity, or broker submission path was added.
+
+Focused verification so far:
+
+```bash
+pytest tests/web/test_sectioned_operator_ui.py -q
+# 7 passed
+
+pytest tests/web/test_sectioned_operator_ui.py tests/web/test_execution_lane_ui_contract.py tests/web/test_app_shell_contract.py tests/web/test_antd_operator_ui_contract.py tests/web/test_promotion_frontend.py tests/web/test_results_dashboard_frontend.py tests/web/test_frontend_data_wiring.py tests/web/test_ai_copilot_frontend.py -q
+# 25 passed
+
+cd apps/web && npm test -- --run components/dashboard/BuilderDashboard.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx components/strategy-builder/StrategyBuilderWorkspace.test.tsx components/market/MarketProfilePanel.test.tsx components/results/ResultsDashboard.test.tsx components/config/ModelConfigTabs.test.tsx
+# 6 files / 9 tests passed
+```
+
+### UI-SECTIONS-1 final verification
+
+```bash
+git diff --check
+# passed
+
+python3 -m compileall -q packages services tests
+# passed
+
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 341 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 12 files / 22 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0 for high severity; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
+
+### Architecture clarification — NautilusTrader dependency source
+
+Per current product direction, NautilusTrader is the backend engine dependency, not a vendored submodule and not a frontend/runtime shim:
+
+- Builder installs upstream `nautilus_trader` as a Python package from the backend dependency manifest (`pyproject.toml`).
+- Builder backend packages import `nautilus_trader` directly for Strategy, BacktestEngine/BacktestNode, ParquetDataCatalog, model data, and test-kit smoke seams.
+- Backend structure should continue to follow NautilusTrader concepts first: strategy components, adapter/data catalog contracts, backtest/replay contracts, live/execution lane contracts, and official DataTester/ExecTester/reconciliation evidence requirements.
+- Nautilus-Daedalus remains a private/reference architecture source only. Builder may clean-room-adopt ND lane boundaries and operational lessons, but must not import ND internals or require an ND checkout.

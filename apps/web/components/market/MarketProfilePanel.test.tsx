@@ -56,7 +56,7 @@ describe("MarketProfilePanel", () => {
     fireEvent.change(screen.getByLabelText("timeframe"), { target: { value: "1m" } });
     fireEvent.change(screen.getByLabelText("start date"), { target: { value: "2024-01-01" } });
     fireEvent.change(screen.getByLabelText("end date"), { target: { value: "2024-03-01" } });
-    fireEvent.click(screen.getByRole("button", { name: "Validate profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Validate dataset profile" }));
 
     await waitFor(() => expect(screen.getByText("Validated profile: BTCUSDT-PERP")).toBeInTheDocument());
   });

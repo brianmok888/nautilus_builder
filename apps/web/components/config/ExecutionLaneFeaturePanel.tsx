@@ -75,6 +75,14 @@ export function ExecutionLaneFeaturePanel() {
   return (
     <section className="panel config-panel" aria-label="execution lane feature configuration">
       <Space orientation="vertical" size="middle" className="config-stack">
+        <div>
+          <Typography.Text className="hero-kicker">Execution Lane / Config</Typography.Text>
+          <Typography.Title level={3}>Feature visibility matrix</Typography.Title>
+          <Typography.Paragraph type="secondary">
+            Venue binding, paper controls visibility only, live controls visibility only, and no browser credentials.
+          </Typography.Paragraph>
+        </div>
+
         <Alert
           showIcon
           type="warning"
@@ -82,9 +90,9 @@ export function ExecutionLaneFeaturePanel() {
           description="The UI can show or hide execution controls, but venue credentials and order authority stay server-side behind risk, reconciliation, manual approval, and credential-slot gates."
         />
 
-        <Card title="Execution lane venue binding" loading={loading}>
+        <Card title="Venue binding" loading={loading}>
           <Typography.Paragraph>
-            Link each execution lane to an approved adapter venue before any paper
+            Execution lane venue binding links each execution lane to an approved adapter venue before any paper
             or live controls are visible. Browser credential inputs allowed: false;
             server-side credential slot only.
           </Typography.Paragraph>
@@ -143,14 +151,14 @@ export function ExecutionLaneFeaturePanel() {
             </Col>
             <Col xs={24} md={8}>
               <Space direction="vertical" size={4}>
-                <Typography.Text strong>Paper controls</Typography.Text>
+                <Typography.Text strong>Paper controls visibility only</Typography.Text>
                 <Switch checked={features.paper_controls_enabled} disabled />
                 <Badge status={features.paper_controls_enabled ? "processing" : "default"} text={`simulated-only: ${boolText(features.paper_controls_enabled)}`} />
               </Space>
             </Col>
             <Col xs={24} md={8}>
               <Space direction="vertical" size={4}>
-                <Typography.Text strong>Live controls</Typography.Text>
+                <Typography.Text strong>Live controls visibility only</Typography.Text>
                 <Switch checked={features.live_controls_enabled} disabled />
                 <Badge status={features.live_controls_enabled ? "warning" : "default"} text={`requires live authority: ${boolText(features.live_controls_enabled)}`} />
               </Space>

@@ -74,6 +74,7 @@ export const AiStrategyCopilot = () => {
       <Space orientation="vertical" size="small" className="ai-copilot-stack">
         <div className="ai-copilot-title-row">
           <div>
+            <Typography.Text className="hero-kicker">Strategy intent</Typography.Text>
             <Typography.Title level={3}>Prompt to StrategySpec</Typography.Title>
             <Typography.Text type="secondary">
               Advisory AI converts operator words into validated Builder draft JSON.
@@ -85,12 +86,19 @@ export const AiStrategyCopilot = () => {
         <Alert
           showIcon
           type="info"
-          title="AI draft must pass validation before applying"
-          description="The web UI can draft and apply StrategySpecs only in draft lifecycle. Backtest and manual promotion stay separate gates."
+          title="Validation gate"
+          description="AI draft must pass validation before applying. Backtest remains separate from drafting and manual promotion stays a later gate."
         />
 
+        <div className="prompt-examples compact-info-strip">
+          <Typography.Text strong>Prompt examples</Typography.Text>
+          <Typography.Text type="secondary">
+            “EMA/RSI pullback on BTC perpetuals”, “VWAP trend filter for ETH”, or “mean-reversion bars with ATR risk”.
+          </Typography.Text>
+        </div>
+
         <Form layout="vertical" className="ai-copilot-form">
-          <Form.Item label="Strategy prompt">
+          <Form.Item label="Strategy intent">
             <Input.TextArea
               aria-label="Strategy prompt"
               rows={4}
@@ -148,7 +156,7 @@ export const AiStrategyCopilot = () => {
             Apply to Builder
           </Button>
           <Tag color="blue">validate_strategy_spec()</Tag>
-          <Tag color="default">manual promotion later</Tag>
+          <Tag color="default">Backtest remains separate</Tag>
         </Space>
 
         {error ? <Alert showIcon type="error" title="AI workflow error" description={error} /> : null}
