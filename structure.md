@@ -1592,3 +1592,68 @@ Remaining future segments:
 - Add a dedicated Research Center API/UI for `research_jobs`.
 - Add a chart library only when equity/drawdown payloads are stable enough to justify the dependency.
 - Keep NautilusTrader real-engine smoke separate from fixture/injected evidence.
+
+## Standalone platform pivot — Builder decouples from Nautilus-Daedalus
+
+**Started:** 2026-05-26
+
+Context: product direction changed from "Builder as a companion for Nautilus-Daedalus" to "Builder as the standalone open-source AI strategy builder + NautilusTrader platform." Nautilus-Daedalus is now a private/personal reference only. Builder may adopt clean-room architectural patterns from ND, but it must not depend on ND at runtime, import ND internals, copy private schema names, or require an ND checkout.
+
+Design/spec written:
+
+- `docs/superpowers/specs/2026-05-26-standalone-builder-platform-design.md`
+
+Segment PLATFORM-1 implementation:
+
+- Added `infra/migrations/002_builder_standalone_platform.sql` as a Builder-owned PostgreSQL control-plane migration under only the `builder` schema.
+- Added `tests/infrastructure/test_builder_standalone_platform_migration.py` to lock the migration inventory and safety constraints.
+- Updated `doc/nautilus_builder_hardguards.md` authority boundary so future paper/live support is explicit and mode-gated instead of Daedalus-owned.
+
+New standalone control-plane areas:
+
+1. Strategy/versioning: `builder.strategy_specs`, `builder.strategy_param_versions`, `builder.active_strategy_params`.
+2. Data/catalog: `builder.dataset_manifests` with catalog root, source/cache mode, Nautilus data class/type, instrument, venue, bar type, time range, and traversal guard.
+3. Backtest/report: `builder.backtest_jobs`, `builder.backtest_run_manifests`, `builder.backtest_artifacts` with lineage/version/compile hash/checksum/media type binding.
+4. Research/optimizer: `builder.research_jobs`, `builder.optimizer_trials` as offline/manual-promotion-only records.
+5. AI continuous improvement: `builder.ai_threads`, `builder.ai_draft_audits`, `builder.ai_result_reviews`, `builder.ai_improvement_suggestions`, `builder.ai_experiment_cycles`, `builder.ai_candidate_rankings`, `builder.ai_feedback_memory`.
+6. Promotion: `builder.promotion_candidate_packages`, `builder.promotion_approvals`.
+7. Runtime: `builder.runtime_profiles`, `builder.paper_runs`, `builder.live_runs`, `builder.trade_actions`, `builder.execution_reports`, and enriched `builder.runtime_events` metadata.
+8. Telegram: `builder.telegram_users`, `builder.telegram_subscriptions`, `builder.telegram_delivery_log` as notification-only records.
+
+Authority reconciliation:
+
+- Existing web/backtest/promotion surfaces still remain no-live-authority and keep `may_submit_order=false`.
+- The migration only creates durable space for future paper/live lanes; it does not add order-submission code, exchange credentials, broker adapters, or browser-side authority.
+- Dangerous flags default false: `paper_trading_enabled`, `live_trading_enabled`, `execution_authority`, and `may_submit_order`.
+- Live authority can only be represented when `runtime_mode='live'`, profile is enabled, manual review is required, reconciliation is required, a risk profile exists, a credential slot reference exists, activation identity/time exist, and config checksum is present.
+
+Remaining segments after PLATFORM-1:
+
+- Persist AI draft/review/improvement cycles into the new DB tables.
+- Persist real backtest/research run manifests and artifacts into the control plane.
+- Add paper runtime profile scaffolding with simulated execution only.
+- Add Telegram notification/menu scaffolding using aiogram-dialog patterns.
+- Add live runtime scaffolding last, behind risk/reconciliation/credential-slot gates.
+- Add execution lifecycle services only after paper and live runtime guards are test-proven.
+
+### PLATFORM-1 final verification
+
+```bash
+git diff --check
+# passed
+
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+# 6 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 316 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
+
+PostgreSQL syntax verification also applied `001_builder_workflow_storage.sql` plus `002_builder_standalone_platform.sql` successfully in a disposable `postgres:16-alpine` container using `psql -v ON_ERROR_STOP=1`.

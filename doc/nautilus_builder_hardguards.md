@@ -32,19 +32,19 @@ Compiler
   = safe StrategySpec translation
 
 NautilusTrader
-  = backtest/replay truth engine
+  = backtest/replay/paper/live engine primitives
 
-Daedalus run_main_strategy_signal
-  = signal preview lane
+Builder runtime profiles
+  = explicit authoring, backtest, research, optimizer, paper, or live mode contracts
 
-Daedalus run_gate_engine
-  = gate authority
+Builder paper lane
+  = simulated execution only; no live broker credentials
 
-Daedalus run_execution_lane
-  = only live submit_order authority
+Builder live execution lane
+  = future/optional only; disabled by default and allowed only after manual activation, server-side credentials, risk gate, reconciliation, and audit
 ```
 
-No other component may submit live orders.
+No component may submit live orders except an explicitly enabled Builder live execution lane with `runtime_mode=live`, `live_trading_enabled=true`, `execution_authority=true`, `may_submit_order=true`, manual activation, risk profile, reconciliation, and audit. Existing authoring/backtest/research/promotion UI surfaces remain no-live-authority.
 
 ---
 

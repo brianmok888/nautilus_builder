@@ -1107,3 +1107,54 @@ Preserve these rules after the backtest-center adoption slice:
 - Strategy module registry entries are metadata-only and allowlisted; do not import arbitrary strategy module paths from user input.
 - Research/optimizer jobs remain `offline_research`, `manual_promotion_required=true`, `may_submit_order=false`, and `execution_authority=false`.
 - Results UI can show metrics/report/chart metadata, but must not add deploy/live/submit-order controls.
+
+## 20. Standalone Builder platform / ND decoupling guard
+
+Nautilus Builder is now the open-source standalone product. Nautilus-Daedalus is private/personal reference only.
+
+- Do not import Nautilus-Daedalus modules, migrations, or runtime internals into Builder.
+- Do not require `DAEDALUS_REPO_PATH` or an ND checkout for Builder startup, tests, migrations, or web/API operation.
+- Clean-room adoption is allowed: architecture patterns, table categories, event-flow concepts, and safety gates may be re-expressed as Builder-owned contracts.
+- Keep PostgreSQL as control-plane/audit/metadata. Keep market data, Nautilus catalog data, equity curves, orders/fills/positions frames, and heavy backtest artifacts in Parquet/catalog/artifact storage.
+- Keep Redis/event streams as runtime fan-out/status transport, not permanent truth.
+- Existing Builder authoring/backtest/research/promotion UI paths remain no-live-authority and must keep `may_submit_order=false`.
+- Paper mode may represent simulated execution only and must not use live broker credentials.
+- Live mode is disabled by default and requires all of: `runtime_mode='live'`, enabled profile, server-side credential slot reference, risk profile, manual review, reconciliation, activation identity/time, config checksum, `live_trading_enabled=true`, `execution_authority=true`, and `may_submit_order=true`.
+- No browser-side API keys, exchange credentials, or live execution toggles.
+- Telegram remains notification/approval UX unless a later segment explicitly adds a tested backend approval command path; Telegram must not own execution truth.
+- AI continuous improvement remains advisory until a human/manual promotion package is approved and backend runtime gates accept it.
+
+Minimum regression commands:
+
+```bash
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+python3 -m compileall -q packages services tests
+```
+
+Segment PLATFORM-1 evidence:
+
+```bash
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+# RED before migration: 0 passed, 6 failed because 002 migration did not exist
+# GREEN after migration: 6 passed
+```
+
+Segment PLATFORM-1 final evidence refresh:
+
+```bash
+git diff --check
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+cd apps/web && npm audit --omit=dev --audit-level=high
+# diff check passed; infra migration tests 6 passed; targeted Python suite 316 passed; Vitest 21 passed; Playwright 4 passed; audit high exited 0 with only existing moderate Next/PostCSS advisory.
+```
+
+PostgreSQL syntax evidence:
+
+```bash
+docker run postgres:16-alpine ...
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql
+# 001 + 002 migrations applied successfully in a disposable PostgreSQL 16 container
+```

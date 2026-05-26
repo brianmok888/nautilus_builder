@@ -1684,3 +1684,81 @@ Residual risk:
 - Worker persistence still uses existing result artifact refs; future work should persist `BacktestRunManifest` alongside actual artifacts once non-fixture outputs are durable.
 - `research_jobs` is a backend contract package only in this slice; API and UI wiring are still future work.
 - Chart payloads are metadata-only until real equity/drawdown series storage is added.
+
+## Closure update — Segment PLATFORM-1 standalone Builder control-plane schema
+
+**Status:** CLOSED locally on 2026-05-26 pending final verification/commit.
+
+### Finding
+
+- **HIGH-ARCH-2026-05-26-1:** Builder was still architecturally framed as a companion to Nautilus-Daedalus for live/paper/control-plane responsibilities. That conflicts with the new product direction: Nautilus Builder should be the standalone open-source AI strategy builder + NautilusTrader platform, while ND becomes private reference only.
+- **HIGH-DATA-2026-05-26-1:** The existing Builder DB migration only stored a minimal workflow spine (`strategy_identities`, `strategy_versions`, `test_jobs`, `test_results`, `ai_suggestions`, `runtime_events`). It could not durably model StrategySpec lineage, dataset manifests, backtest artifacts, research/optimizer trials, AI improvement cycles, promotion packages, runtime profiles, paper/live runs, execution reports, or Telegram delivery.
+
+### Resolution
+
+- Added `docs/superpowers/specs/2026-05-26-standalone-builder-platform-design.md` as the clean-room standalone platform design.
+- Added `infra/migrations/002_builder_standalone_platform.sql` under only the `builder` schema; no ND/private schema names are created.
+- Added schema coverage for Builder-owned AI, data, backtest, research, promotion, paper/live runtime, execution report, Telegram notification, and enriched runtime-event records.
+- Live and execution authority remain disabled by default and require explicit mode/profile/risk/reconciliation/activation/checksum fields before they can be represented.
+- Added `tests/infrastructure/test_builder_standalone_platform_migration.py` to lock the migration inventory and safety gates.
+- Updated `doc/nautilus_builder_hardguards.md` to express the new mode-gated standalone Builder authority model while preserving no-live-authority for existing authoring/backtest/research/UI surfaces.
+
+### Review verdict
+
+**Recommendation:** APPROVE for PLATFORM-1 after full verification. **Architectural Status:** CLEAR for the schema/design segment.
+
+This segment is control-plane schema and documentation only. It does not add order-submission code, exchange credentials, broker API calls, browser-side secrets, LangChain/LangGraph/EvoMap runtime dependencies, or automatic promotion.
+
+### TDD evidence so far
+
+```bash
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+# RED before migration: 0 passed, 6 failed because infra/migrations/002_builder_standalone_platform.sql did not exist
+# GREEN after migration: 6 passed
+```
+
+### Residual risk
+
+- No live/paper service code is implemented yet; future segments must add services and tests before any runtime claim.
+- The migration is SQL-contract tested but not applied against a running PostgreSQL instance in this segment unless final environment verification adds one.
+- Older docs still contain Daedalus-companion history; future doc cleanup should rewrite those sections into standalone Builder wording once code catches up.
+
+### Final verification — Segment PLATFORM-1
+
+```bash
+git diff --check
+# passed
+
+rtk pytest tests/infrastructure/test_builder_standalone_platform_migration.py -q
+# 6 passed
+
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 316 passed
+
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+
+cd apps/web && npm audit --omit=dev --audit-level=high
+# exited 0; existing moderate Next/PostCSS advisory remains with a breaking force-fix path
+```
+
+Additional migration syntax verification:
+
+```bash
+docker run postgres:16-alpine ...
+psql -U postgres -d nautilus_builder -v ON_ERROR_STOP=1 -f /tmp/001.sql -f /tmp/002.sql
+# 001 + 002 migrations applied successfully in a disposable PostgreSQL 16 container
+```
+
+### Code-review reconciliation — Segment PLATFORM-1
+
+**Recommendation:** APPROVE. **Architectural Status:** CLEAR.
+
+Review notes:
+
+- Migration is Builder-owned and creates only `builder.*` schema objects.
+- Dangerous runtime authority defaults false and is constrained by profile/run/action activation predicates.
+- Artifact scope now matches the existing `BacktestArtifactRef` contract (`project_artifact` / `fixture_dev_only`) and requires Builder artifact or fixture URI prefixes.
+- No service/API/frontend code path was added for live order submission.
+- Remaining risk is intentionally deferred: future services must add FK/application-level enforcement when paper/live runtime code is introduced.
