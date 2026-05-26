@@ -1,0 +1,229 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { Alert, Button, Card, Col, Descriptions, Form, Input, Row, Space, Tag, Typography } from "antd";
+import { createBacktestJob } from "../../lib/api";
+import type { BacktestJobStatus } from "../../lib/types";
+
+const DEFAULT_COMPILE_HASH = "a".repeat(64);
+const SHA256_RE = /^[a-f0-9]{64}$/i;
+
+type RunManifestDraft = {
+  strategy_version_id: string;
+  adapter_profile_id: string;
+  instrument_id: string;
+  validation_report_id: string;
+  compile_hash: string;
+  dataset_id: string;
+  data_range: string;
+  data_type: string;
+  timeframe: string;
+  market_type: string;
+};
+
+const defaultManifest: RunManifestDraft = {
+  strategy_version_id: "sv_validated_001",
+  adapter_profile_id: "BINANCE_PERP",
+  instrument_id: "BTCUSDT-PERP",
+  validation_report_id: "vr_validated_001",
+  compile_hash: DEFAULT_COMPILE_HASH,
+  dataset_id: "ds_binance_btcusdt_1m",
+  data_range: "2024-01-01:2024-03-01",
+  data_type: "historical_bars",
+  timeframe: "1m",
+  market_type: "crypto_perp",
+};
+
+export function BacktestLaunchPanel() {
+  const [manifest, setManifest] = useState<RunManifestDraft>(defaultManifest);
+  const [job, setJob] = useState<BacktestJobStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const missingFields = useMemo(
+    () => Object.entries(manifest).filter(([, value]) => !value.trim()).map(([key]) => key),
+    [manifest],
+  );
+  const compileHashValid = SHA256_RE.test(manifest.compile_hash.trim());
+  const ready = missingFields.length === 0 && compileHashValid;
+  const preview = useMemo(
+    () => ({
+      ...manifest,
+      created_by: "builder_web",
+      authority: {
+        mode: "backtest_only",
+        may_submit_order: false,
+        browser_credentials: false,
+      },
+    }),
+    [manifest],
+  );
+
+  function updateField(field: keyof RunManifestDraft, value: string) {
+    setManifest((current) => ({ ...current, [field]: value }));
+    setJob(null);
+  }
+
+  async function onCreateJob() {
+    if (!ready) return;
+    setIsCreating(true);
+    setError(null);
+    setJob(null);
+    try {
+      const created = await createBacktestJob({
+        ...manifest,
+        compile_hash: manifest.compile_hash.trim(),
+        created_by: "builder_web",
+      });
+      setJob(created);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  return (
+    <section className="panel backtest-launch-panel" aria-label="backtest launch panel">
+      <Space orientation="vertical" size="middle" className="config-stack">
+        <div>
+          <Typography.Text className="hero-kicker">Backtest Center</Typography.Text>
+          <Typography.Title level={3}>Validated run manifest</Typography.Title>
+          <Typography.Paragraph type="secondary">
+            Create a backend-owned Nautilus replay job only after StrategySpec validation,
+            compile evidence, and catalog dataset selection are present.
+          </Typography.Paragraph>
+          <Space wrap>
+            <Tag color="gold">may_submit_order: false</Tag>
+            <Tag color="blue">manual promotion after review</Tag>
+            <Tag color="green">dataset profile required</Tag>
+          </Space>
+        </div>
+
+        <Alert
+          showIcon
+          type="info"
+          title="Backtest launch is evidence-only"
+          description="The browser submits a run manifest to the backend job queue and then links to the observational job console. It does not hold shell, worker, credential, or order authority."
+        />
+
+        <Card title="Run manifest" size="small">
+          <Form layout="vertical" className="form-grid">
+            <Form.Item label="Strategy version">
+              <Input
+                aria-label="Strategy version"
+                value={manifest.strategy_version_id}
+                onChange={(event) => updateField("strategy_version_id", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Validation report">
+              <Input
+                aria-label="Validation report"
+                value={manifest.validation_report_id}
+                onChange={(event) => updateField("validation_report_id", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item
+              label="Compile hash"
+              validateStatus={compileHashValid ? undefined : "error"}
+              help={compileHashValid ? undefined : "compile_hash must be a 64-character sha256 digest"}
+            >
+              <Input
+                aria-label="Compile hash"
+                value={manifest.compile_hash}
+                onChange={(event) => updateField("compile_hash", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Adapter profile">
+              <Input
+                aria-label="Adapter profile"
+                value={manifest.adapter_profile_id}
+                onChange={(event) => updateField("adapter_profile_id", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Instrument">
+              <Input
+                aria-label="Instrument"
+                value={manifest.instrument_id}
+                onChange={(event) => updateField("instrument_id", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Dataset ID">
+              <Input
+                aria-label="Dataset ID"
+                value={manifest.dataset_id}
+                onChange={(event) => updateField("dataset_id", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Data range">
+              <Input
+                aria-label="Data range"
+                value={manifest.data_range}
+                onChange={(event) => updateField("data_range", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Data type">
+              <Input
+                aria-label="Data type"
+                value={manifest.data_type}
+                onChange={(event) => updateField("data_type", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Timeframe">
+              <Input
+                aria-label="Timeframe"
+                value={manifest.timeframe}
+                onChange={(event) => updateField("timeframe", event.target.value)}
+              />
+            </Form.Item>
+            <Form.Item label="Market type">
+              <Input
+                aria-label="Market type"
+                value={manifest.market_type}
+                onChange={(event) => updateField("market_type", event.target.value)}
+              />
+            </Form.Item>
+          </Form>
+          {missingFields.length ? (
+            <Alert
+              showIcon
+              type="warning"
+              title={`Missing fields: ${missingFields.join(", ")}`}
+            />
+          ) : null}
+          <Button type="primary" disabled={!ready} loading={isCreating} onClick={onCreateJob}>
+            Create backtest job
+          </Button>
+        </Card>
+
+        {error ? <Alert showIcon type="error" title="Backtest job creation failed" description={error} /> : null}
+
+        {job ? (
+          <Card title={`Job queued: ${job.job_id}`} size="small" aria-label="created backtest job">
+            <Row gutter={[12, 12]}>
+              <Col xs={24} lg={14}>
+                <Descriptions column={1} size="small" bordered>
+                  <Descriptions.Item label="Status">{job.status}</Descriptions.Item>
+                  <Descriptions.Item label="Strategy version">{job.strategy_spec_version_id}</Descriptions.Item>
+                  <Descriptions.Item label="Dataset">{job.dataset_id ?? manifest.dataset_id}</Descriptions.Item>
+                  <Descriptions.Item label="Event stream">{job.event_stream_id ?? "pending"}</Descriptions.Item>
+                  <Descriptions.Item label="Worker">{job.worker_id ?? "unassigned"}</Descriptions.Item>
+                </Descriptions>
+              </Col>
+              <Col xs={24} lg={10}>
+                <Space orientation="vertical" size="small">
+                  <Typography.Text>Job state is backend-owned; review artifacts before manual promotion.</Typography.Text>
+                  <a href={`/backtests/${job.job_id}`}>Open job console</a>
+                </Space>
+              </Col>
+            </Row>
+          </Card>
+        ) : null}
+
+        <Card title="Manifest preview" size="small" className="config-preview">
+          <pre>{JSON.stringify(preview, null, 2)}</pre>
+        </Card>
+      </Space>
+    </section>
+  );
+}

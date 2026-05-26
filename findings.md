@@ -2312,3 +2312,42 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
 # typecheck passed; Vitest 29 passed; build passed; Playwright 4 passed
 ```
+
+## Closure progress — 2026-05-26 Segment 5 Backtest launch manifest
+
+**Status:** completed.
+
+Closed/changed findings:
+
+- The dashboard no longer jumps from StrategySpec editing to a generic runtime terminal only; it now has a dedicated `3. Backtest` section with an explicit validated run manifest.
+- Backtest job creation is gated on required evidence fields and a 64-character SHA-256 `compile_hash` shape before the browser calls `/api/backtest-jobs`.
+- Successful job creation surfaces the backend `job_id`, status, dataset, worker, event stream, and an `Open job console` link for observational review.
+
+Remaining risk / non-claim:
+
+- The panel uses operator-visible manifest fields until a deeper state pipeline passes actual validated StrategySpec/dataset/compile evidence between sections.
+- FastAPI strict-mode dataset selection can still reject the manifest if the referenced dataset is not registered in the authenticated project scope; the UI shows that backend error instead of bypassing it.
+- This segment does not add live/paper execution authority, browser credentials, or automatic promotion.
+
+Evidence:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx components/dashboard/BuilderDashboard.test.tsx
+# RED first: missing component/import and missing Backtest tab
+# GREEN: 5 passed
+```
+
+### Reconciliation — Segment 5 Backtest launch manifest
+
+Verification before commit:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 365 passed
+cd apps/web && npm run typecheck && npm test
+# 15 files / 32 Vitest tests passed
+cd apps/web && npm run build && npm run test:e2e
+# Next build passed; Playwright 4 passed
+```

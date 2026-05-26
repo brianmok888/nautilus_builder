@@ -1589,3 +1589,19 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
 # typecheck passed; 29 Vitest tests passed; Next build passed; 4 Playwright tests passed
 ```
+
+## Segment 2026-05-26-5 completion guard — Backtest launch manifest
+
+Segment 2026-05-26-5 is complete. Preserve these rules going forward:
+
+- Dashboard workflow tab `3. Backtest` must remain a backend job-manifest launcher plus observational terminal, not a browser-owned worker or shell surface.
+- Backtest job creation from the UI must include strategy version, validation report, compile hash, adapter profile, instrument, dataset ID, data range, data type, timeframe, and market type.
+- `compile_hash` must remain gated to a 64-character SHA-256 shape before `/api/backtest-jobs` is called from the UI.
+- The UI may link to `/backtests/{job_id}` after backend job creation, but must not add browser credentials, live/paper execution authority, worker mutation controls, or automatic promotion.
+
+Segment evidence:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx components/dashboard/BuilderDashboard.test.tsx
+# 5 passed after RED/GREEN cycle
+```

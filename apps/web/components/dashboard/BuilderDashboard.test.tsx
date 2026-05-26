@@ -25,4 +25,14 @@ describe("BuilderDashboard", () => {
     expect(screen.getByRole("tab", { name: "1. AI prompt" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Strategy prompt")).toBeInTheDocument();
   });
+
+  it("opens a dedicated Backtest Center section from the workflow tabs", () => {
+    render(<BuilderDashboard />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "3. Backtest" }));
+
+    expect(screen.getByRole("tab", { name: "3. Backtest" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Validated run manifest")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create backtest job" })).toBeInTheDocument();
+  });
 });

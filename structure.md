@@ -2171,3 +2171,46 @@ cd apps/web && npm run build
 cd apps/web && npm run test:e2e
 # Playwright: 4 passed
 ```
+
+## Implementation progress — 2026-05-26 Segment 5 Backtest launch manifest
+
+**Completed:** 2026-05-26
+
+Files changed:
+
+- `apps/web/components/backtests/BacktestLaunchPanel.tsx` — adds a compact Backtest Center launch panel for a validated run manifest with strategy version, validation report, compile hash, adapter profile, instrument, dataset ID, data range, data type, timeframe, and market type.
+- `apps/web/components/backtests/BacktestLaunchPanel.test.tsx` — locks run-manifest payload creation, compile-hash gating, and no-authority UI language.
+- `apps/web/components/dashboard/BuilderDashboard.tsx` — replaces the generic runtime tab with a dedicated `3. Backtest` workspace containing the launch panel and observational terminal.
+- `apps/web/components/dashboard/BuilderDashboard.test.tsx` — locks the dashboard tab transition into Backtest Center.
+- `apps/web/lib/types.ts` — exposes optional `dataset_id` and `catalog_path` fields returned by backend-owned backtest jobs.
+
+Design notes:
+
+- The launch panel follows the user workflow: validated StrategySpec evidence + dataset profile -> backend backtest job -> observational job console -> manual promotion.
+- Compile evidence is front-end gated to a 64-character SHA-256 shape before the browser can call `/api/backtest-jobs`.
+- The UI submits only a backend run manifest and links to `/backtests/{job_id}` after creation; it does not own workers, shells, credentials, or order authority.
+
+Verification:
+
+```bash
+cd apps/web && npm test -- --run components/backtests/BacktestLaunchPanel.test.tsx components/dashboard/BuilderDashboard.test.tsx
+# RED first: BacktestLaunchPanel import missing and dashboard lacked 3. Backtest tab
+# GREEN: 2 files / 5 tests passed
+```
+
+### Segment 5 reconciliation
+
+The Backtest Center now has both sides of the operator loop: a launch manifest on the dashboard and a backend job/event detail console at `/backtests/{job_id}`. This remains a Builder-owned backtest/review surface, not a live or paper execution lane.
+
+Final verification for this segment:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# Pytest: 365 passed
+cd apps/web && npm run typecheck && npm test
+# 32 passed
+cd apps/web && npm run build && npm run test:e2e
+# build passed; 4 Playwright tests passed
+```

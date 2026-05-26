@@ -99,6 +99,8 @@ export type BacktestJobStatus = {
   cancel_requested?: boolean;
   compile_hash?: string;
   compile_artifact_id?: string;
+  dataset_id?: string;
+  catalog_path?: string | null;
   mode?: string;
 };
 

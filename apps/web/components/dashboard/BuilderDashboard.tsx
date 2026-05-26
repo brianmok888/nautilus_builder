@@ -11,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import { Alert, Button, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
+import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../strategy-builder/StrategyBuilderWorkspace";
 import { JobTerminal } from "../terminal/JobTerminal";
@@ -175,14 +176,15 @@ export function BuilderDashboard() {
             ),
           },
           {
-            key: "runtime",
-            label: "3. Runtime",
+            key: "backtest",
+            label: "3. Backtest",
             children: (
               <Card
                 size="small"
-                title="Observational runtime console"
+                title="Backtest Center"
                 extra={<Tag color="gold">Observational</Tag>}
               >
+                <BacktestLaunchPanel />
                 <Typography.Paragraph className="terminal-line">
                   {JobTerminal()}
                 </Typography.Paragraph>
