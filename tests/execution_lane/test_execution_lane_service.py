@@ -119,6 +119,10 @@ def test_live_command_requires_explicit_live_profile_and_all_gates() -> None:
         "promotion_approval_id": "approval_001",
         "risk_profile_id": "risk_live_001",
         "credential_slot_ref": "credslot://server/binance_main",
+        "manual_review_id": "manual_review_001",
+        "data_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/data_tester/binance.json",
+        "exec_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/exec_tester/binance.json",
+        "reconciliation_evidence_ref": "artifact://builder/project_alpha/ops_user/reconciliation/binance.json",
         "risk_decision": {"status": "approved", "risk_profile_id": "risk_live_001"},
     }
 
@@ -149,6 +153,10 @@ def test_live_command_can_be_queued_only_with_profile_authority_and_risk_approva
             "activated_by": "ops_user",
             "activated_at": "2026-05-26T12:00:00Z",
             "config_checksum": "a" * 64,
+            "manual_review_id": "manual_review_001",
+            "data_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/data_tester/binance.json",
+            "exec_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/exec_tester/binance.json",
+            "reconciliation_evidence_ref": "artifact://builder/project_alpha/ops_user/reconciliation/binance.json",
             "consumes_stream": "builder.execution.commands.live.project_alpha",
         }
     )
@@ -165,6 +173,10 @@ def test_live_command_can_be_queued_only_with_profile_authority_and_risk_approva
             "promotion_approval_id": "approval_001",
             "risk_profile_id": "risk_live_001",
             "credential_slot_ref": "credslot://server/binance_main",
+            "manual_review_id": "manual_review_001",
+            "data_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/data_tester/binance.json",
+            "exec_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/exec_tester/binance.json",
+            "reconciliation_evidence_ref": "artifact://builder/project_alpha/ops_user/reconciliation/binance.json",
             "adapter_id": "BINANCE_PERP",
             "venue": "BINANCE",
             "venue_account_id": "MAIN-BINANCE-001",

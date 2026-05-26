@@ -2,7 +2,7 @@ from services.api.router import ApiApp
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
-from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
+from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
@@ -69,6 +69,15 @@ def create_app(
     app.route("POST", "/api/strategies/{strategy_id}/versions", lambda strategy_id, payload: create_strategy_version_payload(strategy_repository, strategy_id, payload))
     app.route("GET", "/api/runtime-events/replay", replay_runtime_events_payload)
     app.route("GET", "/api/execution-lane/status", lambda runtime_profile_id=None: execution_lane_status_payload(service=execution_lane_service, runtime_profile_id=runtime_profile_id))
+    app.route(
+        "GET",
+        "/api/execution-lane/runtime-plan",
+        lambda runtime_profile_id, command_id=None: execution_lane_runtime_plan_payload(
+            service=execution_lane_service,
+            runtime_profile_id=runtime_profile_id,
+            command_id=command_id,
+        ),
+    )
     app.route("GET", "/api/config/llm", lambda: get_llm_config_payload(llm_config_service))
     app.route("POST", "/api/config/llm", lambda payload: save_llm_config_payload(llm_config_service, payload))
     app.route("POST", "/api/execution-lane/profiles", lambda payload: register_execution_lane_profile_payload(payload, service=execution_lane_service))

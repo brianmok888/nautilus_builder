@@ -1624,3 +1624,35 @@ Minimum regression coverage for this segment:
 ```bash
 rtk pytest tests/api/test_backtest_job_execution_routes.py tests/backtest_runner/test_worker_integration.py tests/backtest_runner/test_strategy_spec_catalog_replay.py -q
 ```
+
+## Segment guard — TradingNode paper/live execution lane
+
+TradingNode paper/live work must preserve these boundaries:
+
+- Keep execution lane separate from StrategySpec authoring and BacktestNode historical replay.
+- Python `nautilus_trader.live.node.TradingNode` usage must be labeled `python_live_integration_specific`; do not present it as the Rust v2 `LiveNode` path.
+- Paper execution plans use `runtime_environment=sandbox`, `live_trading_enabled=false`, `execution_authority=false`, `may_submit_order=false`, and no credential slot.
+- Live execution plans may set `may_submit_order=true` only when all gates are present:
+  - enabled live profile
+  - `advisory_only=false`
+  - manual review required and `manual_review_id`
+  - risk profile ID and approved command risk decision
+  - server-side `credential_slot_ref`
+  - activation identity/time
+  - config checksum
+  - DataTester evidence ref
+  - ExecTester evidence ref
+  - reconciliation evidence ref
+  - `live_trading_enabled=true`
+  - `execution_authority=true`
+- Browser/UI payloads must never carry API keys, private keys, passwords, authorization tokens, or raw credentials.
+- Worker reports may emit `tradingnode_runtime_plan` evidence but must not start real venue connectivity in contract tests.
+- Do not import or depend on Nautilus-Daedalus runtime internals from Builder; ND remains a read-only reference.
+- Real venue paper/live readiness cannot be claimed until adapter-specific DataTester, ExecTester, reconciliation, and operator approval evidence exists and command evidence refs match the active runtime profile.
+
+Minimum regression coverage for this segment:
+
+```bash
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py tests/api/test_execution_lane_tradingnode_routes.py -q
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_execution_lane_tradingnode_routes.py tests/infrastructure -q
+```

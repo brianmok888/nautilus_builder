@@ -2262,3 +2262,39 @@ rtk pytest tests/api tests/backtest_runner tests/catalog_datasets tests/strategy
 rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
 # Pytest: 372 passed
 ```
+
+## Segment 2026-05-26 — TradingNode paper/live execution lane contract
+
+Implementation plan / design record:
+
+1. Keep StrategySpec authoring, BacktestNode historical replay, and TradingNode paper/live execution as separate lanes.
+2. Add a backend-only Nautilus runtime-plan seam under `packages/execution_lane`, not UI/browser code and not Nautilus-Daedalus imports.
+3. Model Python `TradingNode` as a **Python live/integration-specific** runtime path while recording Rust `LiveNode` as the future official v2 runtime target.
+4. Preserve the ND-inspired gates for paper/live execution:
+   - paper profiles use `runtime_environment=sandbox`, no live authority, no credential slot, and `may_submit_order=false`;
+   - live profiles require manual review, risk profile, server-side credential slot ref, activation identity/time, config checksum, DataTester evidence, ExecTester evidence, reconciliation evidence, and explicit `may_submit_order=true` before a plan can be READY.
+5. Emit worker reports as `tradingnode_runtime_plan` artifacts through the execution lane only; the worker does not start a real venue node in contract tests and does not import the strategy lane.
+6. Add API exposure for observational runtime plans at `/api/execution-lane/runtime-plan`.
+
+Changed structure:
+
+- `packages/execution_lane/nautilus_runtime.py` — new TradingNode runtime-plan contract and policy builder.
+- `packages/execution_lane/models.py` — adds live-evidence gates and reconciliation defaults to execution profiles/commands.
+- `packages/execution_lane/service.py` — exposes command lookup and runtime-plan construction.
+- `services/api/routes/execution_lane.py` — adds runtime-plan payload adapter.
+- `services/api/app.py` and `services/api/fastapi_app.py` — mount `/api/execution-lane/runtime-plan`.
+- `services/workers/execution_lane_worker.py` — adds `run_execution_lane_worker_once()` for backend-only TradingNode runtime-plan reports.
+- `tests/execution_lane/test_tradingnode_runtime_contract.py` — TDD coverage for paper/live gates, secret rejection, and worker reporting.
+- `tests/api/test_execution_lane_tradingnode_routes.py` — API contract coverage for runtime-plan exposure.
+
+Authoritative alignment references retained for this segment:
+
+- NautilusTrader official docs/repo are the authority for live runtime and adapter/testing claims.
+- Current Builder dependency remains `nautilus_trader==1.223.0` as pinned in `pyproject.toml`.
+- Nautilus-Daedalus was used as a read-only reference for Python TradingNode runner/reconciliation patterns only.
+
+Segment reconciliation:
+
+- The new runtime-plan seam validates against the installed NautilusTrader Python API shape without constructing venue clients.
+- Contract tests and full Python suite passed after the live-gate strengthening.
+- No frontend files were changed in this segment; UI can consume `/api/execution-lane/runtime-plan` in a later section.

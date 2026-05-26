@@ -17,7 +17,7 @@ from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
-from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_status_payload, register_execution_lane_profile_payload
+from services.api.routes.execution_lane import enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_status_payload, register_execution_lane_profile_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
@@ -198,6 +198,24 @@ def create_fastapi_app(
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
         return execution_lane_status_payload(service=execution_lane_service, runtime_profile_id=runtime_profile_id)
+
+    @app.get("/api/execution-lane/runtime-plan")
+    def execution_lane_runtime_plan(
+        runtime_profile_id: str,
+        command_id: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            execution_lane_runtime_plan_payload(
+                service=execution_lane_service,
+                runtime_profile_id=runtime_profile_id,
+                command_id=command_id,
+            ),
+            JSONResponse,
+        )
 
     @app.get("/api/config/llm")
     def llm_config(authorization: str | None = Header(default=None)) -> Any:

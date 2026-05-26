@@ -2377,3 +2377,55 @@ Remaining actionable risks:
 - Add durable job/event persistence for production deployments; current FastAPI injection can still be in-memory depending on boot configuration.
 - Add UI wiring to call the run route only after validation/compile/job creation evidence exists.
 - Add result-dashboard artifact read/display wiring for the persisted `strategy_spec_replay` artifact.
+
+## Closure progress — 2026-05-26 TradingNode paper/live execution lane
+
+**Status:** implementation segment completed locally; verification evidence recorded below.
+
+Closed / improved findings:
+
+- **HIGH: TradingNode paper/live was only a conceptual future lane.** Added a backend-owned TradingNode runtime-plan contract under `packages/execution_lane` and exposed it via `/api/execution-lane/runtime-plan`.
+- **HIGH: Paper/live risk could couple back into StrategySpec/backtest flow.** Runtime plans and worker reports preserve `strategy_lane_coupled=false`; the worker claims execution-lane commands only and does not import strategy-lane packages.
+- **HIGH: Live authority needed stronger evidence gates.** Live profiles/commands now require matching manual review, risk profile, server-side credential-slot ref, activation identity/time, config checksum, DataTester evidence, ExecTester evidence, reconciliation evidence, and risk approval before order authority can be represented.
+- **MEDIUM: Python TradingNode vs Rust LiveNode labeling risk.** Runtime plans explicitly label `node_runtime=python_trading_node` and `runtime_label=python_live_integration_specific`, with `future_runtime=rust_live_node` for the Rust-backed path.
+- **MEDIUM: Browser credential leakage risk.** Runtime plans and reports set `browser_credentials_allowed=false` and reject secret-shaped payload fields.
+
+Remaining non-claims / risks:
+
+- This segment does **not** start a real Nautilus `TradingNode`, connect a venue adapter, or submit/cancel/modify orders.
+- Paper mode is a sandbox/forward-execution contract, not historical replay; BacktestNode remains the repeatable historical evidence lane.
+- Live mode remains fail-closed unless all gates and evidence refs are present; real venue readiness still requires adapter-specific DataTester/ExecTester/reconciliation proof.
+- Rust `LiveNode` implementation remains future work; the current implementation records the Python TradingNode path as integration-specific.
+
+Segment verification:
+
+```bash
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py tests/api/test_execution_lane_tradingnode_routes.py -q
+# RED first: missing packages.execution_lane.nautilus_runtime
+# GREEN: 7 passed
+
+rtk pytest tests/execution_lane tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_execution_lane_tradingnode_routes.py tests/infrastructure -q
+# 31 passed
+```
+
+### Reconciliation — TradingNode paper/live execution lane
+
+Master verification after implementation:
+
+```bash
+git diff --check
+# passed
+python3 - <<'PY'
+from nautilus_trader.common import Environment
+from nautilus_trader.config import LiveExecEngineConfig, LiveRiskEngineConfig, TradingNodeConfig
+from nautilus_trader.live.node import TradingNode
+exec_cfg = LiveExecEngineConfig(reconciliation=True, reconciliation_lookback_mins=60, reconciliation_startup_delay_secs=10.0)
+risk_cfg = LiveRiskEngineConfig(bypass=False)
+node_cfg = TradingNodeConfig(environment=Environment.SANDBOX, trader_id='BUILDER-001', exec_engine=exec_cfg, risk_engine=risk_cfg, data_clients={}, exec_clients={})
+print({'environment': node_cfg.environment.value, 'reconciliation': node_cfg.exec_engine.reconciliation, 'lookback': node_cfg.exec_engine.reconciliation_lookback_mins, 'startup_delay': node_cfg.exec_engine.reconciliation_startup_delay_secs, 'trading_node_methods': [m for m in ('build','run','stop','dispose') if hasattr(TradingNode, m)]})
+PY
+# {'environment': 'sandbox', 'reconciliation': True, 'lookback': 60, 'startup_delay': 10.0, 'trading_node_methods': ['build', 'run', 'stop', 'dispose']}
+python3 -m compileall -q packages services tests
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 380 passed
+```

@@ -37,3 +37,22 @@ def enqueue_execution_lane_command_payload(
     except ValueError as exc:
         return ApiResponse({"error": "invalid_execution_lane_command", "details": str(exc)}, status_code=422)
     return ApiResponse(command.model_dump(mode="json"), status_code=201)
+
+
+def execution_lane_runtime_plan_payload(
+    *,
+    runtime_profile_id: str,
+    command_id: str | None = None,
+    service: ExecutionLaneService | None = None,
+) -> ApiResponse:
+    service = service or default_execution_lane_service()
+    try:
+        plan = service.build_trading_node_runtime_plan(
+            runtime_profile_id=runtime_profile_id,
+            command_id=command_id,
+        )
+    except KeyError:
+        return ApiResponse({"error": "execution_lane_profile_not_found", "runtime_profile_id": runtime_profile_id}, status_code=404)
+    except ValueError as exc:
+        return ApiResponse({"error": "invalid_execution_lane_runtime_plan", "details": str(exc)}, status_code=422)
+    return ApiResponse(plan.model_dump(mode="json"))

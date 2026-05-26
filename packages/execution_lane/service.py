@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .models import ExecutionCommandStatus, ExecutionLaneCommand, ExecutionLaneProfile, ExecutionLaneReport
+from .nautilus_runtime import NautilusTradingNodeRuntimePlan, build_trading_node_runtime_plan
 
 
 class ExecutionLaneService:
@@ -22,6 +23,19 @@ class ExecutionLaneService:
 
     def get_profile(self, runtime_profile_id: str) -> ExecutionLaneProfile:
         return self._profiles[runtime_profile_id]
+
+    def get_command(self, command_id: str) -> ExecutionLaneCommand:
+        return self._commands[command_id]
+
+    def build_trading_node_runtime_plan(
+        self,
+        *,
+        runtime_profile_id: str,
+        command_id: str | None = None,
+    ) -> NautilusTradingNodeRuntimePlan:
+        profile = self.get_profile(runtime_profile_id)
+        command = self.get_command(command_id) if command_id is not None else None
+        return build_trading_node_runtime_plan(profile, command=command)
 
     def list_profiles(self, *, project_id: str | None = None) -> list[ExecutionLaneProfile]:
         profiles = list(self._profiles.values())
@@ -139,6 +153,14 @@ class ExecutionLaneService:
                 raise ValueError("execution lane command risk profile does not match runtime profile")
             if profile.credential_slot_ref != command.credential_slot_ref:
                 raise ValueError("execution lane command credential slot does not match runtime profile")
+            for field_name in (
+                "manual_review_id",
+                "data_tester_evidence_ref",
+                "exec_tester_evidence_ref",
+                "reconciliation_evidence_ref",
+            ):
+                if getattr(profile, field_name) != getattr(command, field_name):
+                    raise ValueError(f"execution lane command {field_name} does not match runtime profile")
 
 
 _default_service: ExecutionLaneService | None = None

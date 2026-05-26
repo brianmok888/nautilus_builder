@@ -100,6 +100,10 @@ def test_execution_lane_route_rejects_live_command_without_gates() -> None:
             "promotion_approval_id": "approval_001",
             "risk_profile_id": "risk_live_001",
             "credential_slot_ref": "credslot://server/binance_main",
+            "manual_review_id": "manual_review_001",
+            "data_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/data_tester/binance.json",
+            "exec_tester_evidence_ref": "artifact://builder/project_alpha/ops_user/exec_tester/binance.json",
+            "reconciliation_evidence_ref": "artifact://builder/project_alpha/ops_user/reconciliation/binance.json",
         },
     )
 

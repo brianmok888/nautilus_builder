@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-_SECRET_KEYS = {"api_key", "secret", "secret_key", "password", "private_key", "credential", "credentials"}
+_SECRET_KEYS = {"api_key", "secret", "secret_key", "password", "private_key", "credential", "credentials", "authorization", "token"}
 _STRATEGY_COUPLING_KEYS = {
     "strategy_runtime_id",
     "strategy_process_id",
@@ -67,12 +67,19 @@ class ExecutionLaneProfile(BaseModel):
     activated_by: str | None = None
     activated_at: str | None = None
     config_checksum: str | None = None
+    manual_review_id: str | None = None
+    data_tester_evidence_ref: str | None = None
+    exec_tester_evidence_ref: str | None = None
+    reconciliation_evidence_ref: str | None = None
+    reconciliation_lookback_mins: int = Field(default=60, ge=60)
+    reconciliation_startup_delay_secs: float = Field(default=10.0, ge=10.0)
     nautilus_trader_version: str | None = None
 
     @model_validator(mode="before")
     @classmethod
     def reject_strategy_coupling_fields(cls, data: object) -> object:
         if isinstance(data, dict):
+            _assert_no_forbidden_keys(data, forbidden=_SECRET_KEYS, message="credentials are not allowed in execution lane profiles")
             _assert_no_forbidden_keys(data, forbidden=_STRATEGY_COUPLING_KEYS, message="strategy lane coupling fields are not allowed")
         return data
 
@@ -94,9 +101,9 @@ class ExecutionLaneProfile(BaseModel):
 
         if self.lane_mode == ExecutionLaneMode.LIVE:
             wants_live_authority = self.live_trading_enabled or self.execution_authority or self.may_submit_order
-            if self.live_controls_enabled and not self.is_live_enabled:
-                raise ValueError("live UI controls require live authority")
             if not wants_live_authority:
+                if self.live_controls_enabled:
+                    raise ValueError("live UI controls require live authority")
                 return self
             missing = []
             if not self.enabled:
@@ -113,7 +120,17 @@ class ExecutionLaneProfile(BaseModel):
                 missing.append("execution_authority")
             if not self.may_submit_order:
                 missing.append("may_submit_order")
-            for field_name in ("risk_profile_id", "credential_slot_ref", "activated_by", "activated_at", "config_checksum"):
+            for field_name in (
+                "risk_profile_id",
+                "credential_slot_ref",
+                "activated_by",
+                "activated_at",
+                "config_checksum",
+                "manual_review_id",
+                "data_tester_evidence_ref",
+                "exec_tester_evidence_ref",
+                "reconciliation_evidence_ref",
+            ):
                 if not _present(getattr(self, field_name)):
                     missing.append(field_name)
             if self.config_checksum is not None and len(self.config_checksum) != _SHA256_LEN:
@@ -140,6 +157,10 @@ class ExecutionLaneProfile(BaseModel):
             and _present(self.activated_by)
             and _present(self.activated_at)
             and _present(self.config_checksum)
+            and _present(self.manual_review_id)
+            and _present(self.data_tester_evidence_ref)
+            and _present(self.exec_tester_evidence_ref)
+            and _present(self.reconciliation_evidence_ref)
         )
 
 
@@ -165,6 +186,10 @@ class ExecutionLaneCommand(BaseModel):
     risk_profile_id: str | None = None
     reconciliation_required: bool = True
     credential_slot_ref: str | None = None
+    manual_review_id: str | None = None
+    data_tester_evidence_ref: str | None = None
+    exec_tester_evidence_ref: str | None = None
+    reconciliation_evidence_ref: str | None = None
     live_trading_enabled: bool = False
     execution_authority: bool = False
     may_submit_order: bool = False
@@ -221,7 +246,15 @@ class ExecutionLaneCommand(BaseModel):
                 missing.append("may_submit_order")
             if not self.reconciliation_required:
                 missing.append("reconciliation_required")
-            for field_name in ("promotion_approval_id", "risk_profile_id", "credential_slot_ref"):
+            for field_name in (
+                "promotion_approval_id",
+                "risk_profile_id",
+                "credential_slot_ref",
+                "manual_review_id",
+                "data_tester_evidence_ref",
+                "exec_tester_evidence_ref",
+                "reconciliation_evidence_ref",
+            ):
                 if not _present(getattr(self, field_name)):
                     missing.append(field_name)
             if str(self.risk_decision.get("status", "")).lower() != "approved":
