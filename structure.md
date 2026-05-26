@@ -1535,3 +1535,60 @@ Final verification summary for Segment AI-UI-1:
 - Full targeted Python suite — 285 passed after `compileall`.
 - Frontend gates — typecheck, Vitest 20 tests, Next build, and Playwright 4 tests passed.
 - `npm audit --omit=dev --audit-level=high` exited 0 with only the existing moderate Next/PostCSS advisory.
+
+## Implementation plan — Segment BT-1 backtest center contracts
+
+**Started:** 2026-05-26 10:05:52Z
+
+Using the requested brainstorming/autopilot/TDD workflow, the next implementation segment adopts the safest reusable parts of `prediction-market-backtesting` as clean-room Builder contracts:
+
+1. Add explicit backtest run request/manifest models.
+2. Add artifact/report policy models with checksum, media type, and scope checks.
+3. Add dataset/source provenance fields that can support later catalog/cache/source-mode work.
+4. Add equity/metrics/report section summaries for later rich result UI.
+5. Preserve Builder hardguards: no credentials, no live trading authority, no `TradeAction`, no `submit_order`, manual promotion only.
+
+Design spec: `docs/superpowers/specs/2026-05-26-backtest-center-contracts-design.md`.
+
+## Implementation completion — PMBT/QuantDinger adoption slice
+
+**Completed:** 2026-05-26 10:27:08Z
+
+Segments completed in this slice:
+
+1. **BT-1 Backtest runner contracts and report policy**
+   - Added `packages/backtest_runner/contracts.py` with `BacktestRunRequest`, `BacktestRunManifest`, `BacktestArtifactRef`, `BacktestDatasetProvenance`, and `BacktestReportSummary`.
+   - `normalize_backtest_result()` now carries report-summary metadata while preserving existing artifact/result fields.
+2. **BT-2 Dataset/cache/source modes**
+   - Added catalog source/cache mode policy to `CatalogDataset` for `catalog`, `local_fixture`, `external_mirror_manifest`, `user_fetched_manifest`, and `synthetic_test_kit` modes.
+   - Manifest-backed modes require Builder artifact manifest refs; fixture modes are explicitly fixture-cache only.
+3. **BT-3 Strategy module registry**
+   - Added metadata-only `StrategyModuleRegistryService` for safe StrategySpec-derived modules.
+   - The registry does not import or execute module paths and rejects non-allowlisted module paths.
+4. **BT-4 Offline research/optimizer jobs**
+   - Added `packages/research_jobs` with offline-only parameter-search job contracts.
+   - Jobs require manual promotion and expose no live/order authority.
+5. **UI-RESULTS Rich result metadata**
+   - Results API and dashboard now expose/render `report_summary` sections, chart metadata, and explicit no-execution authority labeling.
+
+This implements the practical shared core of the PMBT ideas while staying Nautilus Builder-owned and preserving the Builder/Daedalus/NautilusTrader boundary.
+
+Verification evidence:
+
+```bash
+git diff --check
+python3 -m compileall -q packages services tests
+rtk pytest tests/backtest_runner tests/catalog_datasets tests/strategy_registry tests/research_jobs tests/api/test_workflow_results.py -q
+# 60 passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api -q
+# 310 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 11 files / 21 tests passed; Next build passed; Playwright 4 passed
+```
+
+Remaining future segments:
+
+- Persist run manifests/artifact refs into the job worker output store for non-fixture runs.
+- Add a dedicated Research Center API/UI for `research_jobs`.
+- Add a chart library only when equity/drawdown payloads are stable enough to justify the dependency.
+- Keep NautilusTrader real-engine smoke separate from fixture/injected evidence.

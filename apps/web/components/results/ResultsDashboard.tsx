@@ -21,15 +21,18 @@ export const ResultsDashboard = ({
   resultId,
   payload,
 }: ResultsDashboardProps) => {
-  const metrics = payload ? asRows(payload.metrics) : [];
+  const reportSummary = payload?.report_summary;
+  const metrics = payload ? asRows({ ...(reportSummary?.metrics ?? {}), ...payload.metrics }) : [];
   const artifacts = payload ? asRows(payload.artifacts) : [];
+  const sectionTrail = reportSummary?.sections?.join(" → ") ?? "";
+  const chartTrail = reportSummary?.chart_sections?.join(" → ") ?? "";
   return (
     <section className="app-shell" aria-label="observational results dashboard">
       <h2>Backtest results</h2>
       <p>Result: {resultId}</p>
       <p>
         <span className="status-badge warning">Observational</span> Metrics and
-        artifacts are observational only; no execution authority.
+        artifacts are observational only; execution capability is not present.
       </p>
       <nav className="result-tabs" aria-label="result tabs">
         <span>Summary</span>
@@ -70,6 +73,17 @@ export const ResultsDashboard = ({
               <p key={index}>{unknownRow(log, index)}</p>
             ))}
           </section>
+          {reportSummary ? (
+            <section className="card" aria-label="report summary">
+              <h3>Report sections</h3>
+              <p className="muted">{sectionTrail}</p>
+              <h3>Chart metadata</h3>
+              <p className="muted">{chartTrail || "No chart sections"}</p>
+              <p>
+                <span className="status-badge success">No execution authority</span>
+              </p>
+            </section>
+          ) : null}
           <section className="card" aria-label="artifacts">
             <h3>Artifacts</h3>
             <dl className="metric-grid">

@@ -14,6 +14,18 @@ def test_result_dashboard_payload_includes_metrics_artifacts_trades_fills_and_lo
     assert "logs" in response.json()
 
 
+def test_result_dashboard_payload_includes_report_summary_for_rich_ui() -> None:
+    response = create_app().get("/api/results/res_001")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["report_summary"]["sections"] == ["summary", "artifacts"]
+    assert payload["report_summary"]["chart_sections"] == []
+    assert payload["report_summary"]["metrics"]["trade_count"] == 0
+    assert payload["report_summary"]["live_trading_enabled"] is False
+    assert payload["report_summary"]["execution_authority"] is False
+
+
 def _repository_with_result_and_suggestion() -> InMemoryWorkflowRepository:
     repository = InMemoryWorkflowRepository()
     repository.save_result(

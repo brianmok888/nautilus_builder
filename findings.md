@@ -1657,3 +1657,30 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 cd apps/web && npm audit --omit=dev --audit-level=high
 # exit 0; only moderate Next/PostCSS advisory remains with a breaking force-fix path
 ```
+
+## Implementation queue update — PMBT/QuantDinger adoption segment BT-1
+
+**Started:** 2026-05-26 10:05:52Z
+
+The previously discussed PMBT adoption is being decomposed into safe Builder-owned segments. BT-1 targets high-leverage backend contracts first: run manifests, artifact refs, report summaries, and dataset provenance. This closes part of the gap between the current fixture/injected runner and a user-friendly Backtest Center without adding live execution authority or copying external project code.
+
+Risk boundary: this segment does **not** implement optimizer execution, arbitrary strategy module loading, direct data downloads, or live/paper trading controls.
+
+## Closure update — PMBT/QuantDinger adoption slice
+
+**Completed:** 2026-05-26 10:27:08Z
+
+Closed or reduced findings:
+
+- Backtest runner contracts are no longer implicit fixture-only dictionaries; they now have explicit run request/manifest/report models.
+- Artifact/report policy now has a strict typed surface requiring safe URI scope, checksum, and media type.
+- Dataset source/cache modes are inventory-first and policy-checked before later worker/data-source expansion.
+- Strategy module selection now has a metadata-only allowlisted registry rather than arbitrary import execution.
+- Optimizer/research work now has an offline-only job model with manual promotion and no live order authority.
+- Result UI can render report sections/chart metadata without introducing a chart dependency or execution controls.
+
+Residual risk:
+
+- Worker persistence still uses existing result artifact refs; future work should persist `BacktestRunManifest` alongside actual artifacts once non-fixture outputs are durable.
+- `research_jobs` is a backend contract package only in this slice; API and UI wiring are still future work.
+- Chart payloads are metadata-only until real equity/drawdown series storage is added.

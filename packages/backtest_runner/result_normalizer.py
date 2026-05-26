@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .artifacts import BacktestResultArtifact
+from .contracts import build_report_summary
 from .engine_contract import FIXTURE_ENGINE_MODE, NAUTILUS_TRADER_VERSION
 
 
@@ -52,4 +53,5 @@ def normalize_backtest_result(
             "fixture_evidence_only": "true" if fixture_evidence_only else "false",
         },
         logs=[str(entry) for entry in logs],
+        report_summary=build_report_summary(raw_result),
     )

@@ -33,3 +33,17 @@ class ImportedDraft(BaseModel):
     version: str
     source_ref: str
     live_ready: bool
+
+
+class StrategyModuleEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: str
+    strategy_class_path: str
+    config_class_path: str
+    input_kind: str = "strategy_spec"
+    read_only: bool = True
+    execution_authority: bool = False
+    live_trading_enabled: bool = False
+    credentials_required: bool = False
+    resolution_mode: str = "metadata_only"

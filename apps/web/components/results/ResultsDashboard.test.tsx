@@ -28,6 +28,34 @@ describe("ResultsDashboard", () => {
     expect(screen.getByText("db://artifacts/result-42/equity")).toBeTruthy();
   });
 
+
+  test("renders report summary sections and chart metadata", () => {
+    render(
+      <ResultsDashboard
+        resultId="result-43"
+        payload={{
+          result_id: "result-43",
+          metrics: { trade_count: 1, fill_count: 1 },
+          artifacts: { result_json: "artifact://builder/project/user/BacktestResult/result-43" },
+          trades: [],
+          fills: [],
+          logs: [],
+          report_summary: {
+            sections: ["summary", "equity_curve", "trades", "artifacts"],
+            chart_sections: ["equity_curve", "drawdown"],
+            metrics: { total_return: 0.05, max_drawdown: -0.045 },
+            live_trading_enabled: false,
+            execution_authority: false,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Report sections")).toBeTruthy();
+    expect(screen.getByText("equity_curve → drawdown")).toBeTruthy();
+    expect(screen.getByText("No execution authority")).toBeTruthy();
+  });
+
   test("keeps dashboard observational without execution authority", () => {
     render(<ResultsDashboard resultId="result-42" />);
 

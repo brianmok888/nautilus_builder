@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from packages.auth import ProjectScopeError, UserProjectContext
+from packages.backtest_runner.contracts import build_report_summary
 from packages.workflow_spine import InMemoryWorkflowRepository, WorkflowReadModel, WorkflowEvent
 from services.api.router import ApiResponse
 
@@ -34,6 +35,7 @@ def _dashboard_result_payload(result_id: str, *, fixture: bool) -> dict[str, obj
         if fixture
         else f"artifact://builder/results/{result_id}/result.json"
     )
+    report_summary = build_report_summary({"trades": [], "fills": [], "logs": []}).model_dump(mode="json")
     return {
         "result_id": result_id,
         "evidence_mode": "fixture_dev_only" if fixture else "repository_result",
@@ -47,6 +49,7 @@ def _dashboard_result_payload(result_id: str, *, fixture: bool) -> dict[str, obj
         "trades": [],
         "fills": [],
         "logs": [],
+        "report_summary": report_summary,
     }
 
 

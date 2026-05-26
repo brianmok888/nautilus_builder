@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
+from .contracts import BacktestReportSummary
+
 
 class BacktestResultArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -15,3 +17,4 @@ class BacktestResultArtifact(BaseModel):
     summary_metrics: dict[str, float | int]
     artifact_refs: dict[str, str]
     logs: list[str]
+    report_summary: BacktestReportSummary | None = None

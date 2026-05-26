@@ -60,6 +60,14 @@ export type BacktestJobEvents = {
   events: unknown[];
 };
 
+export type ReportSummary = {
+  metrics: Record<string, unknown>;
+  sections: string[];
+  chart_sections: string[];
+  live_trading_enabled: false;
+  execution_authority: false;
+};
+
 export type ResultDashboardPayload = {
   result_id: string;
   metrics: Record<string, unknown>;
@@ -67,6 +75,7 @@ export type ResultDashboardPayload = {
   trades: unknown[];
   fills: unknown[];
   logs: unknown[];
+  report_summary?: ReportSummary;
 };
 
 export type AiDraftPayload = {

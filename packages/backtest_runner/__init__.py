@@ -1,6 +1,17 @@
 from .artifacts import BacktestResultArtifact
 from .catalog_replay_smoke import CATALOG_BACKED_REPLAY_SMOKE_MODE, run_catalog_backed_nautilus_replay_smoke
 from .config_builder import build_backtest_config
+from .contracts import (
+    BacktestArtifactRef,
+    BacktestArtifactScope,
+    BacktestDatasetProvenance,
+    BacktestReportSummary,
+    BacktestRunManifest,
+    BacktestRunRequest,
+    BacktestSourceMode,
+    build_backtest_run_manifest,
+    build_report_summary,
+)
 from .engine_contract import FIXTURE_ENGINE_MODE, INJECTED_ENGINE_MODE, NAUTILUS_TRADER_VERSION
 from .nautilus_engine import BacktestEngineProtocol, NautilusBacktestEngineBoundary
 from .real_engine_smoke import REAL_NAUTILUS_ENGINE_SMOKE_MODE, run_real_nautilus_backtest_smoke
@@ -19,6 +30,15 @@ __all__ = [
     "CATALOG_BACKED_REPLAY_SMOKE_MODE",
     "run_catalog_backed_nautilus_replay_smoke",
     "BacktestResultArtifact",
+    "BacktestArtifactRef",
+    "BacktestArtifactScope",
+    "BacktestDatasetProvenance",
+    "BacktestReportSummary",
+    "BacktestRunManifest",
+    "BacktestRunRequest",
+    "BacktestSourceMode",
+    "build_backtest_run_manifest",
+    "build_report_summary",
     "build_backtest_config",
     "normalize_backtest_result",
     "run_backtest_fixture",

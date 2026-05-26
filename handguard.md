@@ -1081,3 +1081,29 @@ Reference-project boundary note:
 - Do not copy source code, styling, branding, or licensed assets from the source-available frontend.
 - Do not port Vue, Vuex, Ant Design Vue, QuickTradePanel, exchange account binding, live execution output, or portfolio trading controls into Nautilus Builder.
 - Allowed carry-over: high-level information architecture, compact operator layout patterns, prompt → strategy → backtest → review workflow ordering, and clear separation between API, layout, page, and reusable component modules.
+
+## PMBT-inspired Backtest Center guard — Segment BT-1
+
+**Added:** 2026-05-26 10:05:52Z
+
+Adopt architecture patterns only, not source code, from external backtesting repos. Builder backtest-center contracts must:
+
+- bind every run to strategy lineage/version, compile hash, dataset provenance, engine mode, and timestamps;
+- require artifact refs to include safe scope, checksum, and media type;
+- reject artifact URI traversal and unscoped local file refs;
+- treat fixture refs as dev evidence only;
+- expose report summaries for UI/analysis without implying live authority;
+- keep `live_trading_enabled=false`, `execution_authority=false`, and `credentials_used=false` unless Builder scope is explicitly changed in future docs and tests.
+
+## Segment completion guard — PMBT/QuantDinger adoption slice
+
+**Added:** 2026-05-26 10:27:08Z
+
+Preserve these rules after the backtest-center adoption slice:
+
+- `BacktestArtifactRef` must continue to reject local `file://` project artifacts, traversal, missing checksums, and missing media types.
+- Fixture artifact refs must remain `fixture_dev_only`; do not use them as promotion-grade evidence.
+- Manifest-backed datasets must reference Builder-owned manifest artifacts, not arbitrary remote URLs.
+- Strategy module registry entries are metadata-only and allowlisted; do not import arbitrary strategy module paths from user input.
+- Research/optimizer jobs remain `offline_research`, `manual_promotion_required=true`, `may_submit_order=false`, and `execution_authority=false`.
+- Results UI can show metrics/report/chart metadata, but must not add deploy/live/submit-order controls.
