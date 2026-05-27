@@ -10,34 +10,34 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const navigationItems = [
   {
     key: "/",
     icon: <RobotOutlined />,
-    label: <span>Strategy Builder</span>,
+    label: <a href="/">Strategy Builder</a>,
   },
   {
     key: "/backtests/bt_job_001",
     icon: <ExperimentOutlined />,
-    label: <span>Backtest Center</span>,
+    label: <a href="/backtests/bt_job_001">Backtest Center</a>,
   },
   {
     key: "/config",
     icon: <PlayCircleOutlined />,
-    label: <span>Execution Lane / Config</span>,
+    label: <a href="/config">Execution Lane</a>,
   },
   {
     key: "/strategies",
     icon: <FileTextOutlined />,
-    label: <span>Strategy records</span>,
+    label: <a href="/strategies">Strategy records</a>,
   },
   {
     key: "/results/res_001",
     icon: <BarChartOutlined />,
-    label: <span>Results / Reports</span>,
+    label: <a href="/results/res_001">Results / Reports</a>,
   },
 ];
 
@@ -51,7 +51,6 @@ function selectedNavigationKey(pathname: string) {
 
 export function OperatorAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const selectedKey = selectedNavigationKey(pathname);
 
   return (
@@ -80,7 +79,7 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
           breakpoint="lg"
           collapsedWidth={0}
           className="operator-sider"
-          width={280}
+          width={260}
         >
           <div className="operator-brand" aria-label="Nautilus Builder brand">
             <div className="operator-brand-mark">NB</div>
@@ -89,22 +88,14 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
               <Typography.Text type="secondary">AI → Backtest → Execution</Typography.Text>
             </div>
           </div>
-          <nav aria-label="Operator workflow" className="operator-quick-links">
-            <a href="/">Strategy Builder</a>
-            <a href="/backtests/bt_job_001">Backtest Center</a>
-            <a href="/config">Execution Lane</a>
-            <a href="/strategies">Strategy records</a>
-            <a href="/results/res_001">Results / Reports</a>
-          </nav>
-          <div aria-label="Operator menu">
+          <nav aria-label="Operator workflow" className="operator-nav-menu">
             <Menu
               mode="inline"
               items={navigationItems}
               selectedKeys={[selectedKey]}
               className="operator-menu"
-              onClick={({ key }) => router.push(key)}
             />
-          </div>
+          </nav>
           <div className="operator-safety-card">
             <Space orientation="vertical" size={8}>
               <Tag color="success" icon={<SafetyCertificateOutlined />}>
@@ -118,7 +109,7 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
             </Space>
           </div>
         </Layout.Sider>
-        <Layout>
+        <Layout className="operator-main-layout">
           <Layout.Header className="operator-header">
             <Space wrap className="operator-header-left">
               <Badge status="processing" text="FastAPI / worker contracts" />

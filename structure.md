@@ -2593,3 +2593,42 @@ cd apps/web && npm run test:e2e
 rtk pytest tests/web -q
 # Pytest: 49 passed
 ```
+
+## UI status/polish pass — 2026-05-27
+
+**Completed:** checked the local web UI with Playwright against the live dev stack and improved the visible operator shell.
+
+Files changed:
+
+- `DESIGN.md` — added the repo-local design source of truth for the three-lane Builder UI.
+- `apps/web/components/shell/OperatorAppShell.tsx` — removed duplicate sidebar navigation, kept real links, and preserved no-browser-authority messaging.
+- `apps/web/app/globals.css` — added compact shell/layout styling and Ant Design v6 fallback styles for sidebar, cards, grid columns, forms, selects, tags, descriptions, alerts, and Backtest Center readability.
+
+Screenshots captured:
+
+- `/tmp/nb-ui-status/home-polished3-viewport.png`
+- `/tmp/nb-ui-status/config-polished3-viewport.png`
+- `/tmp/nb-ui-status/backtest-polished3-viewport.png`
+
+Verification:
+
+```bash
+cd apps/web && npm run typecheck
+cd apps/web && npm test
+cd apps/web && npm run build
+cd apps/web && npm run test:e2e
+rtk pytest tests/web tests/integration -q
+python3 -m compileall -q packages services tests
+git diff --check
+```
+
+Result:
+
+- TypeScript typecheck passed.
+- Vitest: 39 passed.
+- Next production build passed.
+- Playwright E2E: 4 passed.
+- Pytest: 77 passed.
+- Compile/check whitespace passed.
+
+Authority status: unchanged. Strategy Builder, Backtest Center, and Execution Lane remain separate; the browser still has no credentials, shell, worker handles, `TradeAction`, or `submit_order` authority.

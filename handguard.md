@@ -1821,3 +1821,15 @@ cd apps/web && npm run test:e2e
 rtk pytest tests/web -q
 # Pytest: 49 passed
 ```
+
+## 11. UI design/status guard — added 2026-05-27
+
+- Treat `DESIGN.md` as the current design source of truth before changing UI/UX/frontend structure.
+- Preserve the three primary sections in navigation and page language:
+  1. Strategy Builder — natural language and guarded StrategySpec drafting.
+  2. Backtest Center — BacktestNode historical replay/evidence only.
+  3. Execution Lane — TradingNode paper/live lane behind backend-owned sessions and manual/risk gates.
+- Browser UI must not collect or persist exchange/API credentials. Use server-side credential slot refs only.
+- Browser UI must not own shell access, worker handles, live order authority, `TradeAction`, or `submit_order` flows.
+- Keep advanced contract IDs/artifact refs visible as evidence, but prefer compact cards, tabs, and progressive disclosure so the normal workflow is not overwhelming.
+- For visual changes, capture screenshots for `/`, `/config`, and `/backtests/bt_job_001`, then run frontend typecheck, unit tests, production build, and E2E when browsers are installed.

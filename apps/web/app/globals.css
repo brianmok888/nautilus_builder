@@ -67,7 +67,7 @@ select {
   font: inherit;
 }
 
-button,
+button:not(.ant-btn),
 .button-link {
   border: 1px solid rgba(56, 189, 248, 0.38);
   border-radius: 999px;
@@ -85,18 +85,18 @@ button,
     background 160ms ease;
 }
 
-button:hover:not(:disabled),
+button:not(.ant-btn):hover:not(:disabled),
 .button-link:hover {
   border-color: var(--builder-accent-strong);
   transform: none;
 }
 
-button:disabled {
+button:not(.ant-btn):disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-input,
+input:not(.ant-input):not(.ant-select-input),
 select {
   width: 100%;
   border: 1px solid var(--builder-border);
@@ -126,9 +126,9 @@ pre {
 }
 
 .app-shell {
-  width: min(1440px, calc(100% - 2rem));
+  width: min(1360px, 100%);
   margin: 0 auto;
-  padding: 2rem 0 4rem;
+  padding: 1rem 0 3rem;
 }
 
 .hero-card,
@@ -366,6 +366,7 @@ pre {
 }
 
 .operator-shell {
+  display: flex;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 30rem),
@@ -373,7 +374,18 @@ pre {
     #07111f;
 }
 
+.operator-shell > .operator-main-layout {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent !important;
+}
+
 .operator-sider {
+  flex: 0 0 260px !important;
+  min-height: 100vh;
+  position: sticky !important;
+  top: 0;
+  align-self: flex-start;
   border-right: 1px solid rgba(148, 163, 184, 0.16);
   background: linear-gradient(180deg, rgba(2, 6, 23, 0.96), rgba(15, 23, 42, 0.94)) !important;
   box-shadow: 18px 0 70px rgba(0, 0, 0, 0.24);
@@ -403,10 +415,29 @@ pre {
   width: 42px;
 }
 
+.operator-nav-menu {
+  padding: 0.35rem 0.6rem 0.2rem;
+}
+
 .operator-menu {
   background: transparent !important;
   border-inline-end: none !important;
-  padding-inline: 0.6rem;
+}
+
+.operator-menu a {
+  color: inherit;
+}
+
+.operator-menu .ant-menu-item {
+  border-radius: 12px;
+  height: 34px;
+  line-height: 34px;
+  margin-inline: 0 !important;
+  width: 100% !important;
+}
+
+.operator-menu .ant-menu-item-selected {
+  background: rgba(56, 189, 248, 0.16) !important;
 }
 
 .operator-safety-card {
@@ -436,7 +467,7 @@ pre {
 }
 
 .operator-content {
-  padding: clamp(1rem, 2.4vw, 2rem);
+  padding: clamp(0.8rem, 1.8vw, 1.4rem);
 }
 
 .builder-dashboard,
@@ -720,4 +751,635 @@ pre {
 .workflow-action-primary {
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.34), rgba(34, 211, 238, 0.18));
   border-color: rgba(56, 189, 248, 0.72);
+}
+
+
+.operator-quick-links {
+  display: none;
+}
+
+@media (max-width: 991px) {
+  .operator-shell {
+    display: block;
+  }
+
+  .operator-sider {
+    position: static !important;
+    min-height: auto;
+  }
+}
+
+/* Local AntD fallback layout: keep UI usable when component CSS-in-JS is minimal in SSR/dev. */
+.ant-row {
+  display: flex;
+  flex-flow: row wrap;
+  min-width: 0;
+}
+
+.ant-col {
+  max-width: 100%;
+  min-height: 1px;
+  min-width: 0;
+  position: relative;
+}
+
+.ant-col-12 { flex: 0 0 50%; max-width: 50%; }
+.ant-col-24 { flex: 0 0 100%; max-width: 100%; }
+.ant-col-xs-24 { flex: 0 0 100%; max-width: 100%; }
+
+@media (min-width: 768px) {
+  .ant-col-md-8 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+  .ant-col-md-12 { flex: 0 0 50%; max-width: 50%; }
+}
+
+@media (min-width: 992px) {
+  .ant-col-lg-6 { flex: 0 0 25%; max-width: 25%; }
+  .ant-col-lg-8 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+  .ant-col-lg-10 { flex: 0 0 41.666667%; max-width: 41.666667%; }
+  .ant-col-lg-14 { flex: 0 0 58.333333%; max-width: 58.333333%; }
+}
+
+@media (min-width: 1200px) {
+  .ant-col-xl-9 { flex: 0 0 37.5%; max-width: 37.5%; }
+  .ant-col-xl-10 { flex: 0 0 41.666667%; max-width: 41.666667%; }
+  .ant-col-xl-14 { flex: 0 0 58.333333%; max-width: 58.333333%; }
+  .ant-col-xl-15 { flex: 0 0 62.5%; max-width: 62.5%; }
+}
+
+.ant-card {
+  border: 1px solid var(--builder-border);
+  border-radius: 14px;
+  background: var(--builder-card);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+  color: var(--builder-text);
+  overflow: hidden;
+}
+
+.ant-card-small > .ant-card-head,
+.ant-card-head {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  color: var(--builder-text);
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0.55rem 0.85rem;
+}
+
+.ant-card-small > .ant-card-body,
+.ant-card-body {
+  padding: 0.85rem;
+}
+
+.ant-statistic-title {
+  color: var(--builder-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-bottom: 0.2rem;
+}
+
+.ant-statistic-content {
+  align-items: center;
+  color: var(--builder-text);
+  display: flex;
+  gap: 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 850;
+}
+
+.ant-tabs-nav {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  margin-bottom: 0.85rem;
+}
+
+.ant-tabs-nav-list {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.ant-tabs-tab {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0.45rem 0.75rem;
+}
+
+.ant-tabs-tab-active {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.52);
+}
+
+.ant-tabs-tabpane-hidden {
+  display: none !important;
+}
+
+.ant-space {
+  display: inline-flex;
+}
+
+.ant-space-vertical {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-space-item:empty {
+  display: none;
+}
+
+.ant-space {
+  gap: 0.5rem;
+}
+
+.ant-space-small { gap: 0.35rem; }
+.ant-space-middle { gap: 0.75rem; }
+
+.ant-menu,
+.ant-menu-sub,
+.ant-menu-item {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.ant-menu-item::marker {
+  content: "";
+}
+
+.ant-menu-item a {
+  align-items: center;
+  display: inline-flex;
+  min-height: 100%;
+  width: 100%;
+}
+
+.operator-header {
+  min-height: 48px;
+  line-height: 1.25 !important;
+}
+
+.operator-header .ant-space {
+  align-items: center;
+}
+
+.ant-steps {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ant-steps-item {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.24);
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+}
+
+.ant-steps-item-container {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.ant-steps-item-icon {
+  align-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-radius: 999px;
+  color: var(--builder-accent-strong);
+  display: inline-flex;
+  flex: 0 0 1.35rem;
+  font-size: 0.78rem;
+  height: 1.35rem;
+  justify-content: center;
+  width: 1.35rem;
+}
+
+.ant-steps-item-title {
+  color: var(--builder-text);
+  font-size: 0.86rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.ant-steps-item-description,
+.ant-steps-item-content {
+  color: var(--builder-muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 860px) {
+  .ant-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.operator-menu .ant-menu-item {
+  align-items: center;
+  display: flex !important;
+  gap: 0.55rem;
+  padding: 0 0.75rem !important;
+}
+
+.operator-menu .ant-menu-item-icon {
+  flex: 0 0 1rem;
+  line-height: 1;
+}
+
+.operator-menu .ant-menu-title-content {
+  display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Live UI status polish: compact, readable AntD fallbacks without adding browser authority. */
+body {
+  font-size: 14px;
+}
+
+.app-shell {
+  padding: 0.85rem 0 2.4rem;
+}
+
+.hero-card {
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: clamp(1.15rem, 2.2vw, 1.8rem);
+}
+
+.hero-card h1 {
+  font-size: clamp(2rem, 3.4vw, 3.2rem);
+  line-height: 0.98;
+}
+
+.hero-card p {
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.workflow-nav {
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+}
+
+.workflow-nav a {
+  font-size: 0.84rem;
+  padding: 0.5rem 0.78rem;
+}
+
+.operator-brand {
+  padding: 0.95rem 1rem 0.75rem;
+}
+
+.operator-brand-mark {
+  border-radius: 14px;
+  height: 38px;
+  width: 38px;
+}
+
+.operator-safety-card {
+  font-size: 0.86rem;
+  line-height: 1.25;
+  margin: 0.85rem 1rem;
+}
+
+.operator-header {
+  font-size: 0.86rem;
+  min-height: 46px;
+  padding-inline: clamp(0.9rem, 2vw, 1.5rem) !important;
+}
+
+.operator-header .ant-tag,
+.operator-safety-card .ant-tag {
+  margin-inline-end: 0;
+}
+
+.operator-content {
+  padding: clamp(0.75rem, 1.5vw, 1.25rem);
+}
+
+.ant-typography,
+.ant-typography p,
+.ant-card,
+.ant-alert,
+.ant-descriptions,
+.ant-form,
+.ant-select,
+.ant-input,
+.ant-btn {
+  font-family: inherit;
+}
+
+.ant-typography,
+.ant-card,
+.ant-alert,
+.ant-descriptions,
+.ant-form label,
+.ant-form-item-label > label {
+  color: var(--builder-text) !important;
+}
+
+.ant-typography.ant-typography-secondary,
+.ant-typography-secondary,
+.ant-form-item-extra,
+.ant-form-item-explain,
+.ant-descriptions-item-label,
+.ant-card .ant-card-meta-description {
+  color: var(--builder-muted) !important;
+}
+
+.ant-typography h1,
+h1.ant-typography {
+  color: var(--builder-text) !important;
+  font-size: clamp(1.75rem, 3vw, 2.65rem) !important;
+  letter-spacing: -0.055em;
+  line-height: 1.04 !important;
+  margin: 0 0 0.5rem !important;
+}
+
+.ant-typography h2,
+h2.ant-typography {
+  color: var(--builder-text) !important;
+  font-size: clamp(1.15rem, 1.8vw, 1.55rem) !important;
+  letter-spacing: -0.035em;
+  line-height: 1.16 !important;
+  margin: 0 0 0.45rem !important;
+}
+
+.ant-typography h3,
+h3.ant-typography {
+  color: var(--builder-text) !important;
+  font-size: clamp(1rem, 1.4vw, 1.18rem) !important;
+  line-height: 1.2 !important;
+  margin: 0 0 0.35rem !important;
+}
+
+.ant-typography p,
+p.ant-typography {
+  margin-bottom: 0.55rem !important;
+}
+
+.ant-alert {
+  align-items: flex-start;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 14px;
+  background: rgba(8, 17, 31, 0.56) !important;
+  padding: 0.7rem 0.8rem;
+}
+
+.ant-alert-message {
+  color: var(--builder-text) !important;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.ant-alert-description {
+  color: var(--builder-muted) !important;
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.ant-btn {
+  align-items: center;
+  border-radius: 999px !important;
+  display: inline-flex;
+  font-weight: 750;
+  justify-content: center;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.88), rgba(34, 211, 238, 0.72)) !important;
+  border-color: rgba(56, 189, 248, 0.8) !important;
+  color: #03111f !important;
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  border-radius: 10px !important;
+  background: rgba(2, 6, 23, 0.42) !important;
+  color: var(--builder-text) !important;
+  min-height: 32px;
+}
+
+.ant-select,
+.ant-input,
+.ant-input-affix-wrapper {
+  width: 100%;
+}
+
+.ant-select-selection-item,
+.ant-select-selection-placeholder {
+  color: var(--builder-text) !important;
+}
+
+.ant-form-item-label {
+  padding-bottom: 0.2rem !important;
+}
+
+.ant-form-item-label > label {
+  font-size: 0.78rem !important;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.form-grid.ant-form {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.config-panel {
+  padding: clamp(0.9rem, 1.6vw, 1.15rem);
+}
+
+.config-panel .ant-tabs-nav {
+  margin-bottom: 0.75rem;
+}
+
+.config-preview pre,
+.compact-spec-preview,
+pre {
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.ant-descriptions table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ant-descriptions-row > th,
+.ant-descriptions-row > td,
+.ant-descriptions-item-label,
+.ant-descriptions-item-content {
+  border-color: rgba(148, 163, 184, 0.14) !important;
+  padding: 0.34rem 0.48rem !important;
+}
+
+.ant-descriptions-item-label {
+  background: rgba(2, 6, 23, 0.28) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+  width: 42%;
+}
+
+.ant-descriptions-item-content {
+  background: rgba(15, 23, 42, 0.22) !important;
+  color: var(--builder-text) !important;
+  font-size: 0.82rem;
+}
+
+.backtest-center-shell .terminal-card {
+  font-family: inherit;
+  padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.backtest-center-shell .terminal-card > .ant-space {
+  gap: 0.8rem !important;
+}
+
+.backtest-center-shell .config-checklist {
+  list-style: none;
+  padding-left: 0;
+}
+
+.backtest-center-shell .config-checklist li {
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.2);
+  padding: 0.5rem 0.6rem;
+}
+
+.backtest-center-shell .ant-card {
+  min-height: 100%;
+}
+
+@media (max-width: 991px) {
+  .operator-sider {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .operator-brand,
+  .operator-nav-menu,
+  .operator-safety-card {
+    margin-inline: auto;
+    max-width: min(100%, 720px);
+  }
+
+  .operator-header {
+    position: static;
+  }
+}
+
+/* AntD v6 form fallback: vertical forms must not collapse labels/controls into inline rows. */
+.ant-form-item-row {
+  align-items: stretch;
+  display: block !important;
+}
+
+.ant-form-item-label,
+.ant-form-item-control,
+.ant-form-item-control-input,
+.ant-form-item-control-input-content {
+  display: block !important;
+  flex: 1 1 auto !important;
+  max-width: 100% !important;
+  min-width: 0;
+  width: 100% !important;
+}
+
+.ant-form-item-control-input-content > .ant-input,
+.ant-form-item-control-input-content > .ant-input-affix-wrapper,
+.ant-form-item-control-input-content > .ant-select,
+.ant-form-item-control-input-content > select,
+.ant-select-selector {
+  width: 100% !important;
+}
+
+.ant-select-selector {
+  align-items: center;
+  display: flex !important;
+  gap: 0.35rem;
+  padding-inline: 0.65rem !important;
+}
+
+.ant-select-selection-search {
+  display: none !important;
+}
+
+.ant-select-arrow {
+  color: var(--builder-muted) !important;
+}
+
+/* AntD v6 select fallback DOM uses content/suffix instead of selector wrappers. */
+.ant-select {
+  position: relative;
+}
+
+.ant-select-content {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.24) !important;
+  border-radius: 10px !important;
+  background: rgba(2, 6, 23, 0.42) !important;
+  color: var(--builder-text) !important;
+  display: flex !important;
+  min-height: 32px;
+  overflow: hidden;
+  padding: 0.2rem 2rem 0.2rem 0.65rem;
+  width: 100%;
+}
+
+.ant-select .ant-select-input {
+  border: 0 !important;
+  height: 1px !important;
+  margin: 0 !important;
+  opacity: 0;
+  padding: 0 !important;
+  pointer-events: none;
+  position: absolute;
+  width: 1px !important;
+}
+
+.ant-select-suffix {
+  color: var(--builder-muted) !important;
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ant-tag {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.22) !important;
+  border-radius: 999px !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  color: var(--builder-text) !important;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 750;
+  gap: 0.25rem;
+  line-height: 1.15;
+  padding: 0.2rem 0.55rem;
+}
+
+.ant-tag .anticon {
+  color: var(--builder-accent-strong);
+}
+
+.ant-btn-default,
+.ant-btn-dashed,
+.ant-btn-dangerous,
+.ant-btn-color-dangerous {
+  border: 1px solid rgba(148, 163, 184, 0.26) !important;
+  background: rgba(15, 23, 42, 0.74) !important;
+  color: var(--builder-text) !important;
+}
+
+.ant-btn-dangerous,
+.ant-btn-color-dangerous {
+  border-color: rgba(251, 113, 133, 0.46) !important;
+  color: #fecdd3 !important;
 }

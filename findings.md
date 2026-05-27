@@ -2655,3 +2655,24 @@ cd apps/web && npm run test:e2e
 rtk pytest tests/web -q
 # Pytest: 49 passed
 ```
+
+## UI status/polish closure — 2026-05-27
+
+### CLOSED / IMPROVED
+
+1. **Shell looked like a scaffold instead of a usable app**
+   - Fixed by stabilizing the AntD/Next layout with a left sidebar, sticky header, compact content spacing, and card/grid fallbacks.
+   - `OperatorAppShell` now uses one navigation surface instead of duplicate quick links plus menu.
+
+2. **AntD component rendering was visually degraded in local/dev screenshots**
+   - Added repo-local fallbacks for grid columns, cards, tabs, steps, alerts, tags, descriptions, forms, inputs, and v6 select DOM.
+   - Config and Backtest pages now render readable controls/status sections instead of collapsed/default browser controls.
+
+3. **Design decisions were implicit**
+   - Added `DESIGN.md` as the UI source of truth for the current Strategy Builder / Backtest Center / Execution Lane product shape.
+
+### REMAINING UI RISKS
+
+- The UI is now usable/polished enough for the current MVP shell, but result charts/equity curves still need a charting decision.
+- Config and execution pages are still contract-heavy; future work should progressively disclose IDs/artifact refs behind advanced panels.
+- Visual polish is CSS-fallback based because current AntD v6 runtime styling in dev was insufficient; revisit if the frontend adopts a stronger theme extraction/build setup.
