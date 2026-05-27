@@ -6,88 +6,122 @@ import {
   CheckCircleOutlined,
   CodeOutlined,
   ExperimentOutlined,
+  PlayCircleOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
+import { Alert, Card, Col, Row, Space, Statistic, Steps, Tabs, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
+import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../strategy-builder/StrategyBuilderWorkspace";
 import { JobTerminal } from "../terminal/JobTerminal";
 
 const workflowSteps = [
-  { title: "Prompt", content: "Describe strategy intent" },
-  { title: "StrategySpec", content: "AI drafts safe JSON" },
-  { title: "Validate", content: "validate_strategy_spec()" },
-  { title: "Backtest", content: "Nautilus replay evidence" },
-  { title: "Manual promotion", content: "Human gate only" },
+  {
+    title: "Strategy Builder",
+    content: "Natural language → guarded StrategySpec",
+  },
+  {
+    title: "Backtest Center",
+    content: "Select data and run BacktestNode evidence",
+  },
+  {
+    title: "Execution Lane",
+    content: "Promoted strategy → paper/live TradingNode gate",
+  },
 ];
 
-const workflowTrail = "AI → StrategySpec → Market data → Backtest → Review → Execution Lane";
+const workflowTrail =
+  "Strategy Builder → Backtest Center → Execution Lane";
 
-const sectionAnchors = [
-  "AI Strategy Builder",
-  "StrategySpec Editor",
-  "Market + Dataset Setup",
-  "Backtest Center",
-  "Results / Research",
-  "Execution Lane / Config",
+const mainSections = [
+  {
+    key: "strategy",
+    title: "Strategy Builder",
+    summary:
+      "Prompt-first drafting, AI-generated StrategySpec, schema validation, block editing, and guardrails.",
+    tag: "AI + StrategySpec",
+  },
+  {
+    key: "backtest",
+    title: "Backtest Center",
+    summary:
+      "Pick strategy/data/venue/instrument/range and trigger backend-owned BacktestNode replay evidence.",
+    tag: "Historical replay",
+  },
+  {
+    key: "execution",
+    title: "Execution Lane",
+    summary:
+      "Decoupled paper/live lane using TradingNode profiles, server-side credential slots, and lifecycle controls.",
+    tag: "Paper / live gated",
+  },
 ];
 
 export function BuilderDashboard() {
-  const [activeTab, setActiveTab] = useState("ai");
+  const [activeSection, setActiveSection] = useState("strategy");
 
   return (
-    <Space orientation="vertical" size="middle" className="builder-dashboard compact-dashboard">
-      <Card className="dashboard-hero-card">
-        <Row gutter={[24, 24]} align="middle">
+    <Space orientation="vertical" size="middle" className="builder-dashboard compact-dashboard product-workflow-dashboard">
+      <Card className="dashboard-hero-card product-hero-card">
+        <Row gutter={[20, 20]} align="middle">
           <Col xs={24} xl={15}>
             <Space orientation="vertical" size="middle">
               <Tag color="cyan" icon={<SafetyCertificateOutlined />}>
-                Builder-only / observational runtime
+                Builder-only / no browser execution authority
               </Tag>
               <div>
                 <Typography.Text className="hero-kicker">Command center</Typography.Text>
                 <Typography.Title level={2}>Nautilus Builder</Typography.Title>
-                <Typography.Title level={3} className="dashboard-entry-title">Describe strategy</Typography.Title>
+                <Typography.Title level={3} className="dashboard-entry-title">
+                  Three-section operator workflow
+                </Typography.Title>
                 <Typography.Paragraph className="workflow-trail">
                   {workflowTrail}
                 </Typography.Paragraph>
                 <Typography.Paragraph>
-                  Draft StrategySpecs, validate market data profiles, inspect
-                  backtest evidence, and request safe shadow promotion without
-                  granting the web UI live order authority.
+                  Start with natural language, convert it to a validated StrategySpec,
+                  prove it through a BacktestNode run, then move only promoted
+                  versions into the decoupled paper/live execution lane.
                 </Typography.Paragraph>
               </div>
               <Alert
                 showIcon
                 type="info"
-                title="No live trading authority in this UI"
-                description="AI output is advisory, StrategySpec drafts require backend validation, and promotion remains manual."
+                title="Keep strategy, backtest, and execution separate"
+                description="Strategy drafting has no venue credentials, BacktestNode is historical evidence-only, and TradingNode controls stay behind backend risk gates plus manual approval."
               />
               <Space wrap>
-                <Button type="primary" onClick={() => setActiveTab("ai")}>Start drafting</Button>
-                <Button onClick={() => setActiveTab("builder")}>Continue to market setup</Button>
-                <Tag color="warning">Requires validation before backtest</Tag>
+                <button type="button" className="workflow-action-primary" onClick={() => setActiveSection("strategy")}>
+                  Open Strategy Builder
+                </button>
+                <button type="button" onClick={() => setActiveSection("backtest")}>
+                  Run BacktestNode
+                </button>
+                <button type="button" onClick={() => setActiveSection("execution")}>
+                  Open Execution Lane
+                </button>
+                <Tag color="warning">Manual promotion before paper/live</Tag>
               </Space>
             </Space>
           </Col>
           <Col xs={24} xl={9}>
-            <Row gutter={[12, 12]}>
+            <Row gutter={[10, 10]}>
               <Col span={12}>
                 <Card size="small">
-                  <Statistic title="Drafts" value={1} prefix={<CodeOutlined />} />
+                  <Statistic title="Strategy lane" value="AI" prefix={<RobotOutlined />} />
                 </Card>
               </Col>
               <Col span={12}>
                 <Card size="small">
-                  <Statistic title="Backtests" value={1} prefix={<ExperimentOutlined />} />
+                  <Statistic title="Backtest lane" value="BT" prefix={<ExperimentOutlined />} />
                 </Card>
               </Col>
               <Col span={12}>
                 <Card size="small">
-                  <Statistic title="AI cycles" value={1} prefix={<RobotOutlined />} />
+                  <Statistic title="Execution lane" value="TN" prefix={<PlayCircleOutlined />} />
                 </Card>
               </Col>
               <Col span={12}>
@@ -96,9 +130,9 @@ export function BuilderDashboard() {
                 </Card>
               </Col>
               <Col span={24}>
-                <Card size="small" title="Execution lane status">
+                <Card size="small" title="Authority split">
                   <Typography.Text type="secondary">
-                    Decoupled from strategy drafting; controls stay backend-gated and visibility-only.
+                    Backtest uses BacktestNode; paper/live uses TradingNode via backend-owned sessions only.
                   </Typography.Text>
                 </Card>
               </Col>
@@ -107,100 +141,104 @@ export function BuilderDashboard() {
         </Row>
       </Card>
 
-      <Card className="compact-workflow-card" size="small" title="Prompt-first workflow" extra={<Tag color="green">signal_preview_only</Tag>}>
-        <Typography.Paragraph className="workflow-trail">Workflow path: {workflowTrail}</Typography.Paragraph>
-        <Steps size="small" current={0} items={workflowSteps} />
-        <Space wrap className="section-anchor-row">
-          {sectionAnchors.map((section) => (
-            <Tag key={section}>{section}</Tag>
-          ))}
-        </Space>
+      <Card
+        className="compact-workflow-card"
+        size="small"
+        title="Product flow"
+        extra={<Tag color="green">StrategySpec guarded</Tag>}
+      >
+        <Typography.Paragraph className="workflow-trail">{workflowTrail}</Typography.Paragraph>
+        <Steps size="small" current={mainSections.findIndex((section) => section.key === activeSection)} items={workflowSteps} />
       </Card>
 
-      <Row gutter={[8, 8]} className="surface-overview compact-surface-overview">
-        <Col xs={24} lg={6}>
-          <Card size="small">
-            <Typography.Title level={2}>Strategy draft authoring</Typography.Title>
-            <Typography.Paragraph>Build StrategySpec drafts from blocks, market profiles, and AI suggestions.</Typography.Paragraph>
-          </Card>
-        </Col>
-        <Col xs={24} lg={6}>
-          <Card size="small">
-            <Typography.Title level={2}>Observational runtime console</Typography.Title>
-            <Typography.Paragraph>Inspect job state and request cancellation without exposing a shell.</Typography.Paragraph>
-          </Card>
-        </Col>
-        <Col xs={24} lg={6}>
-          <Card size="small">
-            <Typography.Title level={2}>Advisory AI drafting</Typography.Title>
-            <Typography.Paragraph>Turn operator prompts into validated StrategySpec candidates.</Typography.Paragraph>
-            <Typography.Paragraph>Lineage IDs are automatic by default and available only under Advanced.</Typography.Paragraph>
-          </Card>
-        </Col>
-        <Col xs={24} lg={6}>
-          <Card size="small">
-            <Typography.Title level={2}>Safe promotion request</Typography.Title>
-            <Typography.Paragraph>Prepare manual promotion evidence after backtest review.</Typography.Paragraph>
-            <Typography.Paragraph>approval_state: manual_approval_pending</Typography.Paragraph>
-            <Typography.Paragraph>Order authority remains disabled in Builder.</Typography.Paragraph>
-            <Typography.Paragraph>Trade-action creation remains disabled in Builder.</Typography.Paragraph>
-          </Card>
-        </Col>
+      <Row gutter={[8, 8]} className="surface-overview compact-surface-overview product-section-cards">
+        {mainSections.map((section) => (
+          <Col xs={24} lg={8} key={section.key}>
+            <Card
+              size="small"
+              className={activeSection === section.key ? "section-card-active" : undefined}
+              onClick={() => setActiveSection(section.key)}
+            >
+              <Space orientation="vertical" size={4}>
+                <Tag color={section.key === "execution" ? "purple" : section.key === "backtest" ? "gold" : "cyan"}>
+                  {section.tag}
+                </Tag>
+                <Typography.Title level={2}>{section.title}</Typography.Title>
+                <Typography.Paragraph>{section.summary}</Typography.Paragraph>
+              </Space>
+            </Card>
+          </Col>
+        ))}
       </Row>
 
       <Tabs
-        className="operator-workspace-tabs"
-        activeKey={activeTab}
-        onChange={setActiveTab}
+        className="operator-workspace-tabs product-main-tabs"
+        activeKey={activeSection}
+        onChange={setActiveSection}
         items={[
           {
-            key: "ai",
-            label: "1. AI prompt",
+            key: "strategy",
+            label: "1. Strategy Builder",
             children: (
-              <Card size="small" title="Advisory AI drafting" extra={<Tag color="gold">Advisory</Tag>}>
-                <AiStrategyCopilot />
-              </Card>
-            ),
-          },
-          {
-            key: "builder",
-            label: "2. StrategySpec",
-            children: (
-              <Card
-                size="small"
-                title="Strategy draft authoring"
-                extra={<Tag color="green">Draft only</Tag>}
-              >
-                <StrategyBuilderWorkspace />
-              </Card>
+              <Space orientation="vertical" size="middle" className="main-section-stack">
+                <Card
+                  size="small"
+                  title="Strategy Builder"
+                  extra={<Tag color="gold">Natural language → StrategySpec</Tag>}
+                >
+                  <Row gutter={[12, 12]}>
+                    <Col xs={24} xl={10}>
+                      <AiStrategyCopilot />
+                    </Col>
+                    <Col xs={24} xl={14}>
+                      <StrategyBuilderWorkspace />
+                    </Col>
+                  </Row>
+                </Card>
+                <Card size="small" title="Strategy lane guardrails" extra={<Tag icon={<CodeOutlined />} color="blue">Draft only</Tag>}>
+                  <Typography.Paragraph>
+                    AI output is advisory until the backend validates schema, forbidden-token policy, market data contract,
+                    risk rules, and output mode. Strategy drafts do not carry browser credentials or runtime handles.
+                  </Typography.Paragraph>
+                </Card>
+              </Space>
             ),
           },
           {
             key: "backtest",
-            label: "3. Backtest",
+            label: "2. Backtest Center",
             children: (
-              <Card
-                size="small"
-                title="Backtest Center"
-                extra={<Tag color="gold">Observational</Tag>}
-              >
-                <BacktestLaunchPanel />
-                <Typography.Paragraph className="terminal-line">
-                  {JobTerminal()}
-                </Typography.Paragraph>
-              </Card>
+              <Space orientation="vertical" size="middle" className="main-section-stack">
+                <Card
+                  size="small"
+                  title="Backtest Center"
+                  extra={<Tag color="purple">BacktestNode historical replay</Tag>}
+                >
+                  <BacktestLaunchPanel />
+                  <Typography.Paragraph className="terminal-line">
+                    {JobTerminal()}
+                  </Typography.Paragraph>
+                </Card>
+                <Card
+                  size="small"
+                  title="Manual promotion review"
+                  extra={<Tag icon={<CheckCircleOutlined />} color="blue">Human gate</Tag>}
+                >
+                  <PromotionRequestPanel />
+                </Card>
+              </Space>
             ),
           },
           {
-            key: "promotion",
-            label: "4. Promotion",
+            key: "execution",
+            label: "3. Execution Lane",
             children: (
               <Card
                 size="small"
-                title="Safe promotion request"
-                extra={<Tag icon={<CheckCircleOutlined />} color="blue">Manual gate</Tag>}
+                title="Execution Lane"
+                extra={<Tag color="red">TradingNode paper/live gated</Tag>}
               >
-                <PromotionRequestPanel />
+                <ExecutionLaneFeaturePanel />
               </Card>
             ),
           },

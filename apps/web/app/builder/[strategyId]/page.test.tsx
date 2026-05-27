@@ -8,7 +8,8 @@ describe("BuilderStrategyPage", () => {
     render(await BuilderStrategyPage({ params: Promise.resolve({ strategyId: "strategy_001" }) }));
 
     expect(screen.getByText("Builder workspace for strategy_001")).toBeInTheDocument();
-    expect(screen.getByText("Describe strategy")).toBeInTheDocument();
+    expect(screen.getByText("Three-section operator workflow")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "1. Strategy Builder" })).toBeInTheDocument();
     expect(screen.getByText(/draft-only builder route/i)).toBeInTheDocument();
   });
 });

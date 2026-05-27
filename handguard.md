@@ -1789,3 +1789,35 @@ This segment is complete only while:
 - `Stop / Dispose` is available only for a `RUNNING` session.
 - Session reports show lifecycle states and config summaries but never raw credential values.
 - Paper sessions stay sandbox/no-order and remain decoupled from the Strategy Builder lane and BacktestNode historical replay.
+
+## UI-3 completion guard — three-section workflow
+
+The Builder UI must preserve this top-level product split:
+
+```text
+Strategy Builder -> Backtest Center -> Execution Lane
+```
+
+Guardrails:
+
+- Strategy Builder may accept natural-language prompts and display AI StrategySpec drafts, but it must not own credentials, shell handles, worker handles, live approval, or direct order actions.
+- Backtest Center may create backend-owned jobs and trigger BacktestNode historical replay only after strategy/data/validation evidence is present. Browser actions must not send catalog paths, raw StrategySpec execution payloads, credentials, or worker commands.
+- Execution Lane must stay decoupled from the strategy drafting lane. It may bind promoted strategy versions to venue profiles and server-side credential slots, but paper/live lifecycle authority remains backend-owned and manual/risk gated.
+- Navigation labels should keep the three-section product vocabulary first; demo IDs such as `bt_job_001` and `res_001` may remain route examples, not primary UX language.
+- Do not collapse BacktestNode and TradingNode into one UI action. Historical replay and paper/live execution remain separate sections.
+
+Segment evidence:
+
+```bash
+cd apps/web && npm test
+# 16 passed / 39 tests
+
+cd apps/web && npm run typecheck && npm run build
+# passed
+
+cd apps/web && npm run test:e2e
+# 4 passed
+
+rtk pytest tests/web -q
+# Pytest: 49 passed
+```

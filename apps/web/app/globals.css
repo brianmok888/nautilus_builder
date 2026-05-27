@@ -88,7 +88,7 @@ button,
 button:hover:not(:disabled),
 .button-link:hover {
   border-color: var(--builder-accent-strong);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 button:disabled {
@@ -647,4 +647,77 @@ pre {
 
 .compact-backtest-grid {
   margin: 0.85rem 0;
+}
+
+/* Three-section product workflow: Strategy Builder, Backtest Center, Execution Lane. */
+.product-workflow-dashboard .ant-tabs-tab {
+  padding: 0.45rem 0.2rem;
+}
+
+.product-workflow-dashboard .ant-tabs-tab-btn {
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.product-hero-card .ant-card-body {
+  padding: clamp(0.95rem, 2vw, 1.35rem) !important;
+}
+
+.product-section-cards .ant-card {
+  cursor: pointer;
+  min-height: 8.6rem;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+.product-section-cards .ant-card:hover,
+.product-section-cards .section-card-active {
+  border-color: rgba(56, 189, 248, 0.58) !important;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(15, 23, 42, 0.78)) !important;
+  transform: translateY(-1px);
+}
+
+.main-section-stack {
+  width: 100%;
+}
+
+.main-section-stack .panel,
+.main-section-stack .terminal-card {
+  box-shadow: none;
+}
+
+.product-main-tabs .ant-tabs-content-holder {
+  border-radius: 16px;
+}
+
+.compact-editor-layout .editor-section {
+  padding: 0.75rem;
+}
+
+.compact-editor-layout h2,
+.compact-editor-layout h3,
+.config-panel h2,
+.config-panel h3,
+.backtest-launch-panel h2,
+.backtest-launch-panel h3 {
+  font-size: 0.98rem !important;
+  line-height: 1.25;
+}
+
+.backtest-launch-panel .ant-form-item,
+.config-panel .ant-form-item {
+  margin-bottom: 0.6rem;
+}
+
+@media (max-width: 1180px) {
+  .product-main-tabs .ant-row > .ant-col {
+    max-width: 100%;
+  }
+}
+
+.workflow-action-primary {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.34), rgba(34, 211, 238, 0.18));
+  border-color: rgba(56, 189, 248, 0.72);
 }

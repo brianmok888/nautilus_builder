@@ -3,11 +3,11 @@
 import {
   ApiOutlined,
   BarChartOutlined,
-  DashboardOutlined,
   ExperimentOutlined,
   FileTextOutlined,
+  PlayCircleOutlined,
+  RobotOutlined,
   SafetyCertificateOutlined,
-  SettingOutlined,
 } from "@ant-design/icons";
 import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,28 +16,28 @@ import type { ReactNode } from "react";
 const navigationItems = [
   {
     key: "/",
-    icon: <DashboardOutlined />,
-    label: <span>Builder dashboard</span>,
-  },
-  {
-    key: "/strategies",
-    icon: <FileTextOutlined />,
-    label: <span>Strategies</span>,
-  },
-  {
-    key: "/config",
-    icon: <SettingOutlined />,
-    label: <span>Config</span>,
+    icon: <RobotOutlined />,
+    label: <span>Strategy Builder</span>,
   },
   {
     key: "/backtests/bt_job_001",
     icon: <ExperimentOutlined />,
-    label: <span>Backtest job bt_job_001</span>,
+    label: <span>Backtest Center</span>,
+  },
+  {
+    key: "/config",
+    icon: <PlayCircleOutlined />,
+    label: <span>Execution Lane / Config</span>,
+  },
+  {
+    key: "/strategies",
+    icon: <FileTextOutlined />,
+    label: <span>Strategy records</span>,
   },
   {
     key: "/results/res_001",
     icon: <BarChartOutlined />,
-    label: <span>Results res_001</span>,
+    label: <span>Results / Reports</span>,
   },
 ];
 
@@ -86,15 +86,15 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
             <div className="operator-brand-mark">NB</div>
             <div>
               <div className="operator-brand-title">Nautilus Builder</div>
-              <Typography.Text type="secondary">StrategySpec console</Typography.Text>
+              <Typography.Text type="secondary">AI → Backtest → Execution</Typography.Text>
             </div>
           </div>
           <nav aria-label="Operator workflow" className="operator-quick-links">
-            <a href="/">Builder dashboard</a>
-            <a href="/strategies">Strategies</a>
-            <a href="/config">Config</a>
-            <a href="/backtests/bt_job_001">Backtest job bt_job_001</a>
-            <a href="/results/res_001">Results res_001</a>
+            <a href="/">Strategy Builder</a>
+            <a href="/backtests/bt_job_001">Backtest Center</a>
+            <a href="/config">Execution Lane</a>
+            <a href="/strategies">Strategy records</a>
+            <a href="/results/res_001">Results / Reports</a>
           </nav>
           <div aria-label="Operator menu">
             <Menu
@@ -121,14 +121,14 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
         <Layout>
           <Layout.Header className="operator-header">
             <Space wrap className="operator-header-left">
-              <Badge status="processing" text="FastAPI proxy monitored" />
+              <Badge status="processing" text="FastAPI / worker contracts" />
               <Tag color="blue" icon={<ApiOutlined />}>
-                BUILDER_API_BASE_URL
+                server-side API base
               </Tag>
             </Space>
             <Space wrap>
               <Tag color="warning">Manual promotion only</Tag>
-              <Tag color="default">signal_preview_only</Tag>
+              <Tag color="default">manual gates</Tag>
             </Space>
           </Layout.Header>
           <Layout.Content className="operator-content">{children}</Layout.Content>

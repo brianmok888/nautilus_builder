@@ -2549,3 +2549,47 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
 # typecheck passed; Vitest 16 files / 39 tests passed; Next build passed; Playwright 4 passed
 ```
+
+## Implementation progress — Segment UI-3 three-section product workflow
+
+**Completed:** 2026-05-27
+
+The web command center now follows the clarified product split:
+
+```text
+Strategy Builder -> Backtest Center -> Execution Lane
+```
+
+Segment changes:
+
+- `apps/web/components/dashboard/BuilderDashboard.tsx` now presents three primary sections instead of the earlier multi-step scaffold tabs:
+  - **Strategy Builder** combines natural-language AI drafting, StrategySpec preview/editing, backend validation reminders, market/dataset context, and draft-only guardrails.
+  - **Backtest Center** holds the StrategySpec/data run manifest, backend-owned BacktestNode trigger, runtime event/artifact evidence, observational terminal text, and manual promotion review.
+  - **Execution Lane** mounts the backend-owned TradingNode paper/live lane controls from `ExecutionLaneFeaturePanel`.
+- `apps/web/components/shell/OperatorAppShell.tsx` now labels the navigation around the same three main sections with secondary Strategy records and Results / Reports routes.
+- `apps/web/app/config/page.tsx` now frames the config page as Execution Lane / Config while preserving OpenAI-compatible model configuration.
+- `apps/web/app/globals.css` adds compact three-section density and avoids hover movement on native workflow buttons.
+- Frontend unit, Playwright, and Python web-contract tests were updated to lock the new section vocabulary and safety boundaries.
+
+Authority boundary remains unchanged:
+
+- Strategy Builder has no venue credentials or runtime handles.
+- Backtest Center only triggers backend-owned BacktestNode historical replay evidence.
+- Execution Lane exposes paper/live TradingNode lifecycle visibility through backend contracts, server-side credential slots, and manual/risk gates.
+- Browser UI still has no shell, raw credential echo, or live order authority.
+
+Verification evidence:
+
+```bash
+cd apps/web && npm test
+# 16 passed / 39 tests
+
+cd apps/web && npm run typecheck && npm run build
+# TypeScript and Next build passed
+
+cd apps/web && npm run test:e2e
+# 4 passed
+
+rtk pytest tests/web -q
+# Pytest: 49 passed
+```

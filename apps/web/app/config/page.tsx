@@ -5,16 +5,17 @@ export default function ConfigPage() {
   return (
     <main className="app-shell">
       <section className="hero-card" aria-label="configuration overview">
-        <span className="hero-kicker">Advisory model operations</span>
-        <h1>Builder configuration</h1>
+        <span className="hero-kicker">Execution lane and model operations</span>
+        <h1>Execution Lane / Config</h1>
         <p>
-          Configure LLM provider, model-role, guardrail, and audit settings for
-          AI-assisted StrategySpec drafting without granting browser-side secret
-          or live-trading authority.
+          Configure OpenAI-compatible model roles plus the backend-owned TradingNode
+          paper/live lane. Credentials remain server-side and paper/live controls
+          stay separate from strategy drafting.
         </p>
         <nav className="workflow-nav" aria-label="Configuration navigation">
-          <a href="/">Builder dashboard</a>
-          <a href="/strategies">Strategies</a>
+          <a href="/">Strategy Builder</a>
+          <a href="/backtests/bt_job_001">Backtest Center</a>
+          <a href="/strategies">Strategy records</a>
         </nav>
       </section>
       <ModelConfigTabs />

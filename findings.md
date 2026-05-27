@@ -2618,3 +2618,40 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 ```
 
 Master status for this segment: closed for UI → backend worker → server-side credential resolution → TradingNodeConfig build → promoted strategy attachment → paper lifecycle start/stop evidence. Remaining work is operator-managed native runner deployment/monitoring and live authority gates, not browser-side execution authority.
+
+## Findings closure update — UI-3 three-section workflow
+
+**Date:** 2026-05-27
+**Status:** CLOSED for the current UI-organization segment.
+
+Closed/advanced findings:
+
+- The home dashboard no longer presents the operator journey as many competing surfaces. It is organized into the three product sections requested by the user:
+  1. Strategy Builder — prompt-first natural language to guarded StrategySpec draft.
+  2. Backtest Center — selected strategy/data run manifest to backend-owned BacktestNode evidence.
+  3. Execution Lane — promoted strategy to backend-owned TradingNode paper/live lifecycle controls.
+- Dashboard and shell navigation now use product-language labels instead of demo IDs as primary labels.
+- Manual promotion remains in the Backtest Center review path, not in the strategy drafting lane.
+- Execution Lane UI is visible from the command center and config route, but stays backend-owned and server-credential-slot based.
+
+Residual non-blocking notes:
+
+- The home page still embeds large components; future UX passes can split Strategy Builder, Backtest Center, and Execution Lane into dedicated routes while retaining the same labels.
+- The Backtest Center form still uses a compact manifest-first flow; a future route can replace free-text IDs with backend-loaded strategy/dataset selectors.
+- Execution Lane currently exposes a dev/local credential-slot bootstrap. Production deployment should replace local env writes with the intended secret backend without changing browser authority.
+
+Verification:
+
+```bash
+cd apps/web && npm test
+# 16 passed / 39 tests
+
+cd apps/web && npm run typecheck && npm run build
+# passed
+
+cd apps/web && npm run test:e2e
+# 4 passed
+
+rtk pytest tests/web -q
+# Pytest: 49 passed
+```

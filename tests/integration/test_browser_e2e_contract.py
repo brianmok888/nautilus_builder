@@ -18,14 +18,18 @@ def test_browser_e2e_spec_checks_builder_shell_and_results_dashboard() -> None:
     spec = (ROOT / "apps" / "web" / "e2e" / "builder-shell.spec.ts").read_text()
 
     assert "Nautilus Builder" in spec
-    assert "Strategy draft authoring" in spec
+    assert "Strategy Builder → Backtest Center → Execution Lane" in spec
+    assert "1. Strategy Builder" in spec
+    assert "2. Backtest Center" in spec
+    assert "3. Execution Lane" in spec
     assert "Observational runtime console" in spec
     assert "/results/res_001" in spec
     assert "Backtest results" in spec
     assert "/strategies" in spec
     assert "/backtests/bt_job_001" in spec
     assert "Apply to Builder" in spec
-    assert "Safe promotion request" in spec
+    assert "Manual promotion before paper/live" in spec
+    assert "Execution lane feature flags are backend-owned" in spec
 
 
 def test_frontend_operator_mvp_verification_report_mentions_full_path_and_safety() -> None:
