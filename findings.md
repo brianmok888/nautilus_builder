@@ -2676,3 +2676,35 @@ rtk pytest tests/web -q
 - The UI is now usable/polished enough for the current MVP shell, but result charts/equity curves still need a charting decision.
 - Config and execution pages are still contract-heavy; future work should progressively disclose IDs/artifact refs behind advanced panels.
 - Visual polish is CSS-fallback based because current AntD v6 runtime styling in dev was insufficient; revisit if the frontend adopts a stronger theme extraction/build setup.
+
+## Remote VM client-side exception — 2026-05-27
+
+### CLOSED / MITIGATED
+
+Observed against `http://192.168.4.82:3000`:
+
+- The remote web server returned old/stale HTML (`StrategySpec console` shell, not the current three-lane operator shell).
+- Browser console showed `_next/static` CSS/JS chunk requests returning `400 Bad Request`.
+- `/results/res_001` raised `ChunkLoadError: Loading chunk 700 failed`, which produced the visible Next.js “Application error: a client-side exception has occurred” page.
+- `http://192.168.4.82:8000/health` was unreachable, so the FastAPI/backend service was also down or not bound to the VM interface.
+
+Mitigation added in repo:
+
+- `apps/web/middleware.ts` sets `Cache-Control: no-store, max-age=0, must-revalidate` for app/API HTML while leaving `/_next/static/*` immutable asset handling alone.
+- `apps/web/app/layout.tsx` now includes a tiny static-asset failure reload guard. If a deployed browser hits a stale `_next/static` chunk, it retries the current route once with a cache-busting query instead of staying on the client-side exception.
+
+Verification:
+
+```bash
+cd apps/web && npm run typecheck
+cd apps/web && npm test
+cd apps/web && npm run build
+cd apps/web && npm run test:e2e
+cd apps/web && npx next start --hostname 0.0.0.0 --port 3100
+curl -D - http://127.0.0.1:3100/
+# cache-control: no-store, max-age=0, must-revalidate
+curl -D - http://127.0.0.1:3100/_next/static/css/<hash>.css
+# Cache-Control: public, max-age=31536000, immutable
+```
+
+Operational note: the VM still needs to pull the latest commit, rebuild `apps/web/.next`, and restart both API and web services. This repo fix prevents repeat stale-HTML/chunk-mismatch failures after that redeploy.

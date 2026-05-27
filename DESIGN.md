@@ -121,7 +121,7 @@
 - Framework/styling system: Next.js App Router, React, Ant Design v6, global CSS fallbacks.
 - Design-token constraints: no new design system dependency for the current polish pass.
 - Performance constraints: keep CSS simple; avoid client-only layout libraries.
-- Compatibility constraints: AntD v6 component DOM currently requires local fallback CSS for stable dev/SSR rendering.
+- Compatibility constraints: AntD v6 component DOM currently requires local fallback CSS for stable dev/SSR rendering; VM deployments must send no-store headers for app HTML so stale pages do not reference removed Next.js chunk hashes.
 - Test/screenshot expectations:
   - Capture Playwright screenshots for `/`, `/config`, and `/backtests/bt_job_001` after visible shell changes.
   - Run `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` for web changes when Playwright browsers are available.

@@ -2632,3 +2632,14 @@ Result:
 - Compile/check whitespace passed.
 
 Authority status: unchanged. Strategy Builder, Backtest Center, and Execution Lane remain separate; the browser still has no credentials, shell, worker handles, `TradeAction`, or `submit_order` authority.
+
+## Web deploy/cache hardening — 2026-05-27
+
+A live check of `http://192.168.4.82:3000` showed the VM serving stale pre-polish HTML while `_next/static` CSS/JS chunks returned `400 Bad Request`; `/results/res_001` surfaced a Next.js `ChunkLoadError` client-side exception. The backend health endpoint on port `8000` was also unreachable from this host.
+
+Repo hardening added:
+
+- `apps/web/middleware.ts` — no-store headers for app/API HTML to avoid stale HTML referencing removed chunk hashes after VM rebuilds.
+- `apps/web/app/layout.tsx` — static asset failure reload guard for one cache-busted retry when `_next/static` assets fail to load.
+
+The fix is deploy-safe and keeps static assets immutable while preventing stale app HTML from being cached as long-lived content.

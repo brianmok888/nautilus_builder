@@ -1833,3 +1833,19 @@ rtk pytest tests/web -q
 - Browser UI must not own shell access, worker handles, live order authority, `TradeAction`, or `submit_order` flows.
 - Keep advanced contract IDs/artifact refs visible as evidence, but prefer compact cards, tabs, and progressive disclosure so the normal workflow is not overwhelming.
 - For visual changes, capture screenshots for `/`, `/config`, and `/backtests/bt_job_001`, then run frontend typecheck, unit tests, production build, and E2E when browsers are installed.
+
+## 12. VM web deploy/cache guard — added 2026-05-27
+
+If a browser shows “Application error: a client-side exception has occurred” after a web deploy, inspect console/network first for `_next/static/*` `400`/`404` and `ChunkLoadError`.
+
+Required VM recovery checks:
+
+```bash
+curl -I http://<vm-host>:3000/
+curl -I http://<vm-host>:3000/_next/static/<asset-from-html>
+curl -I http://<vm-host>:8000/health
+```
+
+- If HTML is old or static chunks fail, stop the old Next process, remove stale `.next`, rebuild, and restart.
+- Keep `apps/web/middleware.ts` no-store behavior for app HTML so stale pages do not keep pointing browsers at removed chunk hashes.
+- Do not solve chunk errors by disabling the no-browser-authority hardguards or by moving backend/API credentials into the UI.
