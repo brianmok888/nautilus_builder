@@ -7,18 +7,21 @@ from typing import Any
 from .credentials import ExecutionCredentialSlot, ExecutionCredentialSlotRequest, LocalEnvCredentialSlotStore
 from .models import ExecutionCommandStatus, ExecutionLaneCommand, ExecutionLaneProfile, ExecutionLaneReport
 from .nautilus_runtime import NautilusTradingNodeRuntimePlan, build_trading_node_runtime_plan
+from .sessions import ExecutionLaneSession, TradingNodeSessionRunner, default_session_runner
 
 
 class ExecutionLaneService:
     """In-memory contract service for a strategy-decoupled execution lane."""
 
-    def __init__(self, *, credential_env_dir: str | Path | None = None) -> None:
+    def __init__(self, *, credential_env_dir: str | Path | None = None, session_runner: TradingNodeSessionRunner | None = None) -> None:
         self._profiles: dict[str, ExecutionLaneProfile] = {}
         self._commands: dict[str, ExecutionLaneCommand] = {}
         self._idempotency_index: dict[tuple[str, str], str] = {}
         self._reports: dict[str, ExecutionLaneReport] = {}
         self._credential_store = LocalEnvCredentialSlotStore(base_dir=credential_env_dir)
         self._credential_slots: dict[str, ExecutionCredentialSlot] = {}
+        self._sessions: dict[str, ExecutionLaneSession] = {}
+        self.session_runner = session_runner or default_session_runner()
 
     def create_credential_slot(self, payload: dict[str, object]) -> ExecutionCredentialSlot:
         request = ExecutionCredentialSlotRequest.model_validate(payload)
@@ -28,6 +31,10 @@ class ExecutionLaneService:
 
     def get_credential_slot(self, credential_slot_ref: str) -> ExecutionCredentialSlot:
         return self._credential_slots[credential_slot_ref]
+
+    def resolve_credential_slot_values(self, credential_slot_ref: str) -> dict[str, str]:
+        slot = self.get_credential_slot(credential_slot_ref)
+        return self._credential_store.resolve_slot_values(slot)
 
     def register_profile(self, payload: dict[str, object]) -> ExecutionLaneProfile:
         profile = ExecutionLaneProfile.model_validate(payload)
@@ -80,16 +87,22 @@ class ExecutionLaneService:
     def claim_next(self, *, runtime_profile_id: str, worker_id: str) -> ExecutionLaneCommand:
         for command in self._commands.values():
             if command.runtime_profile_id == runtime_profile_id and command.status == ExecutionCommandStatus.QUEUED:
-                claimed = command.model_copy(
-                    update={
-                        "status": ExecutionCommandStatus.CLAIMED,
-                        "claimed_by": worker_id,
-                        "claimed_at": datetime.now(UTC).isoformat(),
-                    }
-                )
-                self._commands[claimed.command_id] = claimed
-                return claimed
+                return self.claim_command(command_id=command.command_id or "", worker_id=worker_id)
         raise KeyError("no queued execution lane command")
+
+    def claim_command(self, *, command_id: str, worker_id: str) -> ExecutionLaneCommand:
+        command = self._commands[command_id]
+        if command.status != ExecutionCommandStatus.QUEUED:
+            raise ValueError("execution lane command is not queued")
+        claimed = command.model_copy(
+            update={
+                "status": ExecutionCommandStatus.CLAIMED,
+                "claimed_by": worker_id,
+                "claimed_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        self._commands[claimed.command_id] = claimed
+        return claimed
 
     def record_report(self, *, command_id: str, payload: dict[str, object]) -> ExecutionLaneReport:
         command = self._commands[command_id]
@@ -109,11 +122,25 @@ class ExecutionLaneService:
         self._commands[command.command_id] = command.model_copy(update={"status": ExecutionCommandStatus.REPORTED})
         return report
 
+    def record_session(self, session: ExecutionLaneSession) -> ExecutionLaneSession:
+        self._sessions[session.session_id] = session
+        return session
+
+    def get_session(self, session_id: str) -> ExecutionLaneSession:
+        return self._sessions[session_id]
+
+    def list_sessions(self, *, runtime_profile_id: str | None = None) -> list[ExecutionLaneSession]:
+        sessions = list(self._sessions.values())
+        if runtime_profile_id is not None:
+            sessions = [session for session in sessions if session.runtime_profile_id == runtime_profile_id]
+        return sessions
+
     def snapshot(self, *, runtime_profile_id: str | None = None) -> dict[str, object]:
         commands = self.list_commands(runtime_profile_id=runtime_profile_id)
         reports = list(self._reports.values())
         if runtime_profile_id is not None:
             reports = [report for report in reports if report.runtime_profile_id == runtime_profile_id]
+        sessions = self.list_sessions(runtime_profile_id=runtime_profile_id)
         profiles = self.list_profiles()
         if runtime_profile_id is not None:
             profiles = [profile for profile in profiles if profile.runtime_profile_id == runtime_profile_id]
@@ -125,6 +152,8 @@ class ExecutionLaneService:
             "claimed_commands": sum(command.status == ExecutionCommandStatus.CLAIMED for command in commands),
             "reported_commands": sum(command.status == ExecutionCommandStatus.REPORTED for command in commands),
             "reports": len(reports),
+            "sessions": len(sessions),
+            "running_sessions": sum(session.lifecycle_status == "RUNNING" for session in sessions),
             "credential_slots": len(self._credential_slots),
             "strategy_lane_coupled": False,
             "may_submit_order": any(command.may_submit_order for command in commands),

@@ -17,7 +17,7 @@ from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
-from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload
+from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_session_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload, start_execution_lane_paper_session_payload, stop_execution_lane_session_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
@@ -266,6 +266,47 @@ def create_fastapi_app(
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(run_execution_lane_worker_once_payload(payload, service=execution_lane_service), JSONResponse)
+
+    @app.post("/api/execution-lane/sessions/start")
+    def execution_lane_session_start(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        if str(payload.get("project_id", context.project_id)).strip() != context.project_id:
+            return _fastapi_response(ApiResponse({"error": "project_scope_mismatch", "details": "session project scope does not match bearer token scope"}, status_code=403), JSONResponse)
+        try:
+            profile = execution_lane_service.get_profile(str(payload.get("runtime_profile_id", "")).strip())
+        except KeyError:
+            return _fastapi_response(start_execution_lane_paper_session_payload(payload, service=execution_lane_service), JSONResponse)
+        if profile.project_id != context.project_id:
+            return _fastapi_response(ApiResponse({"error": "project_scope_mismatch", "details": "session runtime profile project_id does not match bearer token scope"}, status_code=403), JSONResponse)
+        return _fastapi_response(start_execution_lane_paper_session_payload(payload, service=execution_lane_service), JSONResponse)
+
+    @app.get("/api/execution-lane/sessions/{session_id}")
+    def execution_lane_session_get(session_id: str, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        try:
+            session = execution_lane_service.get_session(session_id)
+        except KeyError:
+            return _fastapi_response(execution_lane_session_payload(session_id=session_id, service=execution_lane_service), JSONResponse)
+        if session.project_id != context.project_id:
+            return _fastapi_response(ApiResponse({"error": "project_scope_mismatch", "details": "session project_id does not match bearer token scope"}, status_code=403), JSONResponse)
+        return _fastapi_response(execution_lane_session_payload(session_id=session_id, service=execution_lane_service), JSONResponse)
+
+    @app.post("/api/execution-lane/sessions/{session_id}/stop")
+    def execution_lane_session_stop(session_id: str, payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        try:
+            session = execution_lane_service.get_session(session_id)
+        except KeyError:
+            return _fastapi_response(stop_execution_lane_session_payload(session_id=session_id, payload=payload, service=execution_lane_service), JSONResponse)
+        if session.project_id != context.project_id:
+            return _fastapi_response(ApiResponse({"error": "project_scope_mismatch", "details": "session project_id does not match bearer token scope"}, status_code=403), JSONResponse)
+        return _fastapi_response(stop_execution_lane_session_payload(session_id=session_id, payload=payload, service=execution_lane_service), JSONResponse)
 
     @app.get("/api/runtime-events/replay")
     def runtime_events_replay(

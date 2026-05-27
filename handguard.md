@@ -1761,3 +1761,31 @@ rtk pytest tests/execution_lane/test_credential_slots.py tests/execution_lane/te
 cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
 cd apps/web && npm run typecheck
 ```
+
+## Segment guard — Paper TradingNode session lifecycle full wire
+
+Paper session start/stop is allowed only under these constraints:
+
+- The browser may call `POST /api/execution-lane/sessions/start` and `POST /api/execution-lane/sessions/{session_id}/stop`, but it must not receive shell handles, process IDs, raw credential values, or direct worker mutation authority.
+- Session start requires an existing queued paper command, a READY paper runtime plan, and a bound `credential_slot_ref` resolved server-side from `.env.execution.local` or an equivalent server-managed secret store.
+- API/session/report payloads may include `credential_slot_ref`, `credential_env_keys`, `credential_values_resolved`, and redacted metadata only. They must not include API keys, secrets, passwords, private keys, auth tokens, or credential values.
+- `TradingNodeConfig` evidence must keep paper/sandbox authority: `live_trading_enabled=false`, `execution_authority=false`, `may_submit_order=false`, risk bypass disabled, and reconciliation enabled.
+- The attached strategy in paper sessions must be a no-order lineage attachment. Do not add `submit_order`, `TradeAction`, cancel/modify controls, or live venue authority to this strategy shell.
+- The default runner must remain deterministic/no-network. Native Python `TradingNode` startup is operator-opt-in only and must remain backend-owned.
+- FastAPI session routes must enforce bearer project scope for start/get/stop.
+
+Minimum regression coverage:
+
+```bash
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_session_start_requires_auth_and_project_scope -q
+cd apps/web && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+```
+
+### Reconciliation guard — Paper TradingNode session lifecycle full wire
+
+This segment is complete only while:
+
+- `Start Paper Session` is disabled until a credential slot, READY runtime plan, and queued command exist.
+- `Stop / Dispose` is available only for a `RUNNING` session.
+- Session reports show lifecycle states and config summaries but never raw credential values.
+- Paper sessions stay sandbox/no-order and remain decoupled from the Strategy Builder lane and BacktestNode historical replay.

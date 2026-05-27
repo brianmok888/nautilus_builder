@@ -585,3 +585,78 @@ def test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope(
     assert cross_scope.json()["error"] == "project_scope_mismatch"
     assert same_scope.status_code == 201
     assert "test-binance-key" not in str(same_scope.json())
+
+
+def test_fastapi_execution_lane_session_start_requires_auth_and_project_scope(monkeypatch, tmp_path) -> None:
+    from packages.auth import AuthTokenService
+    from packages.execution_lane import ExecutionLaneService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_alpha", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_beta", project_id="project_beta")
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    slot = service.create_credential_slot(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "lane_mode": "paper",
+            "requested_by": "ops_user",
+            "credential_values": {"BINANCE_API_KEY": "test-binance-key", "BINANCE_API_SECRET": "test-binance-secret"},
+        }
+    )
+    service.register_profile(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "profile_name": "Paper TradingNode lane",
+            "lane_mode": "paper",
+            "enabled": True,
+            "paper_trading_enabled": True,
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "venue_account_id": "SIM-BINANCE-001",
+            "credential_slot_ref": slot.credential_slot_ref,
+            "consumes_stream": "builder.execution.commands.paper.project_alpha.binance",
+        }
+    )
+    command = service.enqueue_command(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "lane_mode": "paper",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "venue_account_id": "SIM-BINANCE-001",
+            "trade_action_id": "ta_paper_001",
+            "source_event_id": "gate_evt_paper_001",
+            "idempotency_key": "gate_evt_paper_001:ta_paper_001",
+            "strategy_lineage_id": "lineage_ema_rsi",
+            "strategy_version_id": "strategy_001_v004",
+            "order_intent": {"side": "BUY", "instrument_id": "BTCUSDT-PERP.BINANCE", "quantity": "0.01"},
+            "risk_decision": {"status": "approved", "risk_profile_id": "risk_paper_default"},
+        }
+    )
+    app = create_fastapi_app(auth_token_service=auth, execution_lane_service=service)
+    payload = {"runtime_profile_id": "rp_paper_tradingnode", "command_id": command.command_id, "project_id": "project_alpha"}
+
+    missing = app.routes[("POST", "/api/execution-lane/sessions/start")](payload)
+    cross_scope = app.routes[("POST", "/api/execution-lane/sessions/start")](payload, authorization=f"Bearer {beta.token}")
+    same_scope = app.routes[("POST", "/api/execution-lane/sessions/start")](payload, authorization=f"Bearer {alpha.token}")
+
+    assert missing.status_code == 401
+    assert cross_scope.status_code == 403
+    assert cross_scope.json()["error"] == "project_scope_mismatch"
+    assert same_scope.status_code == 202
+    assert same_scope.json()["lifecycle_status"] == "RUNNING"
+    assert "test-binance-secret" not in str(same_scope.json())

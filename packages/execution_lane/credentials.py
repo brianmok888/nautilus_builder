@@ -155,6 +155,20 @@ class LocalEnvCredentialSlotStore:
             pass
         return env_file
 
+    def resolve_slot_values(self, slot: ExecutionCredentialSlot) -> dict[str, str]:
+        """Read the local env-file values for a previously created slot.
+
+        Callers must not include the returned raw values in reports or API
+        responses. They are for backend-owned adapter config construction only.
+        """
+
+        values = _read_env_file(self.env_file_path)
+        resolved = {key: values[key] for key in slot.redacted_keys if key in values}
+        missing = sorted(set(slot.redacted_keys) - set(resolved))
+        if missing:
+            raise ValueError(f"credential slot env values missing: {', '.join(missing)}")
+        return resolved
+
 
 def _read_env_file(path: Path) -> dict[str, str]:
     if not path.exists():

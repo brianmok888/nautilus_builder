@@ -2490,3 +2490,62 @@ rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry 
 cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
 # typecheck passed; Vitest 16 files / 37 tests passed; Next build passed; Playwright 4 passed
 ```
+
+## Segment 2026-05-27 — Paper TradingNode session lifecycle full wire
+
+Implementation plan / design record:
+
+1. Treat paper execution as a separate backend-owned execution lane, not as Strategy Builder state and not as BacktestNode replay.
+2. Require a server-side `credential_slot_ref` before a paper TradingNode session can start; resolve raw values only inside the backend worker from `.env.execution.local` and expose only redacted env key names to the UI.
+3. Build a real Nautilus `TradingNodeConfig` contract for paper/sandbox mode with reconciliation enabled, risk bypass disabled, Binance adapter configs/factories when `venue=BINANCE`, and a no-order promoted strategy attachment carrying `strategy_lineage_id` / `strategy_version_id`.
+4. Add a deterministic contract runner as the default safe runtime and an operator-opt-in native Python `TradingNode` runner behind `BUILDER_EXECUTION_LANE_TRADINGNODE_RUNNER=native`.
+5. Expose UI controls for `Start Paper Session` and `Stop / Dispose`, returning lifecycle events/status to the browser while keeping shell/process handles, raw credentials, and submit-order authority server-side.
+
+Changed structure:
+
+- `packages/execution_lane/sessions.py` — new session models, TradingNodeConfig builder, Binance paper adapter config builder, deterministic contract runner, optional native runner, and sanitized session report payloads.
+- `packages/execution_lane/paper_strategy.py` — no-order Nautilus strategy shell used to attach promoted StrategySpec lineage to paper session configs without `submit_order` authority.
+- `packages/execution_lane/credentials.py` — adds backend-only local env credential resolution for an existing credential slot.
+- `packages/execution_lane/service.py` — stores sessions, exposes session runner, resolves credential slots, claims explicit commands, and includes running session counts in status snapshots.
+- `services/workers/execution_lane_worker.py` — adds `start_execution_lane_paper_session()` and `stop_execution_lane_session()` worker seams that claim commands, build config, emit lifecycle, and record reports.
+- `services/api/routes/execution_lane.py`, `services/api/app.py`, `services/api/fastapi_app.py` — add `POST /api/execution-lane/sessions/start`, `GET /api/execution-lane/sessions/{session_id}`, and `POST /api/execution-lane/sessions/{session_id}/stop`; FastAPI enforces bearer project scope before session access.
+- `apps/web/lib/api.ts`, `apps/web/lib/types.ts`, `apps/web/components/config/ExecutionLaneFeaturePanel.tsx` — add typed session APIs plus Start Paper / Stop Dispose controls and lifecycle display.
+
+Authoritative alignment notes:
+
+- NautilusTrader alignment: the session config uses Python `TradingNodeConfig`, `LiveExecEngineConfig`, `LiveRiskEngineConfig`, `ImportableStrategyConfig`, and the Python `TradingNode` lifecycle labels `build/run/stop/dispose`; this lane remains explicitly `python_live_integration_specific`, with Rust `LiveNode` still the future runtime target.
+- Adapter alignment: Binance paper sessions use official Binance data/exec config classes and factories, resolving API key/secret from a server-side credential slot only.
+- Testing alignment: this segment proves the Builder contract and lifecycle with deterministic contract runner tests; real venue connectivity still requires operator opt-in plus adapter DataTester/ExecTester/reconciliation evidence before live authority claims.
+- ND alignment: follows the Daedalus pattern of server-side env credential resolution, runner-owned lifecycle, and no browser-owned process/order authority.
+
+Segment TDD evidence:
+
+```bash
+rtk pytest tests/execution_lane/test_tradingnode_runtime_contract.py::test_paper_session_start_resolves_credential_slot_builds_config_and_emits_lifecycle tests/api/test_execution_lane_tradingnode_routes.py::test_execution_lane_session_start_and_stop_routes_return_lifecycle -q
+# RED first: missing packages.execution_lane.sessions and no session routes
+# GREEN after implementation
+
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/execution_lane tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_session_start_requires_auth_and_project_scope tests/web/test_execution_lane_ui_contract.py tests/web/test_sectioned_operator_ui.py -q
+# 47 passed
+cd apps/web && npm run typecheck && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# typecheck passed; 2 Vitest files / 14 tests passed
+```
+
+Reconciliation: the UI can now start and stop a paper/sandbox TradingNode **session contract** from a queued promoted strategy command. The default runner is deterministic/no-network for safety; operator-managed native Python TradingNode startup is available only when explicitly enabled server-side. The browser still does not own credentials, shell/process handles, worker mutation, or live order authority.
+
+Master reconciliation — Paper TradingNode session lifecycle full wire:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 397 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 16 files / 39 tests passed; Next build passed; Playwright 4 passed
+```

@@ -51,6 +51,8 @@ export type ExecutionLaneStatus = {
   claimed_commands?: number;
   reported_commands?: number;
   reports?: number;
+  sessions?: number;
+  running_sessions?: number;
   credential_slots?: number;
   venue_bindings: ExecutionLaneVenueBinding[];
   ui_features: ExecutionLaneUiFeatures;
@@ -127,6 +129,46 @@ export type ExecutionLaneRuntimePlan = {
   nautilus_imports?: string[];
   config_contract: Record<string, unknown>;
   nautilus_trader_version?: string | null;
+};
+
+
+export type ExecutionLaneSession = {
+  session_id: string;
+  command_id: string;
+  runtime_profile_id: string;
+  tenant_id: string;
+  project_id: string;
+  lane_mode: "paper" | "live" | string;
+  adapter_id: string;
+  venue: string;
+  venue_account_id?: string | null;
+  status: "INITIALIZED" | "RUNNING" | "STOPPED" | "DISPOSED" | "FAILED" | string;
+  lifecycle_status: "INITIALIZED" | "RUNNING" | "STOPPED" | "DISPOSED" | "FAILED" | string;
+  runner_mode: string;
+  worker_id: string;
+  started_at: string;
+  stopped_at?: string | null;
+  disposed_at?: string | null;
+  runtime_environment: "sandbox" | "live" | string;
+  node_runtime: string;
+  runtime_label: string;
+  future_runtime: string;
+  strategy_lineage_id: string;
+  strategy_version_id: string;
+  trade_action_id: string;
+  promotion_approval_id?: string | null;
+  credential_slot_ref: string;
+  credential_env_keys: string[];
+  credential_values_resolved: boolean;
+  tradingnode_config: Record<string, unknown>;
+  attached_strategy: Record<string, unknown>;
+  lifecycle_events: Array<{ status: string; message: string; timestamp: string; session_id: string }>;
+  browser_credentials_allowed: false;
+  credential_inputs_allowed: false;
+  strategy_lane_coupled: false;
+  live_trading_enabled: boolean;
+  execution_authority: boolean;
+  may_submit_order: boolean;
 };
 
 export type ExecutionLaneReport = {

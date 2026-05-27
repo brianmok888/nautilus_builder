@@ -246,3 +246,110 @@ def test_worker_report_includes_credential_slot_and_risk_gate_without_secrets(tm
     assert report.payload["credential_slot_bound"] is True
     assert report.payload["credential_slot_ref"] == slot.credential_slot_ref
     assert "test-binance-key" not in str(report.model_dump(mode="json"))
+
+
+def test_paper_session_start_resolves_credential_slot_builds_config_and_emits_lifecycle(tmp_path) -> None:
+    from packages.execution_lane.sessions import ContractTradingNodeSessionRunner
+    from services.workers.execution_lane_worker import start_execution_lane_paper_session
+
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    slot = service.create_credential_slot(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "lane_mode": "paper",
+            "requested_by": "ops_user",
+            "credential_values": {
+                "BINANCE_API_KEY": "test-binance-key",
+                "BINANCE_API_SECRET": "test-binance-secret",
+                "BINANCE_TESTNET": "true",
+            },
+        }
+    )
+    profile = _paper_profile()
+    profile["credential_slot_ref"] = slot.credential_slot_ref
+    service.register_profile(profile)
+    command = service.enqueue_command(_paper_command())
+
+    session = start_execution_lane_paper_session(
+        service=service,
+        runtime_profile_id="rp_paper_tradingnode",
+        command_id=command.command_id,
+        worker_id="web_exec_worker",
+        runner=ContractTradingNodeSessionRunner(),
+    )
+
+    assert session.status == "RUNNING"
+    assert session.lifecycle_status == "RUNNING"
+    assert session.command_id == command.command_id
+    assert session.credential_slot_ref == slot.credential_slot_ref
+    assert session.credential_env_keys == ["BINANCE_API_KEY", "BINANCE_API_SECRET", "BINANCE_TESTNET"]
+    assert session.tradingnode_config["config_type"] == "TradingNodeConfig"
+    assert session.tradingnode_config["environment"] == "sandbox"
+    assert session.tradingnode_config["data_clients"]["BINANCE"] == "BinanceDataClientConfig"
+    assert session.tradingnode_config["exec_clients"]["BINANCE"] == "BinanceExecClientConfig"
+    assert session.attached_strategy["strategy_version_id"] == "strategy_001_v004"
+    assert session.attached_strategy["may_submit_order"] is False
+    assert [event["status"] for event in session.lifecycle_events] == ["INITIALIZED", "CONFIG_BUILT", "BUILD", "RUNNING"]
+    assert session.browser_credentials_allowed is False
+    assert session.may_submit_order is False
+    assert "test-binance-key" not in str(session.model_dump(mode="json"))
+    assert service.snapshot(runtime_profile_id="rp_paper_tradingnode")["running_sessions"] == 1
+
+
+def test_paper_session_stop_disposes_runner_and_records_lifecycle(tmp_path) -> None:
+    from packages.execution_lane.sessions import ContractTradingNodeSessionRunner
+    from services.workers.execution_lane_worker import start_execution_lane_paper_session, stop_execution_lane_session
+
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    slot = service.create_credential_slot(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_paper_tradingnode",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "lane_mode": "paper",
+            "requested_by": "ops_user",
+            "credential_values": {"BINANCE_API_KEY": "test-binance-key", "BINANCE_API_SECRET": "test-binance-secret"},
+        }
+    )
+    profile = _paper_profile()
+    profile["credential_slot_ref"] = slot.credential_slot_ref
+    service.register_profile(profile)
+    command = service.enqueue_command(_paper_command())
+    session = start_execution_lane_paper_session(
+        service=service,
+        runtime_profile_id="rp_paper_tradingnode",
+        command_id=command.command_id,
+        worker_id="web_exec_worker",
+        runner=ContractTradingNodeSessionRunner(),
+    )
+
+    stopped = stop_execution_lane_session(service=service, session_id=session.session_id, worker_id="web_exec_worker")
+
+    assert stopped.status == "DISPOSED"
+    assert stopped.lifecycle_status == "DISPOSED"
+    assert [event["status"] for event in stopped.lifecycle_events][-2:] == ["STOPPED", "DISPOSED"]
+    assert service.snapshot(runtime_profile_id="rp_paper_tradingnode")["running_sessions"] == 0
+
+
+def test_paper_session_start_requires_server_side_credential_slot(tmp_path) -> None:
+    from packages.execution_lane.sessions import ContractTradingNodeSessionRunner
+    from services.workers.execution_lane_worker import start_execution_lane_paper_session
+
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    service.register_profile(_paper_profile())
+    command = service.enqueue_command(_paper_command())
+
+    with pytest.raises(ValueError, match="credential_slot_ref"):
+        start_execution_lane_paper_session(
+            service=service,
+            runtime_profile_id="rp_paper_tradingnode",
+            command_id=command.command_id,
+            worker_id="web_exec_worker",
+            runner=ContractTradingNodeSessionRunner(),
+        )

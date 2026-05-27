@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from nautilus_trader.config import StrategyConfig
+from nautilus_trader.model.data import QuoteTick
+from nautilus_trader.model.identifiers import InstrumentId
+from nautilus_trader.trading.strategy import Strategy
+
+
+class ExecutionLanePaperStrategyConfig(StrategyConfig, frozen=True):
+    """No-order strategy attached to Builder paper TradingNode sessions.
+
+    It carries the promoted StrategySpec lineage into Nautilus runtime config while
+    deliberately keeping order authority disabled. The execution lane itself may
+    later consume approved TradeAction contracts, but this strategy never calls
+    submit_order.
+    """
+
+    instrument_id: InstrumentId
+    strategy_lineage_id: str
+    strategy_version_id: str
+    runtime_profile_id: str
+    promotion_approval_id: str | None = None
+    execution_authority: bool = False
+    may_submit_order: bool = False
+
+
+class ExecutionLanePaperStrategy(Strategy):
+    """Observational paper strategy shell for execution-lane lifecycle sessions."""
+
+    profile = "paper_execution_observational"
+
+    def __init__(self, config: ExecutionLanePaperStrategyConfig) -> None:
+        super().__init__(config)
+        self.instrument = None
+        self.observed_quote_ticks = 0
+
+    def on_start(self) -> None:
+        self.instrument = self.cache.instrument(self.config.instrument_id)
+        if self.instrument is not None:
+            self.subscribe_quote_ticks(instrument_id=self.config.instrument_id)
+
+    def on_quote_tick(self, tick: QuoteTick) -> None:
+        self.observed_quote_ticks += 1

@@ -24,12 +24,15 @@ import {
   registerExecutionLaneProfile,
   runExecutionLaneWorkerOnce,
   saveExecutionLaneCredentialSlot,
+  startExecutionLanePaperSession,
+  stopExecutionLaneSession,
 } from "../../lib/api";
 import type {
   ExecutionCredentialSlot,
   ExecutionLaneCommand,
   ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
+  ExecutionLaneSession,
   ExecutionLaneStatus,
 } from "../../lib/types";
 
@@ -41,6 +44,8 @@ const fallbackStatus: ExecutionLaneStatus = {
   claimed_commands: 0,
   reported_commands: 0,
   reports: 0,
+  sessions: 0,
+  running_sessions: 0,
   credential_slots: 0,
   venue_bindings: [],
   ui_features: {
@@ -187,9 +192,10 @@ export function ExecutionLaneFeaturePanel() {
   const [runtimePlan, setRuntimePlan] = useState<ExecutionLaneRuntimePlan | null>(null);
   const [command, setCommand] = useState<ExecutionLaneCommand | null>(null);
   const [workerReport, setWorkerReport] = useState<ExecutionLaneReport | null>(null);
+  const [session, setSession] = useState<ExecutionLaneSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"credential" | "profile" | "command" | "worker" | null>(null);
+  const [action, setAction] = useState<"credential" | "profile" | "command" | "worker" | "start-session" | "stop-session" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -241,8 +247,10 @@ export function ExecutionLaneFeaturePanel() {
         : null,
       command_id: command?.command_id ?? null,
       worker_report_id: workerReport?.report_id ?? null,
+      session_id: session?.session_id ?? null,
+      session_status: session?.lifecycle_status ?? null,
     }),
-    [bindings, command, credentialSlot, features, runtimePlan, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
+    [bindings, command, credentialSlot, features, runtimePlan, session, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
   );
 
   function updateWireField<K extends keyof PaperWireDraft>(field: K, value: PaperWireDraft[K]) {
@@ -250,6 +258,7 @@ export function ExecutionLaneFeaturePanel() {
     setRuntimePlan(null);
     setCommand(null);
     setWorkerReport(null);
+    setSession(null);
     setCredentialSlot(null);
   }
 
@@ -264,6 +273,7 @@ export function ExecutionLaneFeaturePanel() {
     setRuntimePlan(null);
     setCommand(null);
     setWorkerReport(null);
+    setSession(null);
   }
 
   async function onSaveCredentialSlot() {
@@ -272,6 +282,7 @@ export function ExecutionLaneFeaturePanel() {
     setRuntimePlan(null);
     setCommand(null);
     setWorkerReport(null);
+    setSession(null);
     try {
       const slot = await saveExecutionLaneCredentialSlot(credentialPreview as Parameters<typeof saveExecutionLaneCredentialSlot>[0]);
       setCredentialSlot(slot);
@@ -288,6 +299,7 @@ export function ExecutionLaneFeaturePanel() {
     setAction("profile");
     setError(null);
     setWorkerReport(null);
+    setSession(null);
     try {
       await registerExecutionLaneProfile(profilePreview);
       const plan = await fetchExecutionLaneRuntimePlan(wireDraft.runtime_profile_id);
@@ -304,6 +316,7 @@ export function ExecutionLaneFeaturePanel() {
     setAction("command");
     setError(null);
     setWorkerReport(null);
+    setSession(null);
     try {
       const queued = await enqueueExecutionLaneCommand(commandPreview);
       setCommand(queued);
@@ -334,9 +347,48 @@ export function ExecutionLaneFeaturePanel() {
     }
   }
 
+
+
+  async function onStartPaperSession() {
+    if (!command?.command_id) return;
+    setAction("start-session");
+    setError(null);
+    try {
+      const started = await startExecutionLanePaperSession({
+        runtime_profile_id: wireDraft.runtime_profile_id,
+        command_id: command.command_id,
+        worker_id: "web_execution_worker",
+        project_id: wireDraft.project_id,
+      });
+      setSession(started);
+      await refreshStatus(wireDraft.runtime_profile_id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function onStopPaperSession() {
+    if (!session?.session_id) return;
+    setAction("stop-session");
+    setError(null);
+    try {
+      const stopped = await stopExecutionLaneSession(session.session_id, { worker_id: "web_execution_worker" });
+      setSession(stopped);
+      await refreshStatus(wireDraft.runtime_profile_id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setAction(null);
+    }
+  }
+
   const canSaveCredentialSlot = Object.keys(credentialValues(credentialDraft)).length > 0;
   const canQueue = Boolean(runtimePlan && runtimePlan.readiness_status === "READY");
   const canRunWorker = Boolean(command?.command_id);
+  const canStartPaperSession = Boolean(command?.command_id && credentialSlot?.credential_slot_ref && runtimePlan?.readiness_status === "READY");
+  const canStopPaperSession = Boolean(session?.session_id && session.lifecycle_status === "RUNNING");
 
   return (
     <section className="panel config-panel" aria-label="execution lane feature configuration">
@@ -549,6 +601,12 @@ export function ExecutionLaneFeaturePanel() {
             <Button disabled={!canRunWorker} loading={action === "worker"} onClick={onRunWorkerPlan}>
               Run backend worker plan
             </Button>
+            <Button disabled={!canStartPaperSession} loading={action === "start-session"} onClick={onStartPaperSession}>
+              Start Paper Session
+            </Button>
+            <Button danger disabled={!canStopPaperSession} loading={action === "stop-session"} onClick={onStopPaperSession}>
+              Stop / Dispose
+            </Button>
             <Tag color="green">paper sandbox only</Tag>
             <Tag color="gold">backend worker only</Tag>
           </Space>
@@ -588,6 +646,40 @@ export function ExecutionLaneFeaturePanel() {
             title={`Command queued: ${command.command_id}`}
             description="The command is queued for the backend execution-lane worker; the browser still cannot start a venue process or submit orders."
           />
+        ) : null}
+
+
+
+        {session ? (
+          <Card title={`Paper session: ${session.lifecycle_status}`} size="small" aria-label="execution paper session">
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Space orientation="vertical" size={4}>
+                  <Typography.Text>session_id: {session.session_id}</Typography.Text>
+                  <Typography.Text>runner_mode: {session.runner_mode}</Typography.Text>
+                  <Typography.Text>runtime_environment: {session.runtime_environment}</Typography.Text>
+                  <Typography.Text>credential_slot_ref: {session.credential_slot_ref}</Typography.Text>
+                  <Typography.Text>credential keys: {session.credential_env_keys.join(", ")}</Typography.Text>
+                </Space>
+              </Col>
+              <Col xs={24} md={12}>
+                <Space orientation="vertical" size={4}>
+                  <Typography.Text>config: {String(session.tradingnode_config.config_type ?? "TradingNodeConfig")}</Typography.Text>
+                  <Typography.Text>strategy version: {String(session.attached_strategy.strategy_version_id ?? session.strategy_version_id)}</Typography.Text>
+                  <Typography.Text>may submit order: {boolText(session.may_submit_order)}</Typography.Text>
+                  <Typography.Text>browser credentials allowed: {boolText(session.browser_credentials_allowed)}</Typography.Text>
+                </Space>
+              </Col>
+            </Row>
+            <Divider />
+            <Space wrap>
+              {session.lifecycle_events.map((event) => (
+                <Tag key={`${event.status}:${event.timestamp}`} color={event.status === "RUNNING" ? "green" : event.status === "DISPOSED" ? "purple" : "blue"}>
+                  {event.status}
+                </Tag>
+              ))}
+            </Space>
+          </Card>
         ) : null}
 
         {workerReport ? (

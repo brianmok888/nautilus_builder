@@ -2575,3 +2575,46 @@ cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2
 ```
 
 Master status for this segment: closed for safe local/dev credential-slot bootstrap and redacted execution-lane evidence. Remaining work is real operator-managed secret-store integration and venue-specific paper/live node startup after adapter evidence gates, not browser-side credential or order authority.
+
+## Closure progress — 2026-05-27 Paper TradingNode session lifecycle full wire
+
+Closed / improved findings:
+
+- **HIGH: Web UI could not start a paper TradingNode lifecycle.** Added backend session start/get/stop APIs and UI controls that move a queued paper command into `RUNNING` and then `DISPOSED` lifecycle states.
+- **HIGH: Credential slot needed backend-side resolution for paper session startup.** The worker now resolves `credential_slot_ref` from `.env.execution.local` and exposes only `credential_env_keys`, `credential_slot_ref`, and `credential_values_resolved=true`.
+- **HIGH: Paper session needed Nautilus-native config evidence.** The worker builds a Nautilus `TradingNodeConfig` with reconciliation enabled, risk bypass disabled, official Binance config/factory classes where applicable, and no-order promoted strategy lineage attachment.
+- **MEDIUM: UI lacked stop/dispose controls and lifecycle evidence.** The config panel now shows session ID, runner mode, runtime environment, credential slot ref, attached strategy version, lifecycle tags, and a `Stop / Dispose` control.
+- **MEDIUM: FastAPI session routes needed project-scope checks.** Session start/get/stop routes now require bearer auth and reject cross-project access.
+
+Remaining non-claims / risks:
+
+- The default runner is `contract_dry_run`; it proves config/lifecycle wiring without opening venue sockets. Real Python `TradingNode` startup requires operator opt-in with `BUILDER_EXECUTION_LANE_TRADINGNODE_RUNNER=native`.
+- Paper remains sandbox/no-order: `live_trading_enabled=false`, `execution_authority=false`, and `may_submit_order=false`.
+- Live TradingNode/LiveNode authority remains fail-closed behind manual review, risk, DataTester, ExecTester, reconciliation, config checksum, and credential gates.
+- Production secret storage should move from local `.env.execution.local` to an operator-managed secret store.
+
+Verification captured:
+
+```bash
+rtk pytest tests/execution_lane tests/api/test_execution_lane_tradingnode_routes.py tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_routes.py tests/api/test_execution_lane_venue_features.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_session_start_requires_auth_and_project_scope tests/web/test_execution_lane_ui_contract.py tests/web/test_sectioned_operator_ui.py -q
+# 47 passed
+cd apps/web && npm run typecheck && npm test -- --run components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# typecheck passed; 14 passed
+```
+
+### Master reconciliation — Paper TradingNode session lifecycle full wire
+
+Verification gate evidence:
+
+```bash
+git diff --check
+# passed
+python3 -m compileall -q packages services tests
+# passed
+rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/catalog_datasets tests/research_jobs tests/execution_lane tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration tests/workflow_spine tests/auth tests/api tests/infrastructure -q
+# 397 passed
+cd apps/web && npm run typecheck && npm test && npm run build && npm run test:e2e
+# typecheck passed; Vitest 39 passed; Next build passed; Playwright 4 passed
+```
+
+Master status for this segment: closed for UI → backend worker → server-side credential resolution → TradingNodeConfig build → promoted strategy attachment → paper lifecycle start/stop evidence. Remaining work is operator-managed native runner deployment/monitoring and live authority gates, not browser-side execution authority.

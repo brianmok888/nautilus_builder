@@ -2,7 +2,7 @@ from services.api.router import ApiApp
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
-from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload
+from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_session_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload, start_execution_lane_paper_session_payload, stop_execution_lane_session_payload
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
@@ -84,6 +84,9 @@ def create_app(
     app.route("POST", "/api/execution-lane/profiles", lambda payload: register_execution_lane_profile_payload(payload, service=execution_lane_service))
     app.route("POST", "/api/execution-lane/commands", lambda payload: enqueue_execution_lane_command_payload(payload, service=execution_lane_service))
     app.route("POST", "/api/execution-lane/worker/run-once", lambda payload: run_execution_lane_worker_once_payload(payload, service=execution_lane_service))
+    app.route("POST", "/api/execution-lane/sessions/start", lambda payload: start_execution_lane_paper_session_payload(payload, service=execution_lane_service))
+    app.route("GET", "/api/execution-lane/sessions/{session_id}", lambda session_id: execution_lane_session_payload(session_id=session_id, service=execution_lane_service))
+    app.route("POST", "/api/execution-lane/sessions/{session_id}/stop", lambda session_id, payload: stop_execution_lane_session_payload(session_id=session_id, payload=payload, service=execution_lane_service))
     app.route("GET", "/api/strategy-registry/external", list_external_strategy_payloads)
     app.route("POST", "/api/ai-builder/draft", _generate_ai_draft)
     app.route("POST", "/api/ai-builder/apply", apply_ai_draft_payload)

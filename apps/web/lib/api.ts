@@ -15,6 +15,7 @@ import type {
   ExecutionLaneProfile,
   ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
+  ExecutionLaneSession,
   ExecutionLaneStatus,
   InstrumentSummary,
   LlmConfig,
@@ -203,6 +204,37 @@ export async function runExecutionLaneWorkerOnce(payload: {
   worker_id?: string;
 }): Promise<ExecutionLaneReport> {
   return apiFetch<ExecutionLaneReport>("/api/execution-lane/worker/run-once", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+
+export async function startExecutionLanePaperSession(payload: {
+  runtime_profile_id: string;
+  command_id: string;
+  worker_id?: string;
+  project_id?: string;
+}): Promise<ExecutionLaneSession> {
+  return apiFetch<ExecutionLaneSession>("/api/execution-lane/sessions/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchExecutionLaneSession(
+  sessionId: string,
+): Promise<ExecutionLaneSession> {
+  return apiFetch<ExecutionLaneSession>(`/api/execution-lane/sessions/${sessionId}`);
+}
+
+export async function stopExecutionLaneSession(
+  sessionId: string,
+  payload: { worker_id?: string } = {},
+): Promise<ExecutionLaneSession> {
+  return apiFetch<ExecutionLaneSession>(`/api/execution-lane/sessions/${sessionId}/stop`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
