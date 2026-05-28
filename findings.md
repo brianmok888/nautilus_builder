@@ -1,6 +1,6 @@
 # Nautilus Builder Deep Review Findings
 
-**Review date:** 2026-05-28
+**Review date:** 2026-05-28 (updated deep review)
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus` (read-only alignment reference)
 **Review mode:** `$superpowers:code-review` + `$superpowers:nt-review` (primary), with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`.
@@ -30,15 +30,22 @@ python3 -m pytest tests/ -q --tb=line
 - Builder-vs-Daedalus-vs-NautilusTrader boundaries are explicit in `doc/nautilus_builder_hardguards.md`, `doc/nautilus_builder_spec.md`, and `README.md`.
 - Compile artifacts set `execution_authority=False` for both backtest and signal-preview profiles.
 - Promotion payloads set `may_submit_order=False`, `may_create_trade_action=False`.
-- Backtest config rejects explicit live credentials.
+- Backtest config rejects explicit live credentials: `if credentials: raise ValueError`.
 - `execution_lane/credentials.py` uses strict venue-prefixed key validation, owner-only file permissions, and never echoes secrets.
 - `NautilusTradingNodeRuntimePlan` uses `Literal[False]` type guards for browser_credentials, credential_inputs, strategy_lane_coupling.
-- AI builder now routes through `validate_strategy_spec()` and `StrategySpec.model_validate()` (fixed since prior review).
+- AI builder routes through `validate_strategy_spec()` and `StrategySpec.model_validate()` (fixed since prior review).
 - Forbidden-token coverage in `strategy_validation/policy.py` now includes all hardguarded terms: `api_key`, `secret_key`, `credential`, `broker_order`, `exchange_order`, `TradeAction`.
 - 401 tests pass across 20+ test directories.
 - No hardcoded secrets in production code.
 - No blocking calls (`time.sleep`, `requests.get`, etc.) in hot paths.
 - No `submit_order` or `TradeAction` references in builder-side packages (enforced by test suite).
+- `_walk_strings` in `validators.py` recursively checks keys and values for forbidden tokens — correct.
+- `ExecutionLaneProfile` enforces `reconciliation_lookback_mins >= 60` at model level via `Field(ge=60)`.
+- `_SECRET_KEYS` in `execution_lane/models.py` rejects credentials in profiles, commands, and reports recursively.
+- `BacktestRunManifest` uses `Literal[False]` for `credentials_used`, `live_trading_enabled`, `execution_authority`.
+- OpenAI-compatible provider uses `urllib.request` (no third-party HTTP dependency) with configurable timeout.
+- Artifact store uses scoped `artifact://builder/` URIs with checksum validation.
+- `OpenAICompatibleProviderConfig` validates all required fields in `__post_init__`.
 
 ## Findings by severity
 
@@ -48,24 +55,26 @@ None.
 
 ### HIGH (3)
 
-#### HIGH-1 — NautilusTrader pinned at v1.223.0, upstream is at v1.226+
+#### HIGH-1 — NautilusTrader pinned at v1.223.0, upstream at v1.226+
 
 **Evidence**
 
 - `pyproject.toml:7` pins `nautilus_trader==1.223.0`.
+- `packages/backtest_runner/engine_contract.py:3` hardcodes `NAUTILUS_TRADER_VERSION = "1.223.0"`.
 - v1.224+ renamed `fill_limit_at_touch` → `fill_limit_inside_spread`, removed Coinbase IntX adapter, changed `InstrumentProvider` default methods.
 - v1.223.0 changed `trade_execution` default to `True` in `BacktestVenueConfig`.
 - `packages/backtest_runner/config_builder.py` does not explicitly set `trade_execution` in the venue config, relying on defaults.
+- Daedalus reference also pinned at `nautilus_trader==1.223.0`.
 
 **Risk**
 
-When Builder upgrades to v1.224+, any BacktestVenueConfig that assumed the old `trade_execution=False` default will silently switch to bar-only execution. If the runtime plan expects trade execution from the backtest node, this becomes a correctness issue.
+When Builder upgrades to v1.224+, any BacktestVenueConfig that assumed the old `trade_execution=False` default will silently switch to trade execution. If the runtime plan expects observation-only backtests, this becomes a correctness issue.
 
 **Fix**
 
 - Explicitly set `trade_execution=True` (or `False` with documented intent) in `config_builder.py`.
 - Add a NautilusTrader version alignment test that fails on major/minor version drift.
-- Plan a v1.224+ upgrade with explicit migration checklist.
+- Plan a v1.224+ upgrade with explicit migration checklist covering all NT version changes.
 
 #### HIGH-2 — `TestJobRecord` / `TestResultRecord` Pydantic models collide with pytest class collection
 
@@ -73,7 +82,7 @@ When Builder upgrades to v1.224+, any BacktestVenueConfig that assumed the old `
 
 - `packages/workflow_spine/models.py:63` defines `class TestJobRecord(BaseModel)`.
 - `packages/workflow_spine/models.py:82` defines `class TestResultRecord(BaseModel)`.
-- Pytest raises `PytestCollectionWarning` because classes starting with `Test` have `__init__` constructors.
+- Pytest raises `PytestCollectionWarning` (5 warnings total across 4 test files) because classes starting with `Test` have `__init__` constructors.
 
 **Risk**
 
@@ -81,15 +90,18 @@ While currently warnings-only, this can mask real test collection failures or ca
 
 **Fix**
 
-- Rename to `JobRecord` / `ResultRecord` (they are not test classes) or prefix with a non-`Test` name like `WorkflowJobRecord`.
+- Rename to `WorkflowJobRecord` / `WorkflowResultRecord` (they are not test classes).
+- Update all import sites across the codebase.
+- Add a linter rule that flags Pydantic model classes starting with `Test`.
 
 #### HIGH-3 — Legacy fixture ref bypass in promotions service
 
 **Evidence**
 
-- `packages/promotions/service.py:16-20` accepts `allow_legacy_fixture_refs=True` (default).
+- `packages/promotions/service.py:19` accepts `allow_legacy_fixture_refs=True` (default).
 - `services/api/routes/promotions.py:23` passes `allow_legacy_fixture_refs=not strict_evidence`.
 - When `strict_evidence` is not requested (default), legacy unscoped fixture refs pass through promotion validation.
+- The `_validate_evidence` method skips artifact store resolution when `not requires_artifacts`, meaning legacy refs bypass the checksum and binding validation.
 
 **Risk**
 
@@ -103,109 +115,110 @@ Non-strict promotion requests can reference artifacts that lack proper scope lin
 
 ### MEDIUM (7)
 
-#### MEDIUM-1 — `.env.execution.local` contains test credentials in repo root
+#### MEDIUM-1 — Execution lane sessions only support Binance adapter
 
 **Evidence**
 
-- `.env.execution.local` contains `BINANCE_API_KEY=test-binance-key` and `BINANCE_API_SECRET=test-binance-secret`.
-- `.gitignore` excludes `.env.*` but this file is present on disk.
-- The `LocalEnvCredentialSlotStore` writes credentials to this file with `chmod 600`.
+- `packages/execution_lane/sessions.py:383-414` hardcodes `_binance_client_configs()` with Binance-specific imports and config construction.
+- Non-Binance venues fall through to generic `LiveDataClientConfig()` / `LiveExecClientConfig()` without credential wiring (line 387-389).
+- `packages/adapter_registry/` exists but is not wired to the session builder.
 
 **Risk**
 
-While gitignored and chmod-restricted, the file contains plaintext secrets on disk. If the repo root is ever shared or deployed without proper gitignore, secrets leak.
+Adding a new adapter (e.g., Bybit, OKX, or a Daedalus custom adapter) requires modifying `sessions.py` directly. The adapter registry package is disconnected from execution lane resolution.
 
 **Fix**
 
-- Consider storing only SHA-256 fingerprints in the slot ref, not the actual values.
-- Add a `test-binance-key` detection in the credential store that refuses to write obviously-fake test values.
-- Document that `.env.execution.local` is local-dev-only and must not exist in production.
+- Route adapter resolution through `packages/adapter_registry/` with a plugin-style adapter config builder interface.
+- Each registered adapter provides its own client config builder function.
+- Remove the hardcoded Binance branch.
 
-#### MEDIUM-2 — AI builder prompt rejection is case-insensitive but only checks top-level prompt text
+#### MEDIUM-2 — `NativeTradingNodeSessionRunner` blocks caller thread
 
 **Evidence**
 
-- `packages/ai_builder/service.py:_reject_forbidden_prompt()` checks `prompt.lower()` for "submit order", "api_key", etc.
-- The provider response is validated through `validate_strategy_spec()` which does recursive forbidden-reference walking.
-- But the prompt guard itself doesn't recursively check nested prompt structures if the provider accepts structured prompts.
+- `packages/execution_lane/sessions.py:107-146` `NativeTradingNodeSessionRunner.start()` calls `node.run()` and `node.stop()` synchronously.
+- The class itself is guarded behind `BUILDER_EXECUTION_LANE_TRADINGNODE_RUNNER=native` env var.
+- But if used from a FastAPI handler, it would block the event loop.
 
 **Risk**
 
-Low — the downstream validation catches most cases. But the prompt guard should be consistent with the downstream recursive check.
+In the default API server context, if an operator enables the native runner, the entire API server hangs until the TradingNode finishes. This is documented as operator-opt-in but has no runtime guard.
 
 **Fix**
 
-- Keep as-is but document that the prompt guard is a first-pass filter and the recursive `validators.py` is the authoritative enforcement layer.
+- Add explicit guard: if runner is `native` and caller is the API event loop, reject with a clear error.
+- Document that native runner must be used from a worker process, not the API server.
 
-#### MEDIUM-3 — `nautilus_rule_graph/strategy.py` imports full NT Strategy class for placeholder
+#### MEDIUM-3 — `ExecutionLaneService` uses in-memory storage with no persistence
 
 **Evidence**
 
-- `packages/nautilus_rule_graph/strategy.py` imports `nautilus_trader.trading.strategy.Strategy` and creates a concrete subclass.
-- This package is described as "placeholder strategy classes/profiles".
+- `packages/execution_lane/service.py` stores profiles, commands, sessions in `dict` attributes.
+- No disk or database backing. Service restart loses all state.
+- The `workflow_spine/` package has Postgres repository infrastructure but execution lane doesn't use it.
 
 **Risk**
 
-If `nautilus_trader` is not installed (e.g., in a lightweight API-only deployment), importing this module will fail.
+In production, a service restart drops all execution lane state (profiles, running sessions, queued commands). This limits the execution lane to single-process dev/demo use.
 
 **Fix**
 
-- Guard the import behind `try/except ImportError` or use a protocol/class instead of importing the real Strategy.
-- Document that `nautilus_rule_graph` requires `nautilus_trader` to be installed.
+- Wire execution lane persistence to the existing Postgres repository infrastructure.
+- At minimum, serialize critical state to disk for recovery.
 
-#### MEDIUM-4 — `execution_lane/sessions.py` hardcodes Binance as the only adapter
+#### MEDIUM-4 — `NautilusTradingNodeRuntimePlan.config_contract` is untyped `dict[str, Any]`
 
 **Evidence**
 
-- `packages/execution_lane/sessions.py:386-389` imports Binance-specific adapter configs and factories inside the session builder.
-- No adapter registry lookup — Binance is the only supported venue for execution lane sessions.
+- `packages/execution_lane/nautilus_runtime.py:43` defines `config_contract: dict[str, Any]`.
+- The `_config_contract()` helper constructs a well-structured dict but it's not schema-validated.
+- API routes serialize this directly to JSON.
 
 **Risk**
 
-Cannot create paper/live sessions for any venue other than Binance without code changes.
+No compile-time or validation-time guarantee that the config contract structure matches what TradingNode actually expects. Changes to the contract shape won't be caught by tests.
 
 **Fix**
 
-- Route adapter config/factory resolution through `packages/adapter_registry/` instead of direct Binance imports.
-- Make the session builder adapter-agnostic with a factory lookup.
+- Define a Pydantic model for the config contract.
+- Validate at construction time.
+- Add contract tests.
 
-#### MEDIUM-5 — No DataTester/ExecTester evidence requirement in backtest runner
+#### MEDIUM-5 — No rate limiting on AI builder draft endpoint
 
 **Evidence**
 
-- `packages/backtest_runner/` has smoke tests and catalog replay, but no DataTesterConfig or ExecTesterConfig integration.
-- The execution lane requires `data_tester_evidence_ref`, `exec_tester_evidence_ref`, and `reconciliation_evidence_ref` in the profile — but there's no code that actually produces or validates these references.
+- `services/api/app.py` registers `POST /api/ai-builder/draft` with no rate limiting middleware.
+- `OpenAICompatibleDraftProvider` makes outbound HTTP calls to operator-configured LLM endpoints.
+- No authentication or rate limiting on the draft generation route.
 
 **Risk**
 
-The execution lane correctly gates on these evidence refs being non-blank, but nothing in the Builder repo actually runs or validates real DataTester/ExecTester evidence. The refs would need to come from an external source or the Daedalus repo.
+Unauthenticated users could flood the draft endpoint, causing excessive LLM API costs or denial of service.
 
 **Fix**
 
-- Document that DataTester/ExecTester evidence production is out of scope for Builder (belongs in Daedalus or the adapter's own test suite).
-- Consider adding a stub/mock evidence generator for end-to-end integration testing.
+- Add rate limiting middleware to AI builder routes.
+- Require authentication for draft generation.
+- Add cost tracking/logging for LLM API calls.
 
-#### MEDIUM-6 — No explicit `reconciliation_lookback_mins` minimum enforcement in config contract
+#### MEDIUM-6 — `reconciliation_lookback_mins` clamping discrepancy resolved
 
-**Evidence**
+**Evidence (updated)**
 
-- `packages/execution_lane/nautilus_runtime.py:_config_contract()` uses `max(60, profile.reconciliation_lookback_mins)` for the config contract, which is correct.
-- But `packages/execution_lane/models.py` may accept `reconciliation_lookback_mins` values below 60 at the Pydantic model level.
+- `ExecutionLaneProfile.reconciliation_lookback_mins` now uses `Field(default=60, ge=60)` — enforced at model level.
+- The runtime plan's `open_check_lookback_mins` and `position_check_lookback_mins` are clamped via `max(60, profile.reconciliation_lookback_mins)`.
+- The discrepancy from prior review is now resolved.
 
-**Risk**
-
-A profile with `reconciliation_lookback_mins=10` would be accepted by the model but clamped to 60 by the config builder. The discrepancy is handled but not surfaced to the operator.
-
-**Fix**
-
-- Add a Pydantic validator that enforces `reconciliation_lookback_mins >= 60` at the model level with a clear error message.
+**Status: RESOLVED**
 
 #### MEDIUM-7 — Frontend E2E tests depend on Playwright browser installation
 
 **Evidence**
 
 - `apps/web/e2e/builder-shell.spec.ts` requires Chromium installed via `npx playwright install chromium`.
-- The current environment doesn't have browsers installed, so E2E tests were skipped in prior reviews.
+- Current environment doesn't have browsers installed, so E2E tests were skipped.
 - Python-side web contract tests (49 tests in `tests/web/`) compensate but don't test real browser rendering.
 
 **Risk**
@@ -240,16 +253,15 @@ CSS/rendering regressions and AntD v6 style issues won't be caught until browser
 
 - Document the alias and add a deprecation timeline.
 
-#### LOW-3 — `runtime_label` in `NautilusTradingNodeRuntimePlan` is hardcoded string
+#### LOW-3 — `runtime_label` in `NautilusTradingNodeRuntimePlan` is verbose
 
 **Evidence**
 
 - `packages/execution_lane/nautilus_runtime.py:31` uses `Literal["python_live_integration_specific"]`.
-- The value is an informational label, not a runtime switch, but the naming is verbose.
 
 **Fix**
 
-- Consider shortening to `"python_integration"` or documenting why the full label is needed.
+- Consider shortening to `"python_integration"` or documenting why the full label is needed. Low priority.
 
 #### LOW-4 — No typed error hierarchy for builder service errors
 
@@ -276,30 +288,40 @@ CSS/rendering regressions and AntD v6 style issues won't be caught until browser
 
 ### WATCH-1 — NautilusTrader version pin creates upgrade friction
 
-- The pinned `nautilus_trader==1.223.0` is 3 minor versions behind the latest v1.226.
+- The pinned `nautilus_trader==1.223.0` is 3+ minor versions behind the latest.
 - Builder should plan an explicit upgrade with a migration checklist that covers: `BacktestVenueConfig.trade_execution`, adapter config API changes, `InstrumentProvider` method changes.
 - The reference Daedalus repo is also pinned at v1.223.0, so both repos should upgrade in lockstep.
 
-### WATCH-2 — Execution lane couples Builder to a specific adapter (Binance)
+### WATCH-2 — Execution lane couples Builder to Binance adapter
 
-- The current session builder only knows about Binance. As the adapter registry grows, this will need generalization.
+- The current session builder only fully supports Binance. Non-Binance venues get generic configs without credential wiring.
 - The adapter registry package exists but isn't wired to the execution lane session builder.
+- As the adapter registry grows, this will need generalization.
 
 ### WATCH-3 — DataTester/ExecTester evidence is architecturally external
 
 - Builder correctly gates on evidence refs but doesn't produce them.
 - This is by design (Builder is authoring, not testing), but the boundary should be explicit in docs.
 
+### WATCH-4 — OpenAI-compatible provider uses `urllib.request.urlopen` without certificate pinning
+
+- `packages/ai_builder/provider.py:246` uses `urllib.request.urlopen` for LLM endpoint calls.
+- No custom SSL context or certificate pinning.
+- The `# noqa: S310` suppression acknowledges this.
+- For operator-configured endpoints, this is acceptable but should be documented.
+
 ## Legacy / Deprecation Inventory
 
-| Item | Location | Status | Action |
-|---|---|---|---|
-| Legacy compile hash | `services/api/routes/backtest_jobs.py:268` | Active backward-compat | Document + deprecation timeline |
-| Legacy fixture refs | `packages/promotions/service.py:16` | Active with `allow_legacy_fixture_refs=True` default | Flip default to `False` |
-| Legacy storage schema alias | `packages/workflow_spine/storage_config.py` | Accepted without `shadow_field` | Document + deprecation timeline |
-| `TestJobRecord` naming | `packages/workflow_spine/models.py:63` | Causes pytest warnings | Rename |
-| `TestResultRecord` naming | `packages/workflow_spine/models.py:82` | Causes pytest warnings | Rename |
-| NautilusTrader v1.223.0 pin | `pyproject.toml:7` | 3 versions behind | Plan upgrade |
+| Item | Location | Status | Action | Priority |
+|---|---|---|---|---|
+| Legacy compile hash | `services/api/routes/backtest_jobs.py:268` | Active backward-compat | Document + deprecation timeline | LOW |
+| Legacy fixture refs | `packages/promotions/service.py:19` | Active with `allow_legacy_fixture_refs=True` default | **Flip default to `False`** | HIGH |
+| Legacy storage schema alias | `packages/workflow_spine/storage_config.py` | Accepted without `shadow_field` | Document + deprecation timeline | LOW |
+| `TestJobRecord` naming | `packages/workflow_spine/models.py:63` | Causes pytest warnings | **Rename to `WorkflowJobRecord`** | HIGH |
+| `TestResultRecord` naming | `packages/workflow_spine/models.py:82` | Causes pytest warnings | **Rename to `WorkflowResultRecord`** | HIGH |
+| NautilusTrader v1.223.0 pin | `pyproject.toml:7`, `engine_contract.py:3` | 3+ versions behind | Plan upgrade | HIGH |
+| `PAPER_STRATEGY_PATH` string | `sessions.py:15` | Hardcoded module path | Extract to config | LOW |
+| `_DEFAULT_ENV_FILE` constant | `credentials.py:24` | Hardcoded `.env.execution.local` | Acceptable for current scope | INFO |
 
 ## Synthesis
 

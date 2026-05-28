@@ -80,8 +80,9 @@ Add at least one contract test that proves UI-submitted payloads succeed against
 - `NautilusTradingNodeRuntimePlan` must keep: `browser_credentials_allowed=Literal[False]`, `credential_inputs_allowed=Literal[False]`, `strategy_lane_coupled=Literal[False]`.
 - Credential slots must use venue-prefixed env keys only. No bare `API_KEY` or `SECRET` keys.
 - `.env.execution.local` is gitignored and local-dev-only. Do not deploy with real credentials in this file.
-- `reconciliation_lookback_mins` must be >= 60 at the model level, not just clamped in the config builder.
+- `reconciliation_lookback_mins` must be >= 60 at the model level (enforced: `Field(ge=60)`).
 - Adapter resolution should be routed through `packages/adapter_registry/`, not hardcoded to Binance.
+- Native runner must not be used from the API event loop — worker process only.
 
 ## 8. Promotion guard
 
@@ -151,9 +152,28 @@ Builder gates on evidence refs but does not produce DataTester/ExecTester eviden
 - Builder's execution lane correctly requires these refs to be non-blank before allowing commands.
 - Document this boundary explicitly in architecture docs.
 
+## 14. AI provider guard
+
+- OpenAI-compatible provider uses `urllib.request` with configurable timeout — no third-party HTTP dependency.
+- Provider endpoint is operator-configured via env vars (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`).
+- Never derive endpoint URL from model output.
+- Always validate LLM output through `validate_strategy_spec()` before acceptance.
+- No certificate pinning currently — acceptable for operator-configured endpoints but should be documented.
+
+## 15. Security scan guard
+
+Confirmed clean:
+
+- No hardcoded secrets in production code.
+- No blocking I/O in hot paths.
+- No `submit_order`, `TradeAction`, `close_position` in builder-side code.
+- No `eval()`, `exec()`, `subprocess`, `os.system`, `time.sleep` in production code.
+- Credential keys are venue-prefixed and forbidden-key-filtered.
+- Artifact URIs are path-traversal-safe.
+
 ## Catalog-backed replay reconciliation guard
 
 - `catalog_backed_replay_smoke` must remain runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
-- synthetic historical quote ticks must exercise the full BacktestNode pipeline.
+- Synthetic historical quote ticks must exercise the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
