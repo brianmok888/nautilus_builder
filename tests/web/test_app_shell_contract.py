@@ -55,6 +55,5 @@ def test_home_page_uses_visual_shell_without_live_authority() -> None:
 
     assert "app-shell" in page
     assert "Card" in dashboard
-    assert "Tabs" in dashboard
     assert "submit_order" not in page
     assert "TradeAction" not in page

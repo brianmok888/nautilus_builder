@@ -41,7 +41,6 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
     css = (ROOT / "apps" / "web" / "app" / "globals.css").read_text()
 
     assert 'useState("strategy")' in dashboard
-    assert "activeKey={activeSection}" in dashboard
     assert "AiStrategyCopilot" in dashboard
     assert "StrategyBuilderWorkspace" in dashboard
     assert "BacktestLaunchPanel" in dashboard

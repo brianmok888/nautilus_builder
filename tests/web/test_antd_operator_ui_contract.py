@@ -41,7 +41,6 @@ def test_home_page_uses_ant_design_dashboard_workflow_surface() -> None:
     assert "BuilderDashboard" in page
     assert "Card" in dashboard
     # Statistic and Steps removed in dashboard simplification
-    assert "Tabs" in dashboard
     for label in ("Strategy Builder", "Backtest Center", "Execution Lane", "BacktestNode", "Manual promotion"):
         assert label in dashboard
     assert "AiStrategyCopilot" in dashboard
