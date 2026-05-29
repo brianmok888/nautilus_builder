@@ -52,8 +52,21 @@ def create_fastapi_app(
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
+
+    # Postgres: when BUILDER_DATABASE_URL is set, use real persistence
     import os
-    if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+    _pg_dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
+    _pg_conn = None
+    if _pg_dsn:
+        from packages.postgres import connect, apply_migrations, PostgresStrategyRepository, seed_default_market_data
+        _pg_conn = connect(_pg_dsn)
+        apply_migrations(_pg_conn)
+        strategy_repository = PostgresStrategyRepository(_pg_conn)
+        seed_default_market_data(_pg_conn)
+        if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+            from packages.strategy_spec.demo_seed import seed_demo_strategies
+            seed_demo_strategies(strategy_repository)
+    elif os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
         seed_demo_strategies(strategy_repository)
     backtest_job_service = backtest_job_service or BacktestJobService()
     auth_token_service = auth_token_service or AuthTokenService()
@@ -357,6 +370,26 @@ def create_fastapi_app(
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(create_strategy_version_payload(strategy_repository, strategy_id, payload, context=context), JSONResponse)
+
+    @app.post("/api/strategies/{strategy_id}/approve")
+    def approve_strategy(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        result = strategy_repository.approve_strategy(strategy_id)
+        if result is None:
+            return _fastapi_response(ApiResponse({"error": "strategy_not_found_or_not_promotable", "strategy_id": strategy_id}, status_code=422), JSONResponse)
+        return _fastapi_response(ApiResponse(result), JSONResponse)
+
+    @app.post("/api/strategies/{strategy_id}/clone")
+    def clone_strategy(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        result = strategy_repository.clone_strategy(strategy_id)
+        if result is None:
+            return _fastapi_response(ApiResponse({"error": "strategy_not_found", "strategy_id": strategy_id}, status_code=404), JSONResponse)
+        return _fastapi_response(ApiResponse(result, status_code=201), JSONResponse)
 
     @app.post("/api/ai-builder/draft")
     def ai_builder_draft(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
