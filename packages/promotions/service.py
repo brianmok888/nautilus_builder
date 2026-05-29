@@ -13,7 +13,7 @@ class PromotionService:
         *,
         artifact_store: LocalJsonArtifactStore | None = None,
         context: UserProjectContext | None = None,
-        allow_legacy_fixture_refs: bool = True,
+        allow_legacy_fixture_refs: bool = False,
     ) -> None:
         self.artifact_store = artifact_store
         self.context = context

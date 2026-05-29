@@ -5,8 +5,8 @@ from packages.workflow_spine.models import (
     AiSuggestionRecord,
     StrategyIdentity,
     StrategyVersionIdentity,
-    TestJobRecord,
-    TestResultRecord,
+    WorkflowJobRecord,
+    WorkflowResultRecord,
 )
 
 
@@ -14,8 +14,8 @@ class InMemoryWorkflowRepository:
     def __init__(self) -> None:
         self._strategies: dict[str, StrategyIdentity] = {}
         self._versions: dict[str, StrategyVersionIdentity] = {}
-        self._jobs: dict[str, TestJobRecord] = {}
-        self._results: dict[str, TestResultRecord] = {}
+        self._jobs: dict[str, WorkflowJobRecord] = {}
+        self._results: dict[str, WorkflowResultRecord] = {}
         self._suggestions: dict[str, AiSuggestionRecord] = {}
 
     def save_strategy(self, strategy: StrategyIdentity) -> None:
@@ -24,7 +24,7 @@ class InMemoryWorkflowRepository:
     def save_version(self, version: StrategyVersionIdentity) -> None:
         self._versions[version.strategy_version_id] = version
 
-    def save_job(self, job: TestJobRecord) -> None:
+    def save_job(self, job: WorkflowJobRecord) -> None:
         self._jobs[job.test_job_id] = job
 
     def strategy(self, strategy_id: str) -> StrategyIdentity | None:
@@ -33,10 +33,10 @@ class InMemoryWorkflowRepository:
     def version(self, strategy_version_id: str) -> StrategyVersionIdentity | None:
         return self._versions.get(strategy_version_id)
 
-    def job(self, test_job_id: str) -> TestJobRecord | None:
+    def job(self, test_job_id: str) -> WorkflowJobRecord | None:
         return self._jobs.get(test_job_id)
 
-    def save_result(self, result: TestResultRecord) -> None:
+    def save_result(self, result: WorkflowResultRecord) -> None:
         self._results[result.result_id] = result
 
     def result(
@@ -44,13 +44,13 @@ class InMemoryWorkflowRepository:
         result_id: str,
         *,
         context: UserProjectContext | None = None,
-    ) -> TestResultRecord | None:
+    ) -> WorkflowResultRecord | None:
         result = self._results.get(result_id)
         if result is not None and context is not None and result.project_id != context.project_id:
             raise ProjectScopeError(f"result {result_id} is outside project scope")
         return result
 
-    def result_for_job(self, test_job_id: str) -> TestResultRecord | None:
+    def result_for_job(self, test_job_id: str) -> WorkflowResultRecord | None:
         for result in self._results.values():
             if result.test_job_id == test_job_id:
                 return result

@@ -8,8 +8,8 @@ from packages.workflow_spine.models import (
     StrategyTestParams,
     StrategyTestWorkflowOutcome,
     StrategyVersionIdentity,
-    TestJobRecord,
-    TestResultRecord,
+    WorkflowJobRecord,
+    WorkflowResultRecord,
     WorkflowEvent,
 )
 from packages.workflow_spine.storage_interfaces import WorkflowRepositoryProtocol, WorkflowStreamProtocol
@@ -57,7 +57,7 @@ class StrategyTestWorkflowService:
             start=start,
             end=end,
         )
-        job = TestJobRecord(
+        job = WorkflowJobRecord(
             test_job_id=f"job_{seq:03d}",
             project_id=project_id,
             strategy_version_id=version.strategy_version_id,
@@ -104,11 +104,11 @@ class StrategyTestWorkflowService:
         result_id: str,
         metrics: dict[str, float],
         artifact_refs: dict[str, str],
-    ) -> TestResultRecord:
+    ) -> WorkflowResultRecord:
         job = self._repository.job(test_job_id)
         if job is None:
             raise ValueError(f"unknown test job: {test_job_id}")
-        result = TestResultRecord(
+        result = WorkflowResultRecord(
             result_id=result_id,
             test_job_id=test_job_id,
             project_id=job.project_id,

@@ -282,7 +282,7 @@ def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch)
 
 def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch) -> None:
     from packages.auth import AuthTokenService
-    from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, TestResultRecord
+    from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, WorkflowResultRecord
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
@@ -292,7 +292,7 @@ def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch
 
     repository = InMemoryWorkflowRepository()
     repository.save_result(
-        TestResultRecord(
+        WorkflowResultRecord(
             result_id="res_alpha",
             test_job_id="job_alpha",
             project_id="project_alpha",

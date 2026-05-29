@@ -60,7 +60,7 @@ class StrategyTestParams(BaseModel):
     end: str = Field(min_length=1)
 
 
-class TestJobRecord(BaseModel):
+class WorkflowJobRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     test_job_id: str = Field(min_length=1)
@@ -76,10 +76,10 @@ class StrategyTestWorkflowOutcome(BaseModel):
 
     strategy: StrategyIdentity
     version: StrategyVersionIdentity
-    job: TestJobRecord
+    job: WorkflowJobRecord
 
 
-class TestResultRecord(BaseModel):
+class WorkflowResultRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     result_id: str = Field(min_length=1)

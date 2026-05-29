@@ -1,9 +1,9 @@
-from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, TestResultRecord
+from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, WorkflowResultRecord
 
 
 def test_repository_stores_results_by_result_and_job_id() -> None:
     repository = InMemoryWorkflowRepository()
-    result = TestResultRecord(
+    result = WorkflowResultRecord(
         result_id="res_001",
         test_job_id="job_001",
         project_id="project_001",

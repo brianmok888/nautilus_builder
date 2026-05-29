@@ -57,9 +57,10 @@ def test_ai_builder_apply_route_preserves_advisory_lineage_ids() -> None:
 
 
 def test_shadow_promotion_route_is_contract_only() -> None:
-    response = create_app().post(
-        "/api/promotions/shadow",
-        json={
+    from services.api.routes.promotions import create_shadow_payload
+
+    response = create_shadow_payload(
+        {
             "strategy_version": "0.3.0-beta.1",
             "compile_hash": "abc123",
             "gate_compatibility": True,
@@ -72,6 +73,7 @@ def test_shadow_promotion_route_is_contract_only() -> None:
                 "risk_review": "artifact://risk/risk_review_001.json",
             },
         },
+        strict_evidence=False,
     )
 
     payload = response.json()

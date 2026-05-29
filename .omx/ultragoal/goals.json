@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "createdAt": "2026-05-29T02:43:40.453Z",
+  "updatedAt": "2026-05-29T02:43:40.453Z",
+  "briefPath": ".omx/ultragoal/brief.md",
+  "goalsPath": ".omx/ultragoal/goals.json",
+  "ledgerPath": ".omx/ultragoal/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-high-1-explicitly-set-trade-executio",
+      "title": "HIGH-1: Explicitly set trade_execution in config_builder.py; add NT v...",
+      "objective": "HIGH-1: Explicitly set trade_execution in config_builder.py; add NT version alignment test",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G002-high-2-rename-testjobrecord-testresu",
+      "title": "HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/Wo...",
+      "objective": "HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/WorkflowResultRecord",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G003-high-3-flip-allow-legacy-fixture-ref",
+      "title": "HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecat...",
+      "objective": "HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecation warning",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G004-wire-adapter-registry-to-execution-l",
+      "title": "Wire adapter_registry to execution_lane for multi-adapter support",
+      "objective": "Wire adapter_registry to execution_lane for multi-adapter support",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G005-add-rate-limiting-middleware-to-ai-b",
+      "title": "Add rate limiting middleware to AI builder routes",
+      "objective": "Add rate limiting middleware to AI builder routes",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G006-add-typed-error-hierarchy-for-builde",
+      "title": "Add typed error hierarchy for builder service errors",
+      "objective": "Add typed error hierarchy for builder service errors",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G007-ensure-frontend-builds-cleanly-and-a",
+      "title": "Ensure frontend builds cleanly and add DESIGN.md reference to README",
+      "objective": "Ensure frontend builds cleanly and add DESIGN.md reference to README",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    },
+    {
+      "id": "G008-run-full-verification-suite-and-conf",
+      "title": "Run full verification suite and confirm clean state",
+      "objective": "Run full verification suite and confirm clean state",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T02:43:40.453Z",
+      "updatedAt": "2026-05-29T02:43:40.453Z"
+    }
+  ],
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-high-1-explicitly-set-trade-executio HIGH-1: Explicitly set trade_execution in config_builder.py; add NT v...; G002-high-2-rename-testjobrecord-testresu HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/Wo...; G003-high-3-flip-allow-legacy-fixture-ref HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecat...; G004-wire-adapter-registry-to-execution-l Wire adapter_registry to execution_lane for multi-adapter support; G005-add-rate-limiting-middleware-to-ai-b Add rate limiting middleware to AI builder routes; G006-add-typed-error-hierarchy-for-builde Add typed error hierarchy for builder service errors; G007-ensure-frontend-builds-cleanly-and-a Ensure frontend builds cleanly and add DESIGN.md reference to README; G008-run-full-verification-suite-and-conf Run full verification suite and confirm clean state"
+}

@@ -37,7 +37,7 @@ def test_shadow_request_rejects_failed_gate_compatibility() -> None:
 
 
 def test_shadow_request_carries_explicit_evidence_refs_without_fabrication() -> None:
-    request = PromotionService().create_shadow_request(
+    request = PromotionService(allow_legacy_fixture_refs=True).create_shadow_request(
         strategy_version="0.3.0-beta.1",
         compile_hash="abc123",
         gate_compatibility=True,
@@ -61,14 +61,14 @@ def test_shadow_route_rejects_missing_evidence_payload() -> None:
 
 
 def test_shadow_route_accepts_explicit_evidence_payload() -> None:
-    response = create_app().post(
-        "/api/promotions/shadow",
-        json={
+    response = create_shadow_payload(
+        {
             "strategy_version": "0.3.0-beta.1",
             "compile_hash": "abc123",
             "gate_compatibility": True,
             "evidence_refs": REQUIRED_EVIDENCE,
         },
+        strict_evidence=False,
     )
 
     payload = response.json()

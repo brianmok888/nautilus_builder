@@ -108,4 +108,9 @@ def create_app(
 
 
 def _generate_ai_draft(payload: dict[str, object]) -> dict[str, object]:
+    from packages.ai_builder.rate_limiter import DEFAULT_AI_BUILDER_RATE_LIMITER
+
+    if not DEFAULT_AI_BUILDER_RATE_LIMITER.allow("ai_builder_draft"):
+        from services.api.router import ApiResponse
+        return ApiResponse({"error": "rate_limit_exceeded", "details": "AI draft generation rate limit exceeded. Try again later."}, status_code=429)
     return generate_ai_draft_payload(str(payload.get("prompt", "")))

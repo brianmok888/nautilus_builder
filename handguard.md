@@ -177,3 +177,8 @@ Confirmed clean:
 - Synthetic historical quote ticks must exercise the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
+
+### Master reconciliation — catalog-backed Nautilus replay
+
+- `catalog_backed_replay_smoke` validates BacktestNode catalog replay using synthetic historical quote ticks.
+- This is a wiring and data-flow check — not full trading-production readiness.

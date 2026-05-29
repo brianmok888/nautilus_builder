@@ -1,4 +1,4 @@
-from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, TestResultRecord
+from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowRepository, WorkflowResultRecord
 from services.api.app import create_app
 
 
@@ -29,7 +29,7 @@ def test_result_dashboard_payload_includes_report_summary_for_rich_ui() -> None:
 def _repository_with_result_and_suggestion() -> InMemoryWorkflowRepository:
     repository = InMemoryWorkflowRepository()
     repository.save_result(
-        TestResultRecord(
+        WorkflowResultRecord(
             result_id="res_001",
             test_job_id="job_001",
             project_id="project_001",

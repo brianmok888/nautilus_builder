@@ -8,8 +8,8 @@ from packages.workflow_spine.models import (
     AiSuggestionRecord,
     StrategyIdentity,
     StrategyVersionIdentity,
-    TestJobRecord,
-    TestResultRecord,
+    WorkflowJobRecord,
+    WorkflowResultRecord,
 )
 
 
@@ -90,7 +90,7 @@ class SqliteWorkflowRepository:
         )
         self._connection.commit()
 
-    def save_job(self, job: TestJobRecord) -> None:
+    def save_job(self, job: WorkflowJobRecord) -> None:
         self._connection.execute(
             f"""
             insert or replace into {_table(self._schema, "test_jobs")}
@@ -101,7 +101,7 @@ class SqliteWorkflowRepository:
         )
         self._connection.commit()
 
-    def save_result(self, result: TestResultRecord) -> None:
+    def save_result(self, result: WorkflowResultRecord) -> None:
         self._connection.execute(
             f"""
             insert or replace into {_table(self._schema, "test_results")}
@@ -137,13 +137,13 @@ class SqliteWorkflowRepository:
         payload = self._fetch_payload("strategy_versions", "strategy_version_id", strategy_version_id)
         return StrategyVersionIdentity(**payload) if payload else None
 
-    def job(self, test_job_id: str) -> TestJobRecord | None:
+    def job(self, test_job_id: str) -> WorkflowJobRecord | None:
         payload = self._fetch_payload("test_jobs", "test_job_id", test_job_id)
-        return TestJobRecord(**payload) if payload else None
+        return WorkflowJobRecord(**payload) if payload else None
 
-    def result(self, result_id: str) -> TestResultRecord | None:
+    def result(self, result_id: str) -> WorkflowResultRecord | None:
         payload = self._fetch_payload("test_results", "result_id", result_id)
-        return TestResultRecord(**payload) if payload else None
+        return WorkflowResultRecord(**payload) if payload else None
 
     def suggestions_for_lineage(self, strategy_lineage_id: str) -> list[AiSuggestionRecord]:
         return self._fetch_suggestions("strategy_lineage_id", strategy_lineage_id)

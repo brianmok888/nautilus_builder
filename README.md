@@ -19,6 +19,11 @@ This repository is intentionally **Builder-only**:
 - `apps/web/components/` — interactive/operator MVP TSX components that still do not own runtime authority
 - `pyproject.toml` / `uv.lock` — Python package/dependency manifest and lockfile, including the Daedalus-matched NautilusTrader pin
 
+## Architecture & Design
+
+- `DESIGN.md` — UI design source of truth covering the three primary sections (Strategy Builder, Backtest Center, Execution Lane), layout conventions, and component patterns.
+- `structure.md` / `findings.md` / `handguard.md` — deep review artifacts covering repo shape, review findings, and operational guardrails.
+
 ## What exists today
 
 Implemented seam packages currently cover:

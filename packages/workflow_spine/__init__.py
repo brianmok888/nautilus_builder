@@ -5,8 +5,8 @@ from packages.workflow_spine.models import (
     StrategyTestParams,
     StrategyTestWorkflowOutcome,
     StrategyVersionIdentity,
-    TestJobRecord,
-    TestResultRecord,
+    WorkflowJobRecord,
+    WorkflowResultRecord,
     WorkflowEvent,
 )
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
@@ -40,8 +40,8 @@ __all__ = [
     "StrategyTestParams",
     "StrategyTestWorkflowOutcome",
     "StrategyTestWorkflowService",
-    "TestJobRecord",
-    "TestResultRecord",
+    "WorkflowJobRecord",
+    "WorkflowResultRecord",
     "FakePostgresWorkflowRepository",
     "FakeRedisWorkflowStream",
     "WorkflowRepositoryProtocol",

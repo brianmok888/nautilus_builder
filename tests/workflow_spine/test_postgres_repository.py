@@ -9,8 +9,8 @@ from packages.workflow_spine import (
     StrategyIdentity,
     StrategyTestParams,
     StrategyVersionIdentity,
-    TestJobRecord,
-    TestResultRecord,
+    WorkflowJobRecord,
+    WorkflowResultRecord,
     workflow_schema_statements,
 )
 
@@ -44,7 +44,7 @@ def test_postgres_workflow_repository_persists_records_across_instances() -> Non
         ai_thread_id="ai_thread_001",
         improvement_cycle_id="cycle_001",
     )
-    job = TestJobRecord(
+    job = WorkflowJobRecord(
         test_job_id="job_001",
         project_id="project_001",
         strategy_version_id="sv_001",
@@ -59,7 +59,7 @@ def test_postgres_workflow_repository_persists_records_across_instances() -> Non
             end="2025-01-31",
         ),
     )
-    result = TestResultRecord(
+    result = WorkflowResultRecord(
         result_id="res_001",
         test_job_id="job_001",
         project_id="project_001",

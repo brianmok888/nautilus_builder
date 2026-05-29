@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from packages.workflow_spine.models import TestResultRecord
+from packages.workflow_spine.models import WorkflowResultRecord
 
 
-def result_dashboard_payload(result: TestResultRecord) -> dict[str, object]:
+def result_dashboard_payload(result: WorkflowResultRecord) -> dict[str, object]:
     return {
         "mode": "observational",
         "result_id": result.result_id,

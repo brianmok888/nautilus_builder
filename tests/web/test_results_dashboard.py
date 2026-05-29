@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from packages.ui_contracts.results_dashboard import result_dashboard_payload
-from packages.workflow_spine import TestResultRecord
+from packages.workflow_spine import WorkflowResultRecord
 
 
 def test_results_dashboard_displays_metrics_and_artifacts_as_observational_data() -> None:
-    result = TestResultRecord(
+    result = WorkflowResultRecord(
         result_id="res_001",
         test_job_id="job_001",
         project_id="project_001",

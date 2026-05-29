@@ -28,4 +28,5 @@ def build_backtest_config(
         "nautilus_trader_version": NAUTILUS_TRADER_VERSION,
         "live_trading_enabled": False,
         "execution_authority": False,
+        "trade_execution": False,
     }
