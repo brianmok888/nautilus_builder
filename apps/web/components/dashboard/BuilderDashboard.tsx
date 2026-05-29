@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CodeOutlined,
   ExperimentOutlined,
   PlayCircleOutlined,
 } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
 import { Button, Card, Row, Col, Space, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
@@ -45,6 +46,19 @@ const steps = [
 export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: string }) {
   const [activeSection, setActiveSection] = useState(initialTab);
 
+  const router = useRouter();
+
+  // Sync with URL when sidebar Link navigation changes the tab param
+  useEffect(() => {
+    setActiveSection(initialTab);
+  }, [initialTab]);
+
+  function switchTab(key: string) {
+    setActiveSection(key);
+    const params = key === "strategy" ? "" : `?tab=${key}`;
+    router.replace(params || "/", { scroll: false });
+  }
+
   return (
     <div className="builder-dashboard">
       {/* 1-2-3 flow buttons */}
@@ -56,7 +70,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
               key={step.key}
               type={active ? "primary" : "default"}
               size="large"
-              onClick={() => setActiveSection(step.key)}
+              onClick={() => switchTab(step.key)}
               style={{
                 flex: 1,
                 height: "auto",

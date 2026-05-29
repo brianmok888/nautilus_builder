@@ -14,47 +14,48 @@ import {
   SettingOutlined,
 } from "@ant-design/icons";
 import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, type ReactNode } from "react";
 
 const navigationItems = [
   {
     key: "/",
     icon: <RobotOutlined />,
-    label: <a href="/">Strategy Builder</a>,
+    label: <Link href="/">Strategy Builder</Link>,
   },
   {
     key: "/?tab=backtest",
     icon: <ExperimentOutlined />,
-    label: <a href="/?tab=backtest">Backtest Center</a>,
+    label: <Link href="/?tab=backtest">Backtest Center</Link>,
   },
   {
     key: "/?tab=execution",
     icon: <PlayCircleOutlined />,
-    label: <a href="/?tab=execution">Execution Lane</a>,
+    label: <Link href="/?tab=execution">Execution Lane</Link>,
   },
   {
     key: "/config",
     icon: <SettingOutlined />,
-    label: <a href="/config">Config</a>,
+    label: <Link href="/config">Config</Link>,
   },
   {
     key: "/strategies",
     icon: <FileTextOutlined />,
-    label: <a href="/strategies">Strategy records</a>,
+    label: <Link href="/strategies">Strategy records</Link>,
   },
   {
     key: "/results/res_001",
     icon: <BarChartOutlined />,
-    label: <a href="/results/res_001">Results / Reports</a>,
+    label: <Link href="/results/res_001">Results / Reports</Link>,
   },
 ];
 
-function selectedNavigationKey(pathname: string, search: string) {
+function selectedNavigationKey(pathname: string, tab: string | null) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
-  if (pathname === "/" && search.includes("tab=backtest")) return "/?tab=backtest";
-  if (pathname === "/" && search.includes("tab=execution")) return "/?tab=execution";
+  if (pathname === "/" && tab === "backtest") return "/?tab=backtest";
+  if (pathname === "/" && tab === "execution") return "/?tab=execution";
   if (pathname.startsWith("/results")) return "/results/res_001";
   return "/";
 }
@@ -66,9 +67,11 @@ function HealthIndicator() {
   return <Tag color={color}>{label}{health.latencyMs != null ? ` (${health.latencyMs}ms)` : ""}</Tag>;
 }
 
-export function OperatorAppShell({ children }: { children: ReactNode }) {
+function ShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = selectedNavigationKey(pathname, typeof window !== 'undefined' ? window.location.search : '');
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab");
+  const selectedKey = selectedNavigationKey(pathname, tab);
 
   return (
     <ConfigProvider
@@ -142,5 +145,13 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
         </Layout>
       </Layout>
     </ConfigProvider>
+  );
+}
+
+export function OperatorAppShell({ children }: { children: ReactNode }) {
+  return (
+    <Suspense>
+      <ShellContent>{children}</ShellContent>
+    </Suspense>
   );
 }
