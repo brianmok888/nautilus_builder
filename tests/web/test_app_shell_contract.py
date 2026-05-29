@@ -31,7 +31,7 @@ def test_next_app_shell_mounts_ant_design_operator_shell_without_runtime_authori
     assert "StrategyBuilderWorkspace" in dashboard
     assert "JobTerminal" in dashboard
     assert "AiStrategyCopilot" in dashboard
-    assert "Advisory-only" in shell
+    assert "Builder-only" in shell
     assert "No live order authority" in shell
     assert "submit_order" not in page
     assert "TradeAction" not in page

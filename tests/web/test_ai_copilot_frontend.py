@@ -44,6 +44,5 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
     assert "StrategyBuilderWorkspace" in dashboard
     assert "BacktestLaunchPanel" in dashboard
     assert "ExecutionLaneFeaturePanel" in dashboard
-    assert "Nautilus Builder" in dashboard
     assert 'componentSize="small"' in (ROOT / "apps" / "web" / "components" / "shell" / "OperatorAppShell.tsx").read_text()
     assert ".builder-dashboard" in css

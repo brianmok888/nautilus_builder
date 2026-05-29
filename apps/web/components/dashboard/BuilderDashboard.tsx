@@ -5,7 +5,6 @@ import {
   CodeOutlined,
   ExperimentOutlined,
   PlayCircleOutlined,
-  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { Button, Card, Row, Col, Space, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
@@ -17,7 +16,7 @@ import { StrategySpecEditor } from "../strategy-builder/StrategySpecEditor";
 import { StrategyList } from "../strategy-builder/StrategyList";
 import { JobTerminal } from "../terminal/JobTerminal";
 
-const { Text, Paragraph, Title } = Typography;
+const { Text, Paragraph } = Typography;
 
 const steps = [
   {
@@ -48,25 +47,6 @@ export function BuilderDashboard() {
 
   return (
     <div className="builder-dashboard">
-      {/* Compact header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "8px 0 4px",
-          flexWrap: "wrap",
-        }}
-      >
-        <Title level={4} style={{ margin: 0 }}>
-          Nautilus Builder
-        </Title>
-        <Tag color="cyan" icon={<SafetyCertificateOutlined />}>
-          No browser execution authority
-        </Tag>
-        <Tag color="warning">Manual promotion before paper/live</Tag>
-      </div>
-
       {/* 1-2-3 flow buttons */}
       <div style={{ display: "flex", gap: 12, padding: "12px 0" }}>
         {steps.map((step) => {
@@ -125,19 +105,14 @@ export function BuilderDashboard() {
         {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            {/* Strategy list at top — browse, edit, clone existing */}
             <StrategyList
               onSelect={(id) => {
-                // TODO: wire to load strategy into editor
                 console.log("Edit strategy:", id);
               }}
               onClone={(id) => {
-                // TODO: wire to clone strategy
                 console.log("Clone strategy:", id);
               }}
             />
-
-            {/* Strategy Editor: AI prompt + block canvas + adapter/venue */}
             <Row gutter={[16, 16]}>
               <Col xs={24} xl={10}>
                 <Card size="small" title="Strategy Editor">
@@ -153,7 +128,7 @@ export function BuilderDashboard() {
           </Space>
         )}
 
-        {/* TAB 2: Backtest Center — includes StrategySpec editor for AI review */}
+        {/* TAB 2: Backtest Center */}
         {activeSection === "backtest" && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <Card
@@ -188,7 +163,7 @@ export function BuilderDashboard() {
           </Space>
         )}
 
-        {/* TAB 3: Execution Lane */}
+        {/* TAB 3: Execution Lane — loads config from backend */}
         {activeSection === "execution" && (
           <Card
             size="small"

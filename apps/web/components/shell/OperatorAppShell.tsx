@@ -11,6 +11,7 @@ import {
   PlayCircleOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
 import { usePathname } from "next/navigation";
@@ -28,9 +29,14 @@ const navigationItems = [
     label: <a href="/backtests/bt_job_001">Backtest Center</a>,
   },
   {
-    key: "/config",
+    key: "/execution",
     icon: <PlayCircleOutlined />,
-    label: <a href="/config">Execution Lane</a>,
+    label: <a href="/execution">Execution Lane</a>,
+  },
+  {
+    key: "/config",
+    icon: <SettingOutlined />,
+    label: <a href="/config">Config</a>,
   },
   {
     key: "/strategies",
@@ -47,6 +53,7 @@ const navigationItems = [
 function selectedNavigationKey(pathname: string) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
+  if (pathname.startsWith("/execution")) return "/execution";
   if (pathname.startsWith("/backtests")) return "/backtests/bt_job_001";
   if (pathname.startsWith("/results")) return "/results/res_001";
   return "/";
@@ -107,9 +114,9 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
             />
           </nav>
           <div className="operator-safety-card">
-            <Space orientation="vertical" size={8}>
+            <Space direction="vertical" size={8}>
               <Tag color="success" icon={<SafetyCertificateOutlined />}>
-                Advisory-only
+                Builder-only
               </Tag>
               <Typography.Text>No live order authority</Typography.Text>
               <Typography.Text type="secondary">
@@ -128,8 +135,6 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
               </Tag>
             </Space>
             <Space wrap>
-              <Tag color="warning">Manual promotion only</Tag>
-              <Tag color="default">manual gates</Tag>
               <HealthIndicator />
             </Space>
           </Layout.Header>

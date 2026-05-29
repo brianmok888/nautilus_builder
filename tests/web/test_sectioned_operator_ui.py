@@ -14,7 +14,7 @@ def test_dashboard_home_exposes_compact_command_center_workflow() -> None:
     dashboard = _read("components/dashboard/BuilderDashboard.tsx")
 
     for token in (
-        "Nautilus Builder",
+        "Strategy Builder",
         "Strategy Builder",
         "Backtest Center",
         "Execution Lane",

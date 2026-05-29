@@ -6,8 +6,8 @@ ROOT = Path(__file__).resolve().parents[2]
 WEB = ROOT / "apps" / "web"
 
 
-def test_config_page_exposes_execution_lane_venue_feature_panel() -> None:
-    page = (WEB / "app" / "config" / "page.tsx").read_text()
+def test_execution_page_exposes_execution_lane_venue_feature_panel() -> None:
+    page = (WEB / "app" / "execution" / "page.tsx").read_text()
     component = (WEB / "components" / "config" / "ExecutionLaneFeaturePanel.tsx").read_text()
     types = (WEB / "lib" / "types.ts").read_text()
     api = (WEB / "lib" / "api.ts").read_text()

@@ -26,7 +26,7 @@ def test_root_layout_mounts_ant_design_operator_shell() -> None:
     assert "ConfigProvider" in shell
     assert "Layout.Sider" in shell
     assert "Menu" in shell
-    assert "Advisory-only" in shell
+    assert "Builder-only" in shell
     assert "No live order authority" in shell
     for href in ("/", "/strategies", "/config", "/backtests/bt_job_001", "/results/res_001"):
         assert href in shell
@@ -41,7 +41,7 @@ def test_home_page_uses_ant_design_dashboard_workflow_surface() -> None:
     assert "BuilderDashboard" in page
     assert "Card" in dashboard
     # Statistic and Steps removed in dashboard simplification
-    for label in ("Strategy Builder", "Backtest Center", "Execution Lane", "BacktestNode", "Manual promotion"):
+    for label in ("Strategy Builder", "Backtest Center", "Execution Lane", "BacktestNode"):
         assert label in dashboard
     assert "AiStrategyCopilot" in dashboard
     assert "StrategyBuilderWorkspace" in dashboard
