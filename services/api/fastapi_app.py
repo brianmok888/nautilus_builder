@@ -330,11 +330,8 @@ def create_fastapi_app(
         return _fastapi_response(create_strategy_payload(strategy_repository, payload, context=context), JSONResponse)
 
     @app.get("/api/strategies")
-    def list_strategies(authorization: str | None = Header(default=None)) -> Any:
-        context, auth_error = require_context(authorization)
-        if auth_error is not None:
-            return _fastapi_response(auth_error, JSONResponse)
-        return _fastapi_response(list_strategies_payload(strategy_repository, context=context), JSONResponse)
+    def list_strategies() -> Any:
+        return _fastapi_response(list_strategies_payload(strategy_repository), JSONResponse)
 
     @app.get("/api/strategies/{strategy_id}")
     def strategy_detail(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:

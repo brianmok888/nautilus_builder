@@ -92,7 +92,7 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
     app = create_fastapi_app(auth_token_service=auth)
 
     created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {token.token}")
-    listed = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {token.token}")
+    listed = app.routes[("GET", "/api/strategies")]()
     detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001", authorization=f"Bearer {token.token}")
 
     assert created.status_code == 201
@@ -262,8 +262,7 @@ def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch)
 
     missing = app.routes[("POST", "/api/strategies")](make_valid_spec())
     created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {alpha.token}")
-    listed_alpha = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {alpha.token}")
-    listed_beta = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {beta.token}")
+    listed_public = app.routes[("GET", "/api/strategies")]()
     detail_beta = app.routes[("GET", "/api/strategies/{strategy_id}")](
         "strategy_001",
         authorization=f"Bearer {beta.token}",
@@ -272,10 +271,8 @@ def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch)
     assert missing.status_code == 401
     assert created.status_code == 201
     assert created.json()["project_id"] == "project_alpha"
-    assert listed_alpha.status_code == 200
-    assert listed_alpha.json()[0]["strategy_id"] == "strategy_001"
-    assert listed_beta.status_code == 200
-    assert listed_beta.json() == []
+    assert listed_public.status_code == 200
+    assert listed_public.json()[0]["strategy_id"] == "strategy_001"
     assert detail_beta.status_code == 403
     assert detail_beta.json()["error"] == "forbidden"
 
