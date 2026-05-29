@@ -334,3 +334,24 @@ Address HIGH-1 (NautilusTrader version alignment), HIGH-2 (model naming), and HI
 ## Master reconciliation — catalog-backed Nautilus replay
 
 The `catalog_backed_replay_smoke` smoke test validates BacktestNode catalog replay using synthetic historical quote ticks. This is a wiring and data-flow check — not full trading-production readiness.
+
+---
+
+## Production Beta Status — 2026-05-29
+
+All prior HIGH findings resolved. The following MEDIUM/LOW items have been closed:
+
+| Finding | Status | Resolution |
+|---|---|---|
+| MEDIUM-1: Execution lane Binance-only coupling | ✅ RESOLVED | Wired AdapterRegistryService into _client_configs with plugin-style builder registry |
+| MEDIUM-5: No rate limiting on AI builder | ✅ RESOLVED | TokenBucketRateLimiter + auth gate already implemented; added 4 tests |
+| LOW-1: Legacy compile hash undocumented | ✅ RESOLVED | Added deprecation comment with 2026-07-01 timeline |
+| LOW-2: Legacy storage schema alias undocumented | ✅ RESOLVED | Added module-level deprecation notice |
+| LOW-4: No typed error hierarchy | ✅ RESOLVED | Added packages/errors with BuilderError hierarchy |
+| LOW-5: DESIGN.md not linked from README | ✅ ALREADY DONE | README references DESIGN.md under Architecture & Design section |
+
+Additional cleanup:
+- `allow_legacy_fixture_refs` default is `False` (was already correct)
+- Suppressed intentional legacy-mode DeprecationWarnings in pytest config
+- Added runtime_check minor-drift detection
+- 429 tests passing, 0 warnings, frontend build clean
