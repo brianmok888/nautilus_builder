@@ -14,11 +14,23 @@
 - `docs/superpowers/` only after you understand `doc/`; it is interpretation, not primary truth.
 
 ## Structure that matters
-- `packages/` holds real domain logic and models.
-- `services/api/routes/` holds thin adapter-style route stubs over `packages/*`.
+- `packages/` holds real domain logic and models. See `packages/AGENTS.md`.
+- `services/api/routes/` holds thin adapter-style route stubs over `packages/*`. See `services/api/AGENTS.md`.
 - `services/workers/` holds worker entrypoint stubs.
-- `tests/` mirrors feature seams; tests are policy/contract-first.
-- `apps/web/components/` is mounted by a minimal Next.js app shell; rich interactive runtime/data wiring remains incremental.
+- `tests/` mirrors feature seams; tests are policy/contract-first. See `tests/AGENTS.md`.
+- `apps/web/` is a Next.js 15 + Ant Design 6 + React 19 frontend. See `apps/web/AGENTS.md`.
+- `doc/` is source-truth spec. See `doc/AGENTS.md`.
+
+## AGENTS.md hierarchy
+```
+./AGENTS.md                 (this file)
+├── apps/web/AGENTS.md      (TypeScript frontend domain)
+├── apps/web/components/AGENTS.md  (UI component boundaries)
+├── doc/AGENTS.md           (spec source truth)
+├── packages/AGENTS.md      (domain layer conventions)
+├── services/api/AGENTS.md  (route adapter conventions)
+└── tests/AGENTS.md         (test conventions)
+```
 
 ## What agents get wrong here
 - Do not trust older docs that say `apps/web`, `services/api`, `packages/*`, or `tests/` are only planned; they now exist, but many files are still minimal scaffolds.
@@ -40,5 +52,8 @@
 ```bash
 git status
 grep -R "Do not\|must not\|forbidden" doc docs/superpowers
-rtk pytest tests/strategy_spec tests/strategy_validation tests/adapter_registry tests/instrument_registry tests/strategy_compiler tests/backtest_jobs tests/runtime_events tests/backtest_runner tests/lifecycle tests/strategy_registry tests/promotions tests/web tests/ai_builder tests/integration
+pytest tests/ -x -q                    # full suite, fail-fast
+pytest tests/execution_lane tests/workflow_spine tests/backtest_runner -x -q  # heavy seams
+cd apps/web && npx vitest run           # frontend unit tests
+cd apps/web && npx playwright test      # e2e shell tests
 ```
