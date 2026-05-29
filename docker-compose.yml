@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nautilus-builder-postgres
+    environment:
+      POSTGRES_USER: builder
+      POSTGRES_PASSWORD: builder_dev
+      POSTGRES_DB: nautilus_builder
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U builder -d nautilus_builder"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: nautilus-builder-api
+    environment:
+      BUILDER_DATABASE_URL: postgresql://builder:builder_dev@postgres:5432/nautilus_builder
+      BUILDER_SEED_DEMO_STRATEGIES: "1"
+      BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: nautilus-builder-web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ""
+      BUILDER_API_BASE_URL: http://api:8000
+      NEXT_PUBLIC_BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
