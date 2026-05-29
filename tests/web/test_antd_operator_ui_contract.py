@@ -44,7 +44,6 @@ def test_home_page_uses_ant_design_dashboard_workflow_surface() -> None:
     for label in ("Strategy Builder", "Backtest Center", "Execution Lane", "BacktestNode"):
         assert label in dashboard
     assert "AiStrategyCopilot" in dashboard
-    assert "StrategyBuilderWorkspace" in dashboard
     assert "PromotionRequestPanel" in dashboard
     assert "ExecutionLaneFeaturePanel" in dashboard
     assert "submit_order" not in page

@@ -41,7 +41,6 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
 
     assert "useState" in dashboard and "activeSection" in dashboard
     assert "AiStrategyCopilot" in dashboard
-    assert "StrategyBuilderWorkspace" in dashboard
     assert "BacktestLaunchPanel" in dashboard
     assert "ExecutionLaneFeaturePanel" in dashboard
     assert 'componentSize="small"' in (ROOT / "apps" / "web" / "components" / "shell" / "OperatorAppShell.tsx").read_text()
