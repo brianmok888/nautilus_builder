@@ -378,6 +378,9 @@ def session_report_payload(session: ExecutionLaneSession) -> dict[str, Any]:
     return payload
 
 
+import logging
+
+
 def _client_configs(
     *,
     profile: ExecutionLaneProfile,
@@ -392,7 +395,11 @@ def _client_configs(
     try:
         registry.get_adapter_profile(adapter_id)
     except ValueError:
-        pass  # Unknown or disabled adapter: allow generic fallback
+        logging.getLogger(__name__).warning(
+            "Adapter '%s' not in adapter registry; falling back to generic config builder. "
+            "Register this adapter in packages/adapter_registry/ for production use.",
+            adapter_id,
+        )
     builder = get_adapter_config_builder(adapter_id)
     return builder(profile=profile, command=command, credential_values=credential_values)
 
