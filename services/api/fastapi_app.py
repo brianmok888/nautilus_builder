@@ -502,10 +502,17 @@ def _context_from_authorization(
         return None, ApiResponse({"error": "invalid_auth_token", "details": str(exc)}, status_code=401)
 
 
+_UNSAFE_DEV_TOKENS = {"dev-token", "test-token", "changeme"}
+
 def _register_env_dev_token(auth_token_service: AuthTokenService) -> None:
     token = (os.environ.get("BUILDER_DEV_AUTH_TOKEN") or os.environ.get("BUILDER_API_TOKEN") or "").strip()
     if not token:
         return
+    environment = (os.environ.get("APP_ENV") or os.environ.get("BUILDER_ENV") or "").strip().lower()
+    if environment in {"prod", "production"} and token in _UNSAFE_DEV_TOKENS:
+        raise ValueError(
+            f"Refusing to register known dev token '{token}' in production environment. "             f"Set BUILDER_API_TOKEN to a strong secret when APP_ENV=production."
+        )
     auth_token_service.register_token(
         token=token,
         user_id=os.environ.get("BUILDER_DEV_USER_ID", "local_user"),

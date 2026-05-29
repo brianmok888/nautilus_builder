@@ -209,11 +209,12 @@ Guard: Any PR that removes the validator or adds labels without updating the kno
 
 Guard: After 2026-07-01, any PR that re-enables legacy paths without env flag must be rejected.
 
-## 21. Production deployment gate (new)
+## 21. Production deployment gate (S5)
 
-- `BUILDER_API_TOKEN` must not default to `dev-token` in production.
-- Add startup check: if `APP_ENV=production` and token is `dev-token`, abort.
-- Postgres password must be overridden via env var for production.
-- Postgres port must not be exposed to host network in production.
+- `_register_env_dev_token` rejects known dev tokens (`dev-token`, `test-token`, `changeme`) when `APP_ENV=production`.
+- Custom tokens work in all environments.
+- `docker-compose.yml` uses `${POSTGRES_PASSWORD:-builder_dev}` for env var override.
+- Postgres port bound to `127.0.0.1:5432:5432` (localhost only).
+- Tests: `tests/api/test_production_safety.py` (5 tests).
 
-Guard: Any PR that removes the production token check must be rejected.
+Guard: Any PR that removes the `_UNSAFE_DEV_TOKENS` check or reverts port/password hardening must be rejected.

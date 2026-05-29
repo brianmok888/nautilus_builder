@@ -6,10 +6,10 @@ services:
     container_name: nautilus-builder-postgres
     environment:
       POSTGRES_USER: builder
-      POSTGRES_PASSWORD: builder_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-builder_dev}
       POSTGRES_DB: nautilus_builder
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile.api
     container_name: nautilus-builder-api
     environment:
-      BUILDER_DATABASE_URL: postgresql://builder:builder_dev@postgres:5432/nautilus_builder
+      BUILDER_DATABASE_URL: postgresql://builder:${POSTGRES_PASSWORD:-builder_dev}@postgres:5432/nautilus_builder
       BUILDER_SEED_DEMO_STRATEGIES: "1"
       BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}
     ports:

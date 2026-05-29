@@ -26,7 +26,7 @@
 | H1 | ~~NT version mismatch with Daedalus~~ | **FIXED** (S3) |
 | H2 | ~~Legacy fixture fallback without evidence~~ | **FIXED** (S1) |
 | H3 | ~~Adapter config builder hardcoded to Binance~~ | **FIXED** (S2) |
-| H4 | Default dev token in docker-compose fallback | **NEW** — HIGH |
+| H4 | ~~Default dev token in docker-compose fallback~~ | **FIXED** (S5) |
 | M1 | ~~`list_results` has no pagination~~ | **FIXED** (S4) |
 | M2 | ~~Missing `created_at` timestamp~~ | **FIXED** (S4) |
 | M3 | ~~`runtime_label` not extensible~~ | **FIXED** (S3) |
@@ -36,7 +36,7 @@
 | M7 | ~~`execution_authority` not enforced at compile time~~ | **FIXED** |
 | M8 | SqliteWorkflowRepository named PostgresWorkflowRepository | **NEW** — Open |
 | M9 | Dockerfile.api COPY .env.execution.local may fail on fresh clone | **NEW** — Open |
-| M10 | Postgres port exposed in docker-compose | **NEW** — Open |
+| M10 | ~~Postgres port exposed in docker-compose~~ | **FIXED** (S5) |
 | L1 | `storage_config.py` legacy alias no migration path | Open |
 | L2 | Backtest `legacy_hash` derivation | Open |
 | L3 | Frontend test selectors fragile | Open |
@@ -58,12 +58,11 @@ None found.
 
 ## HIGH (1)
 
-### H4. Default dev token in docker-compose fallback
-**File:** `docker-compose.yml:27,46`
+### H4. ~~Default dev token in docker-compose fallback~~ [FIXED]
+**File:** `services/api/fastapi_app.py`, `docker-compose.yml`
 **Category:** Security
-**Risk:** `BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}` and `NEXT_PUBLIC_BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}` provide a fallback token that is trivially guessable. If deployed without overriding `BUILDER_API_TOKEN`, the API is accessible with `dev-token`.
-**Fix:** Remove the default fallback. Require explicit `BUILDER_API_TOKEN` env var in production. Add startup check that rejects `dev-token` when `APP_ENV=production`.
-**Priority:** HIGH — easy to miss in deployment.
+**Fix applied:** Added `_UNSAFE_DEV_TOKENS` set and production guard in `_register_env_dev_token`. When `APP_ENV=production`, known dev tokens (`dev-token`, `test-token`, `changeme`) are rejected with a clear ValueError. Custom tokens still work.
+**Status:** **FIXED** in Segment 5. 5 new tests.
 
 ---
 
@@ -99,17 +98,17 @@ None found.
 **Risk:** `COPY .env.execution.local .env.local` will fail if the file doesn't exist (fresh clone without setup). This breaks `docker build` for new developers.
 **Fix:** Create an empty `.env.execution.local` during setup, or use a conditional COPY / multi-stage build pattern.
 
-### M10. Postgres port exposed in docker-compose
-**File:** `docker-compose.yml:12`
+### M10. ~~Postgres port exposed in docker-compose~~ [FIXED]
+**File:** `docker-compose.yml`
 **Category:** Security
-**Risk:** `"5432:5432"` exposes Postgres to the host network. Combined with the default `builder_dev` password, this is a security concern in shared environments.
-**Fix:** Bind to `127.0.0.1:5432:5432` for local-only access, or remove port exposure entirely (only API service needs DB access).
+**Fix applied:** Changed port binding to `127.0.0.1:5432:5432` for localhost-only access. Test verifies binding.
+**Status:** **FIXED** in Segment 5.
 
-### M11. Docker compose default Postgres password
-**File:** `docker-compose.yml:9`
+### M11. ~~Docker compose default Postgres password~~ [FIXED]
+**File:** `docker-compose.yml`
 **Category:** Security
-**Risk:** `POSTGRES_PASSWORD: builder_dev` is hardcoded in docker-compose.yml. While acceptable for local dev, the comment should explicitly state this is dev-only and must be changed for production.
-**Fix:** Use `${POSTGRES_PASSWORD:-builder_dev}` and document the production override.
+**Fix applied:** Changed to `${POSTGRES_PASSWORD:-builder_dev}` with env var override. Also updated DATABASE_URL to reference the same env var. Test verifies variable substitution pattern.
+**Status:** **FIXED** in Segment 5.
 
 ---
 
