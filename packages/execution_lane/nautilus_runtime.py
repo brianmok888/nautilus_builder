@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .config_contract import DataClientEntry, ExecClientEntry, ExecEngineConfig, RiskEngineConfig, TradingNodeConfigContract
 from .models import ExecutionLaneCommand, ExecutionLaneMode, ExecutionLaneProfile
 
 
@@ -52,7 +53,7 @@ class NautilusTradingNodeRuntimePlan(BaseModel):
     config_checksum: str | None = None
     evidence_refs: dict[str, str] = Field(default_factory=dict)
     nautilus_imports: list[str] = Field(default_factory=lambda: list(NAUTILUS_TRADING_NODE_IMPORTS))
-    config_contract: dict[str, Any]
+    config_contract: TradingNodeConfigContract
     nautilus_trader_version: str | None = None
 
 
@@ -219,42 +220,39 @@ def _command_blocked_reasons(profile: ExecutionLaneProfile, command: ExecutionLa
     return reasons
 
 
-def _config_contract(*, profile: ExecutionLaneProfile, live_ready: bool, credential_slot_bound: bool) -> dict[str, Any]:
+def _config_contract(*, profile: ExecutionLaneProfile, live_ready: bool, credential_slot_bound: bool) -> TradingNodeConfigContract:
     credential_slot_ref = profile.credential_slot_ref if credential_slot_bound else None
-    return {
-        "runtime_note": "Python TradingNode integration-specific plan; Rust LiveNode is the future runtime target.",
-        "trader_id": f"BUILDER-{profile.project_id[:24]}",
-        "environment": "live" if profile.lane_mode == ExecutionLaneMode.LIVE else "sandbox",
-        "data_clients": {
-            profile.venue or "UNBOUND": {
-                "adapter_id": profile.adapter_id,
-                "venue_account_id": profile.venue_account_id,
-                "credential_slot_ref": credential_slot_ref,
-                "browser_credentials_allowed": False,
-            }
+    return TradingNodeConfigContract(
+        runtime_note="Python TradingNode integration-specific plan; Rust LiveNode is the future runtime target.",
+        trader_id=f"BUILDER-{profile.project_id[:24]}",
+        environment="live" if profile.lane_mode == ExecutionLaneMode.LIVE else "sandbox",
+        data_clients={
+            profile.venue or "UNBOUND": DataClientEntry(
+                adapter_id=profile.adapter_id,
+                venue_account_id=profile.venue_account_id,
+                credential_slot_ref=credential_slot_ref,
+            )
         },
-        "exec_clients": {
-            profile.venue or "UNBOUND": {
-                "adapter_id": profile.adapter_id,
-                "venue_account_id": profile.venue_account_id,
-                "credential_slot_ref": credential_slot_ref,
-                "paper_mode": profile.lane_mode == ExecutionLaneMode.PAPER,
-                "live_authority": live_ready,
-                "browser_credentials_allowed": False,
-            }
+        exec_clients={
+            profile.venue or "UNBOUND": ExecClientEntry(
+                adapter_id=profile.adapter_id,
+                venue_account_id=profile.venue_account_id,
+                credential_slot_ref=credential_slot_ref,
+                paper_mode=profile.lane_mode == ExecutionLaneMode.PAPER,
+                live_authority=live_ready,
+            )
         },
-        "exec_engine": {
-            "reconciliation": True,
-            "reconciliation_lookback_mins": profile.reconciliation_lookback_mins,
-            "reconciliation_startup_delay_secs": profile.reconciliation_startup_delay_secs,
-            "open_check_lookback_mins": max(60, profile.reconciliation_lookback_mins),
-            "position_check_lookback_mins": max(60, profile.reconciliation_lookback_mins),
-        },
-        "risk_engine": {
-            "bypass": False,
-            "risk_profile_id": profile.risk_profile_id,
-        },
-    }
+        exec_engine=ExecEngineConfig(
+            reconciliation=True,
+            reconciliation_lookback_mins=max(60, profile.reconciliation_lookback_mins),
+            reconciliation_startup_delay_secs=profile.reconciliation_startup_delay_secs,
+            open_check_lookback_mins=max(60, profile.reconciliation_lookback_mins),
+            position_check_lookback_mins=max(60, profile.reconciliation_lookback_mins),
+        ),
+        risk_engine=RiskEngineConfig(
+            risk_profile_id=profile.risk_profile_id,
+        ),
+    )
 
 
 def _evidence_refs(profile: ExecutionLaneProfile) -> dict[str, str]:

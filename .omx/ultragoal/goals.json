@@ -1,84 +1,93 @@
 {
   "version": 1,
-  "createdAt": "2026-05-29T02:43:40.453Z",
-  "updatedAt": "2026-05-29T02:43:40.453Z",
+  "createdAt": "2026-05-29T03:09:41.088Z",
+  "updatedAt": "2026-05-29T03:09:41.088Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
   "codexGoalMode": "aggregate",
   "goals": [
     {
-      "id": "G001-high-1-explicitly-set-trade-executio",
-      "title": "HIGH-1: Explicitly set trade_execution in config_builder.py; add NT v...",
-      "objective": "HIGH-1: Explicitly set trade_execution in config_builder.py; add NT version alignment test",
+      "id": "G001-medium-2-add-runtime-guard-to-native",
+      "title": "MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blockin...",
+      "objective": "MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blocking from API event loop",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G002-high-2-rename-testjobrecord-testresu",
-      "title": "HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/Wo...",
-      "objective": "HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/WorkflowResultRecord",
+      "id": "G002-medium-3-add-execution-lane-persiste",
+      "title": "MEDIUM-3: Add execution lane persistence seam (serialize to disk for...",
+      "objective": "MEDIUM-3: Add execution lane persistence seam (serialize to disk for recovery)",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G003-high-3-flip-allow-legacy-fixture-ref",
-      "title": "HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecat...",
-      "objective": "HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecation warning",
+      "id": "G003-medium-4-add-typed-pydantic-model-fo",
+      "title": "MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan...",
+      "objective": "MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan config_contract",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G004-wire-adapter-registry-to-execution-l",
-      "title": "Wire adapter_registry to execution_lane for multi-adapter support",
-      "objective": "Wire adapter_registry to execution_lane for multi-adapter support",
+      "id": "G004-medium-7-install-playwright-browsers",
+      "title": "MEDIUM-7: Install Playwright browsers and ensure E2E tests can run",
+      "objective": "MEDIUM-7: Install Playwright browsers and ensure E2E tests can run",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G005-add-rate-limiting-middleware-to-ai-b",
-      "title": "Add rate limiting middleware to AI builder routes",
-      "objective": "Add rate limiting middleware to AI builder routes",
+      "id": "G005-add-loading-states-and-error-boundar",
+      "title": "Add loading states and error boundaries to all page components",
+      "objective": "Add loading states and error boundaries to all page components",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G006-add-typed-error-hierarchy-for-builde",
-      "title": "Add typed error hierarchy for builder service errors",
-      "objective": "Add typed error hierarchy for builder service errors",
+      "id": "G006-add-responsive-layout-improvements-f",
+      "title": "Add responsive layout improvements for mobile/tablet viewports",
+      "objective": "Add responsive layout improvements for mobile/tablet viewports",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G007-ensure-frontend-builds-cleanly-and-a",
-      "title": "Ensure frontend builds cleanly and add DESIGN.md reference to README",
-      "objective": "Ensure frontend builds cleanly and add DESIGN.md reference to README",
+      "id": "G007-ensure-all-api-backed-components-han",
+      "title": "Ensure all API-backed components handle 429/422/404 gracefully",
+      "objective": "Ensure all API-backed components handle 429/422/404 gracefully",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     },
     {
-      "id": "G008-run-full-verification-suite-and-conf",
-      "title": "Run full verification suite and confirm clean state",
-      "objective": "Run full verification suite and confirm clean state",
+      "id": "G008-add-production-health-check-integrat",
+      "title": "Add production health check integration to the dashboard",
+      "objective": "Add production health check integration to the dashboard",
       "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T02:43:40.453Z",
-      "updatedAt": "2026-05-29T02:43:40.453Z"
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
+    },
+    {
+      "id": "G009-final-verification-full-test-suite-f",
+      "title": "Final verification: full test suite + frontend build + typecheck clean",
+      "objective": "Final verification: full test suite + frontend build + typecheck clean",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T03:09:41.088Z",
+      "updatedAt": "2026-05-29T03:09:41.088Z"
     }
   ],
-  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-high-1-explicitly-set-trade-executio HIGH-1: Explicitly set trade_execution in config_builder.py; add NT v...; G002-high-2-rename-testjobrecord-testresu HIGH-2: Rename TestJobRecord/TestResultRecord to WorkflowJobRecord/Wo...; G003-high-3-flip-allow-legacy-fixture-ref HIGH-3: Flip allow_legacy_fixture_refs default to False; add deprecat...; G004-wire-adapter-registry-to-execution-l Wire adapter_registry to execution_lane for multi-adapter support; G005-add-rate-limiting-middleware-to-ai-b Add rate limiting middleware to AI builder routes; G006-add-typed-error-hierarchy-for-builde Add typed error hierarchy for builder service errors; G007-ensure-frontend-builds-cleanly-and-a Ensure frontend builds cleanly and add DESIGN.md reference to README; G008-run-full-verification-suite-and-conf Run full verification suite and confirm clean state"
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-medium-2-add-runtime-guard-to-native MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blockin...; G002-medium-3-add-execution-lane-persiste MEDIUM-3: Add execution lane persistence seam (serialize to disk for...; G003-medium-4-add-typed-pydantic-model-fo MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan...; G004-medium-7-install-playwright-browsers MEDIUM-7: Install Playwright browsers and ensure E2E tests can run; G005-add-loading-states-and-error-boundar Add loading states and error boundaries to all page components; G006-add-responsive-layout-improvements-f Add responsive layout improvements for mobile/tablet viewports; G007-ensure-all-api-backed-components-han Ensure all API-backed components handle 429/422/404 gracefully; G008-add-production-health-check-integrat Add production health check integration to the dashboard; G009-final-verification-full-test-suite-f Final verification: full test suite + frontend build + typecheck clean"
 }

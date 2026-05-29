@@ -1383,3 +1383,63 @@ pre {
   border-color: rgba(251, 113, 133, 0.46) !important;
   color: #fecdd3 !important;
 }
+
+/* ===== Responsive Production Beta ===== */
+@media (max-width: 992px) {
+  .builder-dashboard {
+    padding: 8px;
+  }
+  .product-hero-card .ant-row {
+    flex-direction: column;
+  }
+  .compact-surface-overview .ant-col {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+  .operator-workspace-tabs .ant-tabs-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 576px) {
+  .operator-header {
+    padding: 8px 12px !important;
+  }
+  .operator-header .ant-tag {
+    font-size: 11px;
+    margin: 2px;
+  }
+  .builder-dashboard .ant-card-head-title {
+    font-size: 14px;
+  }
+  .product-hero-card h2,
+  .product-hero-card h3 {
+    font-size: 18px;
+  }
+  .workflow-action-primary,
+  .workflow-action-secondary {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+}
+
+/* API error state styles */
+.api-error-state {
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(251, 113, 133, 0.08);
+  border: 1px solid rgba(251, 113, 133, 0.24);
+}
+
+.api-error-state .ant-typography {
+  color: #fb7185;
+}
+
+/* Rate limit state */
+.rate-limit-state {
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.24);
+}

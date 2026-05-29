@@ -139,6 +139,9 @@ class NativeTradingNodeSessionRunner:
     The default Builder service does not select this runner. It is available for
     local/VM paper sandboxes where the operator has explicitly configured
     credentials, adapter factories, and network policy.
+
+    This runner must NOT be used from the API event loop. Use it only from
+    backend worker processes or CLI entrypoints.
     """
 
     runner_mode = "native_trading_node"
@@ -146,6 +149,18 @@ class NativeTradingNodeSessionRunner:
     def __init__(self, *, node_factory: Any | None = None) -> None:
         self._node_factory = node_factory
         self._sessions: dict[str, tuple[Any, threading.Thread]] = {}
+
+    @staticmethod
+    def _assert_not_in_async_loop() -> None:
+        try:
+            import asyncio
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        raise RuntimeError(
+            "NativeTradingNodeSessionRunner.start() must not be called from an asyncio event loop. "
+            "Use a backend worker process or CLI entrypoint instead."
+        )
 
     def start(
         self,
@@ -155,6 +170,7 @@ class NativeTradingNodeSessionRunner:
         data_client_factories: dict[str, Any],
         exec_client_factories: dict[str, Any],
     ) -> TradingNodeRunnerResult:
+        self._assert_not_in_async_loop()
         if not data_client_factories or not exec_client_factories:
             raise ValueError("native TradingNode runner requires concrete adapter factories")
         from nautilus_trader.live.node import TradingNode
@@ -238,7 +254,7 @@ def build_paper_trading_node_config(
     )
     config = TradingNodeConfig(
         environment=Environment.SANDBOX,
-        trader_id=TraderId(str(plan.config_contract.get("trader_id") or f"BUILDER-{profile.project_id[:24]}")),
+        trader_id=TraderId(getattr(plan.config_contract, "trader_id", None) or f"BUILDER-{profile.project_id[:24]}"),
         exec_engine=LiveExecEngineConfig(
             reconciliation=True,
             reconciliation_lookback_mins=profile.reconciliation_lookback_mins,
@@ -332,7 +348,7 @@ def build_session_from_runner_result(
         credential_slot_ref=plan.credential_slot_ref or "UNBOUND",
         credential_env_keys=credential_env_keys,
         credential_values_resolved=True,
-        tradingnode_config=build_result.summary,
+        tradingnode_config=build_result.summary if isinstance(build_result.summary, dict) else build_result.summary.model_dump(mode="json"),
         attached_strategy=build_result.attached_strategy,
         lifecycle_events=events,
         live_trading_enabled=False,

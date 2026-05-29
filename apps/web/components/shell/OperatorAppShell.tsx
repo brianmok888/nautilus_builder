@@ -1,5 +1,8 @@
 "use client";
 
+import { ErrorBoundary } from "./ErrorBoundary";
+import { useHealthCheck } from "../../hooks/useHealthCheck";
+
 import {
   ApiOutlined,
   BarChartOutlined,
@@ -47,6 +50,13 @@ function selectedNavigationKey(pathname: string) {
   if (pathname.startsWith("/backtests")) return "/backtests/bt_job_001";
   if (pathname.startsWith("/results")) return "/results/res_001";
   return "/";
+}
+
+function HealthIndicator() {
+  const health = useHealthCheck();
+  const color = health.status === "healthy" ? "success" : health.status === "degraded" ? "warning" : "error";
+  const label = health.status === "healthy" ? "API healthy" : health.status === "degraded" ? "API degraded" : "API down";
+  return <Tag color={color}>{label}{health.latencyMs != null ? ` (${health.latencyMs}ms)` : ""}</Tag>;
 }
 
 export function OperatorAppShell({ children }: { children: ReactNode }) {
@@ -120,9 +130,10 @@ export function OperatorAppShell({ children }: { children: ReactNode }) {
             <Space wrap>
               <Tag color="warning">Manual promotion only</Tag>
               <Tag color="default">manual gates</Tag>
+              <HealthIndicator />
             </Space>
           </Layout.Header>
-          <Layout.Content className="operator-content">{children}</Layout.Content>
+          <Layout.Content className="operator-content"><ErrorBoundary>{children}</ErrorBoundary></Layout.Content>
         </Layout>
       </Layout>
     </ConfigProvider>

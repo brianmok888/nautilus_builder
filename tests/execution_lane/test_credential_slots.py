@@ -99,7 +99,7 @@ def test_profile_can_reference_created_slot_without_raw_credentials(tmp_path) ->
     assert plan.readiness_status == "READY"
     assert plan.credential_slot_ref == slot.credential_slot_ref
     assert plan.may_submit_order is False
-    assert plan.config_contract["data_clients"]["BINANCE"]["credential_slot_ref"] == slot.credential_slot_ref
+    assert plan.config_contract.data_clients["BINANCE"].credential_slot_ref == slot.credential_slot_ref
     assert "test-binance-key" not in str(plan.model_dump(mode="json"))
 
 

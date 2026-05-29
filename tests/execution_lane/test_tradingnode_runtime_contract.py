@@ -123,9 +123,9 @@ def test_paper_profile_builds_python_tradingnode_plan_without_live_authority() -
         "nautilus_trader.config.LiveExecEngineConfig",
         "nautilus_trader.live.node.TradingNode",
     ]
-    assert plan.config_contract["exec_engine"]["reconciliation"] is True
-    assert plan.config_contract["exec_engine"]["reconciliation_lookback_mins"] >= 60
-    assert plan.config_contract["exec_engine"]["reconciliation_startup_delay_secs"] >= 10
+    assert plan.config_contract.exec_engine.reconciliation is True
+    assert plan.config_contract.exec_engine.reconciliation_lookback_mins >= 60
+    assert plan.config_contract.exec_engine.reconciliation_startup_delay_secs >= 10
 
 
 def test_live_profile_requires_evidence_gates_before_submit_authority() -> None:
