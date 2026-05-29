@@ -119,7 +119,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
         {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
           <Row gutter={[16, 16]}>
-            <Col xs={24} xl={10}>
+            <Col xs={24} xl={12}>
               <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                 <StrategyList
                   onSelect={(id) => console.log("Edit strategy:", id)}
@@ -128,12 +128,20 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                 <Card size="small" title="Strategy Editor">
                   <AiStrategyCopilot />
                 </Card>
+                <Card size="small" title="Block Canvas">
+                  <StrategyBuilderWorkspace />
+                </Card>
               </Space>
             </Col>
-            <Col xs={24} xl={14}>
-              <Card size="small" title="Block Canvas">
-                <StrategyBuilderWorkspace />
-              </Card>
+            <Col xs={24} xl={12}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <Card size="small" title="Strategy Output">
+                  <Paragraph type="secondary">
+                    Compiled strategy output and validation status appear here after
+                    drafting in the Strategy Editor or Block Canvas.
+                  </Paragraph>
+                </Card>
+              </Space>
             </Col>
           </Row>
         )}
