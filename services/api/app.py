@@ -19,6 +19,8 @@ from packages.execution_lane import ExecutionLaneService
 from packages.llm_config import LlmConfigService
 from packages.runtime_events.service import RuntimeEventService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
+from packages.strategy_spec.demo_seed import seed_demo_strategies
+import os
 
 
 def create_app(
@@ -33,6 +35,8 @@ def create_app(
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
+    if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+        seed_demo_strategies(strategy_repository)
     backtest_job_service = backtest_job_service or BacktestJobService()
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()

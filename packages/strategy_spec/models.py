@@ -23,6 +23,8 @@ class StrategyStatus(str, Enum):
     VALIDATED = "validated"
     BACKTESTED = "backtested"
     SHADOW_CANDIDATE = "shadow_candidate"
+    APPROVED = "approved"
+    EXECUTION_READY = "execution_ready"
 
 
 class CreatedFrom(str, Enum):

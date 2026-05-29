@@ -13,6 +13,7 @@ from packages.catalog_datasets import CatalogDatasetRegistryService
 from packages.execution_lane import ExecutionLaneService
 from packages.llm_config import LlmConfigService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
+from packages.strategy_spec.demo_seed import seed_demo_strategies
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
@@ -51,6 +52,9 @@ def create_fastapi_app(
 
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
+    import os
+    if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+        seed_demo_strategies(strategy_repository)
     backtest_job_service = backtest_job_service or BacktestJobService()
     auth_token_service = auth_token_service or AuthTokenService()
     _register_env_dev_token(auth_token_service)

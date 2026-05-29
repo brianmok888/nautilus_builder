@@ -24,6 +24,12 @@ class InMemoryStrategyRepository:
             self._scopes[strategy_id] = context
         return self._record(strategy_id, spec, 1)
 
+    def save_explicit(self, strategy_id: str, spec: StrategySpec, *, context: UserProjectContext | None = None) -> dict[str, object]:
+        self._records.setdefault(strategy_id, []).append(spec)
+        if context is not None:
+            self._scopes[strategy_id] = context
+        return self._record(strategy_id, spec, len(self._records[strategy_id]))
+
     def update_draft(
         self,
         strategy_id: str,
@@ -75,6 +81,7 @@ class InMemoryStrategyRepository:
                 "strategy_id": strategy_id,
                 "strategy_lineage_id": self._lineage_id(strategy_id),
                 "strategy_version_id": self._version_id(strategy_id, len(versions)),
+                "status": versions[-1].status.value,
                 "latest_spec": versions[-1].model_dump(mode="json"),
                 **self._scope_payload(strategy_id),
             }
@@ -90,6 +97,7 @@ class InMemoryStrategyRepository:
         return {
             "strategy_id": strategy_id,
             "strategy_lineage_id": self._lineage_id(strategy_id),
+            "status": versions[-1].status.value,
             "versions": [
                 {"strategy_version_id": self._version_id(strategy_id, index), "spec": version.model_dump(mode="json")}
                 for index, version in enumerate(versions, start=1)
@@ -102,6 +110,7 @@ class InMemoryStrategyRepository:
             "strategy_id": strategy_id,
             "strategy_lineage_id": self._lineage_id(strategy_id),
             "strategy_version_id": self._version_id(strategy_id, version_index),
+            "status": spec.status.value,
             "spec": spec.model_dump(mode="json"),
             **self._scope_payload(strategy_id),
         }
