@@ -4,8 +4,8 @@ export default function StrategiesPage() {
   return (
     <main className="app-shell">
       <section className="hero-card">
-        <h1>Strategy list</h1>
-        <p>Saved StrategySpec drafts and versions are backend-owned records.</p>
+        <h1>Strategy records</h1>
+        <p>All strategies across every status. Edit draft/validated, clone, or send to Backtest Center.</p>
       </section>
       <StrategyListClient />
     </main>
