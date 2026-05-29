@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 
+import warnings
+
 from packages.workflow_spine import (
     AiSuggestionRecord,
     SqliteWorkflowRepository,
-    PostgresWorkflowRepository,
     StrategyIdentity,
     StrategyTestParams,
     StrategyVersionIdentity,
@@ -35,7 +36,7 @@ def test_workflow_schema_creates_required_tables() -> None:
 
 def test_postgres_workflow_repository_persists_records_across_instances() -> None:
     connection = sqlite3.connect(":memory:")
-    repository = PostgresWorkflowRepository(connection=connection, schema="builder")
+    repository = SqliteWorkflowRepository(connection=connection, schema="builder")
     strategy = StrategyIdentity(strategy_id="strat_001", strategy_lineage_id="lineage_001", display_name="EMA RSI")
     version = StrategyVersionIdentity(
         strategy_id="strat_001",
@@ -85,7 +86,7 @@ def test_postgres_workflow_repository_persists_records_across_instances() -> Non
     repository.save_job(job)
     repository.save_result(result)
     repository.save_ai_suggestion(suggestion)
-    reloaded = PostgresWorkflowRepository(connection=connection, schema="builder")
+    reloaded = SqliteWorkflowRepository(connection=connection, schema="builder")
 
     assert reloaded.strategy("strat_001") == strategy
     assert reloaded.version("sv_001") == version
@@ -99,4 +100,15 @@ def test_sqlite_workflow_repository_is_the_honest_contract_name() -> None:
     repository = SqliteWorkflowRepository(connection=connection, schema="builder")
 
     assert repository.backend == "sqlite"
-    assert PostgresWorkflowRepository is SqliteWorkflowRepository
+
+
+def test_postgres_workflow_repository_alias_emits_deprecation_warning() -> None:
+    """M8: PostgresWorkflowRepository alias should emit DeprecationWarning."""
+    import packages.workflow_spine.postgres_repository as pr_mod
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        alias = pr_mod.PostgresWorkflowRepository
+    assert alias is SqliteWorkflowRepository
+    assert len(caught) == 1
+    assert issubclass(caught[0].category, DeprecationWarning)
+    assert "deprecated" in str(caught[0].message).lower()
