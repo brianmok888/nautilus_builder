@@ -1,123 +1,320 @@
 {
   "version": 1,
-  "createdAt": "2026-05-29T05:42:28.034Z",
-  "updatedAt": "2026-05-29T06:01:11.813Z",
+  "createdAt": "2026-05-29T15:02:37.390Z",
+  "updatedAt": "2026-05-29T15:02:50.496Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
   "codexGoalMode": "aggregate",
   "goals": [
     {
-      "id": "G001-medium-1-route-execution-lane-adapte",
-      "title": "MEDIUM-1: Route execution lane adapter resolution through adapter_reg...",
-      "objective": "MEDIUM-1: Route execution lane adapter resolution through adapter_registry with plugin-style config builders (remove hardcoded Binance branch)",
-      "status": "complete",
+      "id": "G001-rewrite-strategies-id-page-and-strat",
+      "title": "Rewrite `/strategies/[id]` page and `StrategyDetailClient` component",
+      "objective": "Rewrite `/strategies/[id]` page and `StrategyDetailClient` component",
+      "status": "in_progress",
       "attempt": 1,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:47:11.490Z",
-      "startedAt": "2026-05-29T05:42:41.576Z",
-      "completedAt": "2026-05-29T05:47:11.490Z",
-      "evidence": "Wired AdapterRegistryService validation into _client_configs in sessions.py. Added adapter_config_builders.py with plugin-style builder registry. 3 new tests passing (registered/disabled/unregistered adapter paths)."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:50.496Z",
+      "startedAt": "2026-05-29T15:02:50.496Z"
     },
     {
-      "id": "G002-medium-5-add-rate-limiting-and-auth",
-      "title": "MEDIUM-5: Add rate limiting and auth requirement to AI builder draft...",
-      "objective": "MEDIUM-5: Add rate limiting and auth requirement to AI builder draft endpoint",
-      "status": "complete",
+      "id": "G002-show-full-strategyspec-indicators-ru",
+      "title": "Show full StrategySpec (indicators, rules, risk, validation) in reada...",
+      "objective": "Show full StrategySpec (indicators, rules, risk, validation) in readable AntD Descriptions",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:48:11.910Z",
-      "completedAt": "2026-05-29T05:48:11.910Z",
-      "evidence": "MEDIUM-5 already implemented: TokenBucketRateLimiter wired in app.py, auth required in fastapi_app.py. Added 4 rate limiter tests."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G003-low-1-document-legacy-compile-hash-w",
-      "title": "LOW-1: Document legacy compile hash with deprecation timeline",
-      "objective": "LOW-1: Document legacy compile hash with deprecation timeline",
-      "status": "complete",
+      "id": "G003-show-version-history-table-with-vers",
+      "title": "Show version history table with version IDs and timestamps",
+      "objective": "Show version history table with version IDs and timestamps",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:26.578Z",
-      "completedAt": "2026-05-29T05:53:26.578Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G004-low-2-document-legacy-storage-schema",
-      "title": "LOW-2: Document legacy storage schema alias with deprecation timeline",
-      "objective": "LOW-2: Document legacy storage schema alias with deprecation timeline",
-      "status": "complete",
+      "id": "G004-show-current-status-with-colored-chi",
+      "title": "Show current status with colored chip and the lifecycle chain (draft...",
+      "objective": "Show current status with colored chip and the lifecycle chain (draft → validated → backtested → approved → execution_ready)",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:27.047Z",
-      "completedAt": "2026-05-29T05:53:27.047Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G005-low-4-introduce-typed-error-hierarch",
-      "title": "LOW-4: Introduce typed error hierarchy (BuilderValidationError, Crede...",
-      "objective": "LOW-4: Introduce typed error hierarchy (BuilderValidationError, CredentialSlotError, etc.)",
-      "status": "complete",
+      "id": "G005-add-action-buttons-matching-current",
+      "title": "Add action buttons matching current status (Edit if draft/validated,...",
+      "objective": "Add action buttons matching current status (Edit if draft/validated, Clone always, Backtest if eligible)",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:27.644Z",
-      "completedAt": "2026-05-29T05:53:27.644Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G006-low-5-add-design-md-reference-in-rea",
-      "title": "LOW-5: Add DESIGN.md reference in README.md",
-      "objective": "LOW-5: Add DESIGN.md reference in README.md",
-      "status": "complete",
+      "id": "G006-tests-typecheck-vitest-component-tes",
+      "title": "Tests: typecheck + vitest component test",
+      "objective": "Tests: typecheck + vitest component test",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:28.154Z",
-      "completedAt": "2026-05-29T05:53:28.154Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G007-flip-allow-legacy-fixture-refs-defau",
-      "title": "Flip allow_legacy_fixture_refs default to False in promotions service",
-      "objective": "Flip allow_legacy_fixture_refs default to False in promotions service",
-      "status": "complete",
+      "id": "G007-when-operator-selects-a-strategy-in",
+      "title": "When operator selects a strategy in Backtest Center, auto-populate th...",
+      "objective": "When operator selects a strategy in Backtest Center, auto-populate the BacktestLaunchPanel manifest fields (strategy_version_id, adapter_profile_id, instrument_id) from the strategy's spec",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:28.653Z",
-      "completedAt": "2026-05-29T05:53:28.653Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G008-clean-up-remaining-2-deprecationwarn",
-      "title": "Clean up remaining 2 DeprecationWarning emissions in test suite",
-      "objective": "Clean up remaining 2 DeprecationWarning emissions in test suite",
-      "status": "complete",
+      "id": "G008-show-selected-strategy-context-above",
+      "title": "Show selected strategy context above the launch panel",
+      "objective": "Show selected strategy context above the launch panel",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:53:29.162Z",
-      "completedAt": "2026-05-29T05:53:29.162Z",
-      "evidence": "Batch completed: 429 tests, 0 warnings."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G009-commit-staged-worktree-changes-runti",
-      "title": "Commit staged worktree changes (runtime_check.py minor drift detectio...",
-      "objective": "Commit staged worktree changes (runtime_check.py minor drift detection, loading.tsx, ErrorBoundary.tsx) and untracked files (upgrade checklist, drift test)",
-      "status": "complete",
+      "id": "G009-clear-previous-job-results-when-a-ne",
+      "title": "Clear previous job results when a new strategy is selected",
+      "objective": "Clear previous job results when a new strategy is selected",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T05:54:46.335Z",
-      "completedAt": "2026-05-29T05:54:46.335Z",
-      "evidence": "Committed ff72025: 20 files changed, 456 insertions, 79 deletions."
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     },
     {
-      "id": "G010-full-verification-418-tests-pass-0-w",
-      "title": "Full verification: 418+ tests pass, 0 warnings, typecheck clean, fron...",
-      "objective": "Full verification: 418+ tests pass, 0 warnings, typecheck clean, frontend build clean, findings.md updated to reflect all items resolved",
-      "status": "complete",
+      "id": "G010-tests-typecheck-vitest",
+      "title": "Tests: typecheck + vitest",
+      "objective": "Tests: typecheck + vitest",
+      "status": "pending",
       "attempt": 0,
-      "createdAt": "2026-05-29T05:42:28.034Z",
-      "updatedAt": "2026-05-29T06:01:11.813Z",
-      "evidence": "429 tests pass, 0 warnings, compileall clean, Next.js build clean. findings.md updated. .omx/ultragoal/goals.json G010 complete. Commits: ff72025 + dbaca90.",
-      "completedAt": "2026-05-29T06:01:11.813Z"
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G011-when-an-approved-strategy-is-loaded",
+      "title": "When an approved strategy is loaded into Execution Lane, wire it into...",
+      "objective": "When an approved strategy is loaded into Execution Lane, wire it into the paper session start payload",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G012-show-the-attached-strategy-info-id-s",
+      "title": "Show the attached strategy info (ID, status, instrument, adapter) in...",
+      "objective": "Show the attached strategy info (ID, status, instrument, adapter) in the session card",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G013-the-paper-session-start-should-refer",
+      "title": "The paper session start should reference the loaded strategy's versio...",
+      "objective": "The paper session start should reference the loaded strategy's version_id and lineage_id",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G014-replace-hardcoded-res-001-with-dynam",
+      "title": "Replace hardcoded `res_001` with dynamic result listing",
+      "objective": "Replace hardcoded `res_001` with dynamic result listing",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G015-show-list-of-available-results-with",
+      "title": "Show list of available results with strategy name, date, and metrics...",
+      "objective": "Show list of available results with strategy name, date, and metrics summary",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G016-result-detail-page-shows-key-metrics",
+      "title": "Result detail page shows: key metrics (PnL, sharpe, drawdown), trade...",
+      "objective": "Result detail page shows: key metrics (PnL, sharpe, drawdown), trade log table, artifact references",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G017-fix-executionlanefeaturepanel-test-t",
+      "title": "Fix `ExecutionLaneFeaturePanel.test.tsx` credential label mismatches...",
+      "objective": "Fix `ExecutionLaneFeaturePanel.test.tsx` credential label mismatches (2 tests)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G018-fix-app-builder-strategyid-page-test",
+      "title": "Fix `app/builder/[strategyId]/page.test.tsx` missing Next.js router m...",
+      "objective": "Fix `app/builder/[strategyId]/page.test.tsx` missing Next.js router mock (1 test)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G019-fix-builderdashboard-test-tsx-if-any",
+      "title": "Fix `BuilderDashboard.test.tsx` if any regressions from G001-G004",
+      "objective": "Fix `BuilderDashboard.test.tsx` if any regressions from G001-G004",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G020-all-42-vitest-tests-must-pass",
+      "title": "All 42+ vitest tests must pass",
+      "objective": "All 42+ vitest tests must pass",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G021-create-docker-compose-yml-at-repo-ro",
+      "title": "Create `docker-compose.yml` at repo root",
+      "objective": "Create `docker-compose.yml` at repo root",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G022-services-postgres-16-alpine-builder",
+      "title": "Services: postgres (16-alpine), builder-api (FastAPI), web (Next.js)",
+      "objective": "Services: postgres (16-alpine), builder-api (FastAPI), web (Next.js)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G023-postgres-uses-persistent-volume",
+      "title": "Postgres uses persistent volume",
+      "objective": "Postgres uses persistent volume",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G024-api-connects-to-postgres-seeds-demo",
+      "title": "API connects to Postgres, seeds demo data",
+      "objective": "API connects to Postgres, seeds demo data",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G025-web-proxies-api-requests",
+      "title": "Web proxies API requests",
+      "objective": "Web proxies API requests",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G026-docker-compose-up-brings-everything",
+      "title": "`docker compose up` brings everything up",
+      "objective": "`docker compose up` brings everything up",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G027-read-builder-api-token-from-env-and",
+      "title": "Read `BUILDER_API_TOKEN` from env and attach as Bearer token to all A...",
+      "objective": "Read `BUILDER_API_TOKEN` from env and attach as Bearer token to all API requests",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G028-add-auth-token-to-apiclient-ts-api-t",
+      "title": "Add auth token to `apiClient.ts` / `api.ts` request headers",
+      "objective": "Add auth token to `apiClient.ts` / `api.ts` request headers",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G029-handle-401-responses-gracefully-show",
+      "title": "Handle 401 responses gracefully (show auth error, don't crash)",
+      "objective": "Handle 401 responses gracefully (show auth error, don't crash)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G030-login-logout-not-needed-token-based",
+      "title": "Login/logout not needed — token-based like current backend",
+      "objective": "Login/logout not needed — token-based like current backend",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G031-run-ai-slop-cleaner-on-all-changed-f",
+      "title": "Run ai-slop-cleaner on all changed files",
+      "objective": "Run ai-slop-cleaner on all changed files",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G032-rerun-full-verification-pytest-429-v",
+      "title": "Rerun full verification (pytest 429+, vitest all green, tsc clean, np...",
+      "objective": "Rerun full verification (pytest 429+, vitest all green, tsc clean, npm build succeeds)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G033-run-code-review-on-all-changes",
+      "title": "Run $code-review on all changes",
+      "objective": "Run $code-review on all changes",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
+    },
+    {
+      "id": "G034-fix-any-review-blockers",
+      "title": "Fix any review blockers",
+      "objective": "Fix any review blockers",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T15:02:37.390Z",
+      "updatedAt": "2026-05-29T15:02:37.390Z"
     }
   ],
-  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-medium-1-route-execution-lane-adapte MEDIUM-1: Route execution lane adapter resolution through adapter_reg...; G002-medium-5-add-rate-limiting-and-auth MEDIUM-5: Add rate limiting and auth requirement to AI builder draft...; G003-low-1-document-legacy-compile-hash-w LOW-1: Document legacy compile hash with deprecation timeline; G004-low-2-document-legacy-storage-schema LOW-2: Document legacy storage schema alias with deprecation timeline; G005-low-4-introduce-typed-error-hierarch LOW-4: Introduce typed error hierarchy (BuilderValidationError, Crede...; G006-low-5-add-design-md-reference-in-rea LOW-5: Add DESIGN.md reference in README.md; G007-flip-allow-legacy-fixture-refs-defau Flip allow_legacy_fixture_refs default to False in promotions service; G008-clean-up-remaining-2-deprecationwarn Clean up remaining 2 DeprecationWarning emissions in test suite; G009-commit-staged-worktree-changes-runti Commit staged worktree changes (runtime_check.py minor drift detectio...; G010-full-verification-418-tests-pass-0-w Full verification: 418+ tests pass, 0 warnings, typecheck clean, fron..."
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-rewrite-strategies-id-page-and-strat Rewrite `/strategies/[id]` page and `StrategyDetailClient` component; G002-show-full-strategyspec-indicators-ru Show full StrategySpec (indicators, rules, risk, validation) in reada...; G003-show-version-history-table-with-vers Show version history table with version IDs and timestamps; G004-show-current-status-with-colored-chi Show current status with colored chip and the lifecycle chain (draft...; G005-add-action-buttons-matching-current Add action buttons matching current status (Edit if draft/validated,...; G006-tests-typecheck-vitest-component-tes Tests: typecheck + vitest component test; G007-when-operator-selects-a-strategy-in When operator selects a strategy in Backtest Center, auto-populate th...; G008-show-selected-strategy-context-above Show selected strategy context above the launch panel; G009-clear-previous-job-results-when-a-ne Clear previous job results when a new strategy is selected; G010-tests-typecheck-vitest Tests: typecheck + vitest; G011-when-an-approved-strategy-is-loaded When an approved strategy is loaded into Execution Lane, wire it into...; G012-show-the-attached-strategy-info-id-s Show the attached strategy info (ID, status, instrument, adapter) in...; G013-the-paper-session-start-should-refer The paper session start should reference the loaded strategy's versio...; G014-replace-hardcoded-res-001-with-dynam Replace hardcoded `res_001` with dynamic result listing; G015-show-list-of-available-results-with Show list of available results with strategy name, date, and metrics...; G016-result-detail-page-shows-key-metrics Result detail page shows: key metrics (PnL, sharpe, drawdown), trade...; G017-fix-executionlanefeaturepanel-test-t Fix `ExecutionLaneFeaturePanel.test.tsx` credential label mismatches...; G018-fix-app-builder-strategyid-page-test Fix `app/builder/[strategyId]/page.test.tsx` missing Next.js router m...; G019-fix-builderdashboard-test-tsx-if-any Fix `BuilderDashboard.test.tsx` if any regressions from G001-G004; G020-all-42-vitest-tests-must-pass All 42+ vitest tests must pass; G021-create-docker-compose-yml-at-repo-ro Create `docker-compose.yml` at repo root; G022-services-postgres-16-alpine-builder Services: postgres (16-alpine), builder-api (FastAPI), web (Next.js); G023-postgres-uses-persistent-volume Postgres uses persistent volume; G024-api-connects-to-postgres-seeds-demo API connects to Postgres, seeds demo data; G025-web-proxies-api-requests Web proxies API requests; G026-docker-compose-up-brings-everything `docker compose up` brings everything up; G027-read-builder-api-token-from-env-and Read `BUILDER_API_TOKEN` from env and attach as Bearer token to all A...; G028-add-auth-token-to-apiclient-ts-api-t Add auth token to `apiClient.ts` / `api.ts` request headers; G029-handle-401-responses-gracefully-show Handle 401 responses gracefully (show auth error, don't crash); G030-login-logout-not-needed-token-based Login/logout not needed — token-based like current backend; G031-run-ai-slop-cleaner-on-all-changed-f Run ai-slop-cleaner on all changed files; G032-rerun-full-verification-pytest-429-v Rerun full verification (pytest 429+, vitest all green, tsc clean, np...; G033-run-code-review-on-all-changes Run $code-review on all changes; G034-fix-any-review-blockers Fix any review blockers",
+  "activeGoalId": "G001-rewrite-strategies-id-page-and-strat"
 }

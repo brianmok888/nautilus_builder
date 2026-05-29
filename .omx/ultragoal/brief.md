@@ -1,23 +1,57 @@
-Nautilus Builder production beta completion.
+# Nautilus Builder — MVP Completion Ultragoal
 
-All prior HIGH items resolved, 418 tests passing. Remaining items to close before production beta:
+Clear all functional gaps 1-by-1 until the operator can go from strategy creation through backtest to execution lane in a single session.
 
-MEDIUM-priority fixes still open:
-1. MEDIUM-1: Route execution lane adapter resolution through adapter_registry with plugin-style config builders (remove hardcoded Binance branch)
-2. MEDIUM-5: Add rate limiting and auth requirement to AI builder draft endpoint
+## Stories
 
-Low-priority cleanup (promote to production blockers):
-3. LOW-1: Document legacy compile hash with deprecation timeline
-4. LOW-2: Document legacy storage schema alias with deprecation timeline
-5. LOW-4: Introduce typed error hierarchy (BuilderValidationError, CredentialSlotError, etc.)
-6. LOW-5: Add DESIGN.md reference in README.md
+### G001: Strategy detail page with full spec, version history, and status timeline
+- Rewrite `/strategies/[id]` page and `StrategyDetailClient` component
+- Show full StrategySpec (indicators, rules, risk, validation) in readable AntD Descriptions
+- Show version history table with version IDs and timestamps
+- Show current status with colored chip and the lifecycle chain (draft → validated → backtested → approved → execution_ready)
+- Add action buttons matching current status (Edit if draft/validated, Clone always, Backtest if eligible)
+- Tests: typecheck + vitest component test
 
-Deprecation inventory closure:
-7. Flip allow_legacy_fixture_refs default to False in promotions service
-8. Clean up remaining 2 DeprecationWarning emissions in test suite
+### G002: Backtest Center auto-fills manifest from selected strategy
+- When operator selects a strategy in Backtest Center, auto-populate the BacktestLaunchPanel manifest fields (strategy_version_id, adapter_profile_id, instrument_id) from the strategy's spec
+- Show selected strategy context above the launch panel
+- Clear previous job results when a new strategy is selected
+- Tests: typecheck + vitest
 
-Uncommitted changes stabilization:
-9. Commit staged worktree changes (runtime_check.py minor drift detection, loading.tsx, ErrorBoundary.tsx) and untracked files (upgrade checklist, drift test)
+### G003: Execution Lane paper/shadow mode for approved strategies
+- When an approved strategy is loaded into Execution Lane, wire it into the paper session start payload
+- Show the attached strategy info (ID, status, instrument, adapter) in the session card
+- The paper session start should reference the loaded strategy's version_id and lineage_id
+- Tests: typecheck + vitest
 
-Final production beta gate:
-10. Full verification: 418+ tests pass, 0 warnings, typecheck clean, frontend build clean, findings.md updated to reflect all items resolved
+### G004: Results/Reports page — browse real backtest results
+- Replace hardcoded `res_001` with dynamic result listing
+- Show list of available results with strategy name, date, and metrics summary
+- Result detail page shows: key metrics (PnL, sharpe, drawdown), trade log table, artifact references
+- Tests: typecheck + vitest
+
+### G005: Fix 5 pre-existing vitest failures
+- Fix `ExecutionLaneFeaturePanel.test.tsx` credential label mismatches (2 tests)
+- Fix `app/builder/[strategyId]/page.test.tsx` missing Next.js router mock (1 test)
+- Fix `BuilderDashboard.test.tsx` if any regressions from G001-G004
+- All 42+ vitest tests must pass
+
+### G006: Docker Compose for full stack
+- Create `docker-compose.yml` at repo root
+- Services: postgres (16-alpine), builder-api (FastAPI), web (Next.js)
+- Postgres uses persistent volume
+- API connects to Postgres, seeds demo data
+- Web proxies API requests
+- `docker compose up` brings everything up
+
+### G007: Frontend auth integration
+- Read `BUILDER_API_TOKEN` from env and attach as Bearer token to all API requests
+- Add auth token to `apiClient.ts` / `api.ts` request headers
+- Handle 401 responses gracefully (show auth error, don't crash)
+- Login/logout not needed — token-based like current backend
+
+### G008: Final quality gate
+- Run ai-slop-cleaner on all changed files
+- Rerun full verification (pytest 429+, vitest all green, tsc clean, npm build succeeds)
+- Run $code-review on all changes
+- Fix any review blockers
