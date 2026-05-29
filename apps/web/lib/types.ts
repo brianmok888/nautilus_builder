@@ -368,10 +368,14 @@ export type PromotionRequestResult = {
 
 /** Which statuses each lane can see */
 export const LANE_ALLOWED_STATUSES: Record<"builder" | "backtest" | "execution", StrategyStatus[]> = {
-  builder: ["draft", "validated"],
-  backtest: ["draft", "validated", "backtested", "shadow_candidate", "approved", "execution_ready"],
+  builder: ["draft", "validated", "backtested", "shadow_candidate", "approved", "execution_ready"],
+  backtest: ["validated", "backtested", "shadow_candidate", "approved", "execution_ready"],
   execution: ["approved", "execution_ready"],
 };
+
+
+
+
 
 /** Color mapping for strategy status chips */
 export const STRATEGY_STATUS_COLORS: Record<StrategyStatus, string> = {

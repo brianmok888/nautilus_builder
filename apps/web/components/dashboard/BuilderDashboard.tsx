@@ -123,7 +123,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
             <Card
               size="small"
               title="Strategies"
-              extra={<Tag color="blue">Draft & Validated</Tag>}
+              extra={<Tag color="blue">All statuses</Tag>}
             >
               <LaneStrategyTable
                 lane="builder"
@@ -146,7 +146,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
               <Card
                 size="small"
                 title="Strategies"
-                extra={<Tag color="purple">All statuses</Tag>}
+                extra={<Tag color="purple">Validated onward</Tag>}
               >
                 <LaneStrategyTable
                   lane="backtest"
