@@ -1,13 +1,13 @@
 # Nautilus Builder Structure Review
 
-**Review date:** 2026-05-29 (updated post-segment-1+2 fixes)
+**Review date:** 2026-05-29 (updated — full deep review v2)
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, `$superpowers:aiogram-dialog-menus` supporting checks.
 
 ## Authoritative references
 
-- NautilusTrader: `nautilus_trader==1.223.0` (pinned in pyproject.toml)
+- NautilusTrader: `nautilus_trader==1.227.0` (pinned in pyproject.toml, aligned with Daedalus)
 - https://github.com/nautechsystems/nautilus_trader
 - https://nautilustrader.io/docs/latest/developer_guide
 - https://nautilustrader.io/docs/latest/developer_guide/adapters/
@@ -45,14 +45,15 @@ nautilus_builder/
 │   ├── research_jobs/       # Durable research-job contracts
 │   ├── strategy_registry/   # Read-only external strategy registry/import-as-draft
 │   ├── system_verification/ # Composed MVP verification report
-│   └── ui_contracts/        # Python-backed executable UI contract helpers
+│   ├── ui_contracts/        # Python-backed executable UI contract helpers
+│   └── postgres/            # Postgres connection pool, migrations, repositories
 ├── services/api/            # FastAPI + thin ApiApp routes over packages/* (21 files)
 ├── services/workers/        # Backend-owned worker entrypoint stubs
 ├── apps/web/                # Next.js 15 + Ant Design v6 app shell (~86 TSX/TS files)
 │   ├── app/                 # Next.js App Router pages (strategies, backtests, results, builder, execution)
 │   ├── components/          # AntD components (shell, strategies, backtests, results, config, dashboard, etc.)
 │   └── lib/                 # API client (api.ts), types, strategy spec helpers
-├── tests/                   # 436 pytest tests across 20+ test directories (133 files)
+├── tests/                   # 442 pytest tests across 20+ test directories (135+ files)
 ├── docker-compose.yml       # Full-stack Docker (postgres:16-alpine, FastAPI, Next.js)
 ├── Dockerfile.api           # FastAPI container
 ├── apps/web/Dockerfile      # Next.js container
@@ -73,9 +74,7 @@ Code-level enforcement:
 - `compiler.py` sets `execution_authority=False` for both `backtest` and `signal_preview_only` profiles.
 - `promotions/service.py` returns `may_submit_order=False`, `may_create_trade_action=False`.
 - `lifecycle/models.py` exposes `live_trading_authority=False`.
-- `execution_lane/nautilus_runtime.py` — `NautilusTradingNodeRuntimePlan` uses `Literal[False]` guards for `browser_credentials_allowed`, `credential_inputs_allowed`, `strategy_lane_coupled`.
-- `execution_lane/credentials.py` — venue-prefixed env keys only; forbidden bare key names; file restricted to owner read/write.
-- `execution_lane/models.py` — `_SECRET_KEYS` set recursively rejects credential leakage in profiles, commands, and reports.
+- `execution_lane/nautilus_runtime.py` — `Literal[False]` on `browser_credentials_allowed`, `credential_inputs_allowed`, `strategy_lane_coupled`.
 - `strategy_validation/policy.py` — `FORBIDDEN_REFERENCES` dict blocks `submit_order`, `modify_order`, `cancel_order`, `close_position`, `api_key`, `secret_key`, `credential`, `TradeAction`.
 - `strategy_validation/policy.py` — `RAW_CODE_PATTERNS` set blocks `eval`, `exec`, `import`, `subprocess`, `socket`, `requests`, `os.`, `sys.`, `__import__`.
 
@@ -93,8 +92,9 @@ Code-level enforcement:
 - Binance Ed25519 env vars now raise `ValueError` (v1.224.0) — Builder reads from credential slots, not env vars directly
 - dYdX v3 adapter removed (v1.223.0) — no references in Builder
 - `Quantity - Quantity` returns `Quantity`, not `Decimal` (v1.223.0) — no arithmetic on NT types in Builder
+- Binance adapter config builder now uses `environment` instead of deprecated `testnet` param
 
-**Assessment:** Builder is compatible with 1.223.0 but should plan upgrade to 1.227.0 for Daedalus alignment. No breaking deprecations hit Builder's current usage patterns.
+**Assessment:** Builder is fully aligned with Daedalus at 1.227.0. No breaking deprecations hit Builder's current usage patterns.
 
 ## Frontend architecture
 
@@ -102,7 +102,7 @@ Code-level enforcement:
 - **Ant Design v6** for UI components (Table, Descriptions, Statistic, Tag, Card)
 - **API proxy** via Next.js rewrites → `BUILDER_API_BASE_URL`
 - **Auth**: Bearer token from `BUILDER_API_TOKEN` / `NEXT_PUBLIC_BUILDER_API_TOKEN` env vars
-- **44 vitest component tests**, 436 pytest backend tests
+- **44 vitest component tests**, 442 pytest backend tests
 - **Docker** ready: `docker-compose up` brings full stack (postgres, api, web)
 
 ## Security posture
@@ -110,10 +110,21 @@ Code-level enforcement:
 - No hardcoded secrets in production code (confirmed via AST scan)
 - No `eval()`, `exec()`, `subprocess`, `os.system`, `time.sleep` in packages/ or services/
 - All user inputs validated through Pydantic models with `extra="forbid"`
-- SQL injection prevented via parameterized queries in Postgres repository
-- Artifact URIs are path-traversal-safe
+- SQL injection prevented via parameterized queries in Postgres repository (table names use `safe_storage_identifier()`)
+- Artifact URIs are path-traversal-safe (`_SAFE_IDENTIFIER` regex on all artifact refs)
 - API token auth on all routes; 401 handled gracefully with action guidance
 - `.env.execution.local` gitignored; venue credentials use prefixed keys only
+- Credential model forbids bare key names via `_FORBIDDEN_KEYS` set
+- AI provider endpoint URL is operator-configured via env vars, never derived from model output
+- LLM output always validated through `validate_strategy_spec()` before acceptance
+
+## Security concerns identified (new in this review)
+
+1. **No CORS middleware** — API has no CORS configuration. In Docker deployment, Next.js SSR proxies bypass this, but direct browser access from other origins is blocked. Acceptable for VM deployment; add CORS if browser SPA access is needed.
+2. **Default dev token in docker-compose** — `BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}` provides a fallback that is trivially guessable. Production deployments must override this.
+3. **No API rate limiting** — No rate limiting middleware (slowapi/throttling). Low risk for operator-only tool, but should be added if exposed to wider network.
+4. **No request body size limits** — FastAPI defaults apply but no explicit max body size is configured for API routes.
+5. **`NEXT_PUBLIC_BUILDER_API_TOKEN` exposed to client** — Token is sent to browser in `NEXT_PUBLIC_*` env var. This is standard for Next.js but means the token is visible in client-side JS bundles.
 
 ## Daedalus alignment
 
@@ -125,30 +136,33 @@ Key Daedalus components reviewed for alignment:
 - `crates/adapters/` — 11 custom DEX adapters (apex_omni, paradex, ethereal, etc.) with Rust core
 - `nautilus_brain/` — ML signal pipeline, genome evolution, graph-based strategy construction
 
-## Fixes applied (this session)
+## Previously applied fixes (still valid)
 
 ### S1: Master reconciliation text + H2 fixture fallback gate
-
-- Added "Master reconciliation — catalog-backed Nautilus replay" section to all three review docs.
-- `workflow_result_payload` now gates fixture fallback behind `BUILDER_ALLOW_FIXTURE_FALLBACK` env var (defaults to off).
+- `workflow_result_payload` gates fixture fallback behind `BUILDER_ALLOW_FIXTURE_FALLBACK` env var (defaults to off).
 - Tests updated: 3 existing tests set the env flag explicitly; 2 new tests verify 404 when off, 200 when on.
 
 ### S2: H3 adapter config builder credential safety
-
-- `generic_client_config_builder` now raises `ValueError` when no venue-prefixed credentials are found, instead of silently connecting with empty `LiveDataClientConfig`.
+- `generic_client_config_builder` now raises `ValueError` when no venue-prefixed credentials are found.
 - Added `_require_non_blank_credentials()` helper that checks for `{VENUE}_*` prefixed keys with non-empty values.
-- 5 new tests in `tests/execution_lane/test_adapter_config_builders.py` verify builder routing and credential enforcement.
-- 2 existing tests in `test_adapter_registry_wiring.py` updated to expect `ValueError` instead of silent fallback.
 
 ### S3: H1 NT version upgrade + M3 runtime_label extensibility
-
 - Upgraded `nautilus_trader` from 1.223.0 to 1.227.0 in `pyproject.toml` and `engine_contract.py`.
 - Replaced deprecated `testnet` param with `environment` in Binance adapter config builder.
-- `runtime_label` changed from `Literal["python_live_integration_specific"]` to `str` with validator accepting `python_live_integration_specific` and `rust_live_node`.
-- 440 tests passing (was 436 before segment 3).
+
+### S4: M1 list_results pagination + M2 created_at timestamp
+- Added `limit` and `offset` parameters to `list_results()` in InMemory and SQLite repos.
+- Added `created_at: str` field to `WorkflowResultRecord` with ISO datetime default factory.
 
 ## Master reconciliation — catalog-backed Nautilus replay
 
 - `catalog_backed_replay_smoke` runs synthetic historical quote ticks through the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Supports `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable for smoke test gating.
+
+## Verification gate (current)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 442 passed
+```

@@ -1,6 +1,6 @@
 # Nautilus Builder Handguard
 
-**Review date:** 2026-05-29 (updated post-segment-1+2 fixes)
+**Review date:** 2026-05-29 (updated — full deep review v2)
 **Purpose:** Runtime-enforced boundaries and hardguard constraints that must not be violated. These are invariants, not suggestions.
 
 ---
@@ -94,7 +94,7 @@ Guard: Add a linter/hook that flags Pydantic model classes starting with `Test`.
 
 ```bash
 python3 -m compileall -q packages services tests
-python3 -m pytest tests/ -q --tb=line        # Must pass: 440+
+python3 -m pytest tests/ -q --tb=line        # Must pass: 442+
 cd apps/web && npx tsc --noEmit               # Must be clean
 cd apps/web && npx vitest run                 # Must pass: 44+ (4 skipped OK)
 cd apps/web && npm run build                  # Must succeed
@@ -161,7 +161,7 @@ Guard: Run AST scan as CI gate. Reject any PR that introduces forbidden patterns
 - Builder must track Daedalus's `nautilus_trader` version within 2 minor releases.
 - Current: Builder=1.227.0, Daedalus=1.227.0 → **aligned** (H1 FIXED).
 - Upgrade path: verify adapter config builder compatibility at each version step.
-- Upgrade complete: 1.223.0 → 1.227.0, `testnet` → `environment` param, 440 tests passing.
+- Upgrade complete: 1.223.0 → 1.227.0, `testnet` → `environment` param, 442 tests passing.
 
 ## 16. Daedalus Telegram integration boundary
 
@@ -205,5 +205,15 @@ Guard: Any PR that removes the validator or adds labels without updating the kno
 | `backtest_jobs.py` legacy hash | 2026-07-01 | Remove, add tracking issue |
 | `allow_legacy_fixture_refs` | 2026-07-01 | Add hard cutoff with env flag |
 | `res_001` fixture fallback | 2026-07-01 | Default `allow_fixture_fallback=False` in production |
+| `PostgresWorkflowRepository` alias | 2026-07-01 | Rename to SqliteWorkflowRepository |
 
 Guard: After 2026-07-01, any PR that re-enables legacy paths without env flag must be rejected.
+
+## 21. Production deployment gate (new)
+
+- `BUILDER_API_TOKEN` must not default to `dev-token` in production.
+- Add startup check: if `APP_ENV=production` and token is `dev-token`, abort.
+- Postgres password must be overridden via env var for production.
+- Postgres port must not be exposed to host network in production.
+
+Guard: Any PR that removes the production token check must be rejected.
