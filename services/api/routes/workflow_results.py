@@ -58,8 +58,11 @@ def _dashboard_result_payload(result_id: str, *, fixture: bool) -> dict[str, obj
 
 def list_results_payload(
     repository: InMemoryWorkflowRepository,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> ApiResponse:
-    results = repository.list_results()
+    results = repository.list_results(limit=limit, offset=offset)
     items = []
     for r in results:
         items.append({

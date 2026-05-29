@@ -29,6 +29,7 @@ from services.api.routes.promotions import create_shadow_payload, request_promot
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.workflow_results import (
+    list_results_payload,
     workflow_lineage_status_payload,
     workflow_result_payload,
     workflow_result_suggestions_payload,
@@ -441,6 +442,16 @@ def create_fastapi_app(
                 context=context,
                 allow_fixture_fallback=False,
             ),
+            JSONResponse,
+        )
+
+    @app.get("/api/results")
+    def list_results(limit: int | None = None, offset: int = 0, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(
+            list_results_payload(workflow_repository, limit=limit, offset=offset),
             JSONResponse,
         )
 
