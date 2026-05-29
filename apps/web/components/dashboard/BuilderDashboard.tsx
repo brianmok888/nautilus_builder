@@ -12,9 +12,10 @@ import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
 import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
+import { LaneStrategyTable } from "../strategy-builder/LaneStrategyTable";
 import { StrategySpecEditor } from "../strategy-builder/StrategySpecEditor";
-import { StrategyList } from "../strategy-builder/StrategyList";
 import { JobTerminal } from "../terminal/JobTerminal";
+import type { StrategySummary } from "../../lib/types";
 
 const { Text, Paragraph } = Typography;
 
@@ -44,16 +45,17 @@ const steps = [
 
 export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: string }) {
   const [activeSection, setActiveSection] = useState(initialTab);
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategySummary | null>(null);
 
   const router = useRouter();
 
-  // Sync with URL when sidebar Link navigation changes the tab param
   useEffect(() => {
     setActiveSection(initialTab);
   }, [initialTab]);
 
   function switchTab(key: string) {
     setActiveSection(key);
+    setSelectedStrategy(null);
     const params = key === "strategy" ? "" : `?tab=${key}`;
     router.replace(params || "/", { scroll: false });
   }
@@ -115,34 +117,56 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
 
       {/* Content panels */}
       <div style={{ marginTop: 8 }}>
-        {/* TAB 1: Strategy Builder */}
+        {/* TAB 1: Strategy Builder — draft/validated only */}
         {activeSection === "strategy" && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <StrategyList
-              onSelect={(id) => console.log("Edit strategy:", id)}
-              onClone={(id) => console.log("Clone strategy:", id)}
-            />
+            <Card
+              size="small"
+              title="Strategies"
+              extra={<Tag color="blue">Draft & Validated</Tag>}
+            >
+              <LaneStrategyTable
+                lane="builder"
+                onSelect={(s) => {
+                  setSelectedStrategy(s);
+                  console.log("Edit strategy:", s.strategy_id);
+                }}
+              />
+            </Card>
             <Card size="small" title="Strategy Editor">
               <AiStrategyCopilot />
             </Card>
           </Space>
         )}
 
-        {/* TAB 2: Backtest Center */}
+        {/* TAB 2: Backtest Center — all statuses, can approve to execution_ready */}
         {activeSection === "backtest" && (
           <Row gutter={[16, 16]}>
             <Col xs={24} xl={10}>
               <Card
                 size="small"
-                title="StrategySpec Review"
-                extra={<Tag color="purple">AI review before backtest</Tag>}
+                title="Strategies"
+                extra={<Tag color="purple">All statuses</Tag>}
               >
-                <Paragraph type="secondary">
-                  Review or edit the StrategySpec before running. AI can check
-                  correctness, parameter validity, and adapter compatibility.
-                </Paragraph>
-                <StrategySpecEditor spec={undefined} />
+                <LaneStrategyTable
+                  lane="backtest"
+                  onSelect={(s) => setSelectedStrategy(s)}
+                />
               </Card>
+              {selectedStrategy && (
+                <Card
+                  size="small"
+                  title={`Spec: ${selectedStrategy.strategy_id}`}
+                  extra={<Tag color="purple">AI review before backtest</Tag>}
+                  style={{ marginTop: 12 }}
+                >
+                  <Paragraph type="secondary">
+                    Review or edit the StrategySpec before running. AI can check
+                    correctness, parameter validity, and adapter compatibility.
+                  </Paragraph>
+                  <StrategySpecEditor spec={selectedStrategy.latest_spec} />
+                </Card>
+              )}
             </Col>
             <Col xs={24} xl={14}>
               <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -161,26 +185,48 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                   title="Manual Promotion Review"
                   extra={<Tag color="blue">Human gate</Tag>}
                 >
-                  <PromotionRequestPanel />
+                  <PromotionRequestPanel strategy={selectedStrategy} />
                 </Card>
               </Space>
             </Col>
           </Row>
         )}
 
-        {/* TAB 3: Execution Lane */}
+        {/* TAB 3: Execution Lane — approved/execution_ready only */}
         {activeSection === "execution" && (
-          <Row gutter={[16, 16]}>
-            <Col xs={24}>
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Card
+              size="small"
+              title="Approved Strategies"
+              extra={<Tag color="gold">Execution Ready</Tag>}
+            >
+              <LaneStrategyTable
+                lane="execution"
+                onSelect={(s) => setSelectedStrategy(s)}
+              />
+            </Card>
+            {selectedStrategy && (
+              <Card
+                size="small"
+                title={`Execution: ${selectedStrategy.strategy_id}`}
+                extra={<Tag color="red">Backend-owned credentials</Tag>}
+              >
+                <ExecutionLaneFeaturePanel />
+              </Card>
+            )}
+            {!selectedStrategy && (
               <Card
                 size="small"
                 title="Paper / Live TradingNode"
                 extra={<Tag color="red">Backend-owned credentials</Tag>}
               >
+                <Paragraph type="secondary">
+                  Select an approved or execution-ready strategy above to configure execution lane.
+                </Paragraph>
                 <ExecutionLaneFeaturePanel />
               </Card>
-            </Col>
-          </Row>
+            )}
+          </Space>
         )}
       </div>
     </div>

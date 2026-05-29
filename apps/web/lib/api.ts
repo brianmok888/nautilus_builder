@@ -404,3 +404,23 @@ export async function validateBacktestProfile(
     },
   );
 }
+
+export async function approveStrategy(
+  strategyId: string,
+): Promise<StrategyRecord> {
+  return apiFetch<StrategyRecord>(`/api/strategies/${strategyId}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
+export async function cloneStrategy(
+  strategyId: string,
+): Promise<StrategyRecord> {
+  return apiFetch<StrategyRecord>(`/api/strategies/${strategyId}/clone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}

@@ -68,6 +68,7 @@ export function StrategyListClient() {
           strategy_id: created.strategy_id,
           strategy_lineage_id: created.strategy_lineage_id,
           latest_spec: created.spec,
+          status: created.status,
         },
       ]);
     } catch {

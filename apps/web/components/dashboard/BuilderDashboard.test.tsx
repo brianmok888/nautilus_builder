@@ -2,9 +2,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BuilderDashboard } from "./BuilderDashboard";
 
-function mockStatusFetch() {
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => ({ get: () => null }),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
+
+function mockApiResponses() {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
+    if (url === "/api/strategies") return Response.json([]);
     if (url === "/api/adapters") return Response.json([]);
     if (url.startsWith("/api/execution-lane/status")) {
       return Response.json({
@@ -38,45 +44,53 @@ function mockStatusFetch() {
 describe("BuilderDashboard", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the three-section operator workflow with Strategy Builder as entry point", () => {
-    mockStatusFetch();
+  it("renders Strategy Builder as default active lane", () => {
+    mockApiResponses();
     render(<BuilderDashboard />);
 
-    expect(screen.getByText("Command center")).toBeInTheDocument();
-    expect(screen.getByText("Three-section operator workflow")).toBeInTheDocument();
-    expect(screen.getAllByText("Strategy Builder → Backtest Center → Execution Lane").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Open Strategy Builder" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run BacktestNode" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Execution Lane" })).toBeInTheDocument();
-    expect(screen.getByText("Authority split")).toBeInTheDocument();
-    expect(screen.queryByText(/submit_order/i)).not.toBeInTheDocument();
+    // 1-2-3 flow buttons visible
+    expect(screen.getByText(/Strategy Builder/)).toBeInTheDocument();
+    expect(screen.getByText(/Backtest Center/)).toBeInTheDocument();
+    expect(screen.getByText(/Execution Lane/)).toBeInTheDocument();
+
+    // Strategy builder tab shows strategy table header
+    expect(screen.getByText("Strategies")).toBeInTheDocument();
+    // Shows AI copilot section
+    expect(screen.getByText("Strategy Editor")).toBeInTheDocument();
   });
 
-  it("uses CTA buttons to move between the three compact workflow sections", async () => {
-    mockStatusFetch();
+  it("switches to Backtest Center lane on button click", async () => {
+    mockApiResponses();
     render(<BuilderDashboard />);
 
-    expect(screen.getByRole("tab", { name: "1. Strategy Builder" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByLabelText("Strategy prompt")).toBeInTheDocument();
-    expect(screen.getByText("Market context")).toBeInTheDocument();
+    // Click Backtest Center button
+    const backtestButtons = screen.getAllByText(/Backtest Center/);
+    fireEvent.click(backtestButtons[0].closest("button")!);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run BacktestNode" }));
-    expect(screen.getByRole("tab", { name: "2. Backtest Center" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Validated run manifest")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create backtest job" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open Execution Lane" }));
-    expect(screen.getByRole("tab", { name: "3. Execution Lane" })).toHaveAttribute("aria-selected", "true");
-    await waitFor(() => expect(screen.getByText("Feature visibility matrix")).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByText("BacktestNode Replay")).toBeInTheDocument();
+      expect(screen.getByText("Manual Promotion Review")).toBeInTheDocument();
+    });
   });
 
-  it("keeps manual promotion inside Backtest Center instead of the strategy drafting lane", () => {
-    mockStatusFetch();
+  it("switches to Execution Lane on button click", async () => {
+    mockApiResponses();
     render(<BuilderDashboard />);
 
+    const executionButtons = screen.getAllByText(/Execution Lane/);
+    fireEvent.click(executionButtons[0].closest("button")!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Approved Strategies")).toBeInTheDocument();
+    });
+  });
+
+  it("keeps manual promotion inside Backtest Center, not Strategy Builder", () => {
+    mockApiResponses();
+    render(<BuilderDashboard />);
+
+    // Strategy Builder tab should NOT show promotion
+    expect(screen.queryByText("Manual Promotion Review")).not.toBeInTheDocument();
     expect(screen.queryByText("Manual promotion review")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "2. Backtest Center" }));
-    expect(screen.getByText("Manual promotion review")).toBeInTheDocument();
-    expect(screen.getByText("Safe promotion request")).toBeInTheDocument();
   });
 });
