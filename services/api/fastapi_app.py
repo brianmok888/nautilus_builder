@@ -5,6 +5,7 @@ import sqlite3
 from typing import Any
 
 from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
+from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import AuthTokenService, InvalidAuthTokenError, UserProjectContext
