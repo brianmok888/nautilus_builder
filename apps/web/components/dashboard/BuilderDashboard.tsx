@@ -13,6 +13,8 @@ import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
 import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { StrategyBuilderWorkspace } from "../strategy-builder/StrategyBuilderWorkspace";
+import { StrategySpecEditor } from "../strategy-builder/StrategySpecEditor";
+import { StrategyList } from "../strategy-builder/StrategyList";
 import { JobTerminal } from "../terminal/JobTerminal";
 
 const { Text, Paragraph, Title } = Typography;
@@ -30,7 +32,7 @@ const steps = [
     num: 2,
     icon: <ExperimentOutlined />,
     title: "Backtest Center",
-    subtitle: "Historical replay evidence",
+    subtitle: "Spec review → historical replay evidence",
   },
   {
     key: "execution",
@@ -66,13 +68,7 @@ export function BuilderDashboard() {
       </div>
 
       {/* 1-2-3 flow buttons */}
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          padding: "12px 0",
-        }}
-      >
+      <div style={{ display: "flex", gap: 12, padding: "12px 0" }}>
         {steps.map((step) => {
           const active = activeSection === step.key;
           return (
@@ -106,9 +102,7 @@ export function BuilderDashboard() {
                   background: active
                     ? "rgba(255,255,255,0.2)"
                     : "var(--ant-color-bg-container)",
-                  color: active
-                    ? "#fff"
-                    : "var(--ant-color-primary)",
+                  color: active ? "#fff" : "var(--ant-color-primary)",
                 }}
               >
                 {step.num}
@@ -128,41 +122,52 @@ export function BuilderDashboard() {
 
       {/* Content panels */}
       <div style={{ marginTop: 8 }}>
+        {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={10}>
-              <Card
-                size="small"
-                title="AI Draft"
-                extra={<Tag color="gold">Advisory only</Tag>}
-              >
-                <AiStrategyCopilot />
-              </Card>
-            </Col>
-            <Col xs={24} xl={14}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                <Card size="small" title="StrategySpec Editor">
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            {/* Strategy list at top — browse, edit, clone existing */}
+            <StrategyList
+              onSelect={(id) => {
+                // TODO: wire to load strategy into editor
+                console.log("Edit strategy:", id);
+              }}
+              onClone={(id) => {
+                // TODO: wire to clone strategy
+                console.log("Clone strategy:", id);
+              }}
+            />
+
+            {/* Strategy Editor: AI prompt + block canvas + adapter/venue */}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={10}>
+                <Card size="small" title="Strategy Editor">
+                  <AiStrategyCopilot />
+                </Card>
+              </Col>
+              <Col xs={24} xl={14}>
+                <Card size="small" title="Block Canvas">
                   <StrategyBuilderWorkspace />
                 </Card>
-                <Card
-                  size="small"
-                  title="Guardrails"
-                  extra={<Tag icon={<CodeOutlined />} color="blue">Draft only</Tag>}
-                >
-                  <Paragraph type="secondary">
-                    AI output is advisory until the backend validates schema,
-                    forbidden-token policy, market data contract, risk rules, and
-                    output mode. Strategy drafts do not carry browser credentials
-                    or runtime handles.
-                  </Paragraph>
-                </Card>
-              </Space>
-            </Col>
-          </Row>
+              </Col>
+            </Row>
+          </Space>
         )}
 
+        {/* TAB 2: Backtest Center — includes StrategySpec editor for AI review */}
         {activeSection === "backtest" && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Card
+              size="small"
+              title="StrategySpec Review"
+              extra={<Tag color="purple">AI review before backtest</Tag>}
+            >
+              <Paragraph type="secondary">
+                Review or edit the StrategySpec before running. AI can check spec
+                correctness, parameter validity, and adapter compatibility prior to
+                BacktestNode execution.
+              </Paragraph>
+              <StrategySpecEditor spec={undefined} />
+            </Card>
             <Card
               size="small"
               title="BacktestNode Replay"
@@ -183,6 +188,7 @@ export function BuilderDashboard() {
           </Space>
         )}
 
+        {/* TAB 3: Execution Lane */}
         {activeSection === "execution" && (
           <Card
             size="small"

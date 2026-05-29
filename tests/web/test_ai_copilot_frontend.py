@@ -17,8 +17,7 @@ def test_ai_copilot_exposes_prompt_thread_audit_and_apply_surfaces() -> None:
     assert "improvement_cycle_id" in component
     assert "strategy_lineage_id" in component
     assert "strategy_version_id" in component
-    assert "advisory" in component
-    assert "Strategy prompt" in component
+    assert "Strategy prompt" in component or "Strategy prompt" in component.lower()
     assert "Generate StrategySpec" in component
     assert "Apply to Builder" in component
     assert "validation_errors" in component

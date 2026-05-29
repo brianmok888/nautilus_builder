@@ -31,7 +31,7 @@ def test_ai_builder_section_guides_prompt_to_validated_draft_without_authority()
     ai = _read("components/ai-builder/AiStrategyCopilot.tsx")
 
     for token in (
-        "Strategy intent",
+        "Prompt to StrategySpec",
         "Prompt examples",
         "Validation gate",
         "Generate StrategySpec",

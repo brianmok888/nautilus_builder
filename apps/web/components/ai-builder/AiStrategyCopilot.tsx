@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Col, Form, Input, Row, Space, Tag, Typography } from "antd";
+import { fetchAdapters } from "../../lib/api";
 import { applyAiDraftToBuilder, generateAiDraft } from "../../lib/api";
-import type { AiDraftApplication, AiDraftPayload, AiDraftResult } from "../../lib/types";
+import type { AiDraftApplication, AiDraftPayload, AiDraftResult, AdapterSummary } from "../../lib/types";
 
 const DEFAULT_THREAD_ID = "thread_ui_default";
 const DEFAULT_CYCLE_ID = "cycle_ui_default";
@@ -25,6 +26,19 @@ export const AiStrategyCopilot = () => {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [showAdvancedIds, setShowAdvancedIds] = useState(false);
+
+  // Adapter / venue selector for market context
+  const [adapters, setAdapters] = useState<AdapterSummary[]>([]);
+  const [adapterId, setAdapterId] = useState("");
+
+  useEffect(() => {
+    fetchAdapters()
+      .then((list) => {
+        setAdapters(list);
+        if (list.length > 0) setAdapterId(list[0].adapter_id);
+      })
+      .catch(() => {});
+  }, []);
 
   const payload = useMemo<AiDraftPayload>(
     () => ({
@@ -71,17 +85,35 @@ export const AiStrategyCopilot = () => {
   }
 
   return (
-    <section className="panel ai-copilot compact-ai-copilot" aria-label="advisory ai copilot">
-      <Space orientation="vertical" size="small" className="ai-copilot-stack">
-        <div className="ai-copilot-title-row">
-          <div>
-            <Typography.Text className="hero-kicker">Strategy intent</Typography.Text>
-            <Typography.Title level={3}>Prompt to StrategySpec</Typography.Title>
-            <Typography.Text type="secondary">
-              Advisory AI converts operator words into validated Builder draft JSON.
-            </Typography.Text>
-          </div>
-          <Tag color="gold">advisory only</Tag>
+    <section className="panel ai-copilot compact-ai-copilot" aria-label="ai strategy copilot">
+      <Space direction="vertical" size="small" className="ai-copilot-stack">
+        <div>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Prompt to StrategySpec
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Describe the strategy; AI generates a validated Builder draft.
+          </Typography.Text>
+        </div>
+
+        {/* Adapter / Venue selector */}
+        <div>
+          <Typography.Text strong>Adapter / Venue</Typography.Text>
+          <select
+            aria-label="adapter venue"
+            value={adapterId}
+            onChange={(e) => setAdapterId(e.target.value)}
+            style={{ width: "100%", padding: "4px 8px", marginTop: 4, borderRadius: 4 }}
+          >
+            {adapters.map((a) => (
+              <option key={a.adapter_id} value={a.adapter_id}>
+                {a.adapter_id} — {a.venue}
+              </option>
+            ))}
+          </select>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Select adapter so AI generates the correct spec (perp vs spot vs polymarket differ).
+          </Typography.Text>
         </div>
 
         <Alert
@@ -94,12 +126,12 @@ export const AiStrategyCopilot = () => {
         <div className="prompt-examples compact-info-strip">
           <Typography.Text strong>Prompt examples</Typography.Text>
           <Typography.Text type="secondary">
-            “EMA/RSI pullback on BTC perpetuals”, “VWAP trend filter for ETH”, or “mean-reversion bars with ATR risk”.
+            "EMA/RSI pullback on BTC perpetuals", "VWAP trend filter for ETH", or "mean-reversion bars with ATR risk".
           </Typography.Text>
         </div>
 
         <Form layout="vertical" className="ai-copilot-form">
-          <Form.Item label="Strategy intent">
+          <Form.Item label="Strategy prompt">
             <Input.TextArea
               aria-label="Strategy prompt"
               rows={4}
@@ -166,7 +198,6 @@ export const AiStrategyCopilot = () => {
             Apply to Builder
           </Button>
           <Tag color="blue">validate_strategy_spec()</Tag>
-          <Tag color="default">Backtest remains separate</Tag>
         </Space>
 
         {error ? <Alert showIcon type="error" title="AI workflow error" description={error} /> : null}
