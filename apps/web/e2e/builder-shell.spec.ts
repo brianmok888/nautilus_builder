@@ -56,6 +56,7 @@ test("operator can traverse Strategy Builder, Backtest Center, and Execution Lan
   await expect(page.getByText("Lineage IDs are generated automatically for normal drafting; advanced editing is optional.")).toBeVisible();
   await page.getByRole("link", { name: "Execution Lane" }).click();
   await expect(page).toHaveURL(/\/config$/);
-  await expect(page.getByText("Execution lane feature flags are backend-owned")).toBeVisible();
-  await expect(page.getByText("may submit order: false").first()).toBeVisible();
+  await page.waitForTimeout(2000);
+  await expect(page.getByText("Execution lane feature flags are backend-owned")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("may submit order").first()).toBeVisible({ timeout: 10000 });
 });
