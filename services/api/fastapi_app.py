@@ -82,6 +82,26 @@ def create_fastapi_app(
     runtime_event_service = runtime_event_service or RuntimeEventService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
+    # L8: CORS middleware — configurable via env vars
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+    except ImportError:
+        CORSMiddleware = None
+    if CORSMiddleware is not None:
+        cors_origins = [
+            o.strip()
+            for o in os.environ.get("BUILDER_CORS_ORIGINS", "").split(",")
+            if o.strip()
+        ]
+        if cors_origins:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=cors_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
+
     def require_context(authorization: str | None) -> tuple[UserProjectContext | None, ApiResponse | None]:
         return _context_from_authorization(authorization, auth_token_service)
 

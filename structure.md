@@ -164,5 +164,39 @@ Key Daedalus components reviewed for alignment:
 
 ```bash
 python3 -m compileall -q packages services tests  # Clean
-python3 -m pytest tests/ -q --tb=line             # 442 passed
+python3 -m pytest tests/ -q --tb=line             # 459 passed
 ```
+
+## Segments applied (this session)
+
+### S5: H4+M10+M11 — Docker-compose production safety
+- `_UNSAFE_DEV_TOKENS` set rejects dev tokens in production.
+- Postgres port bound to `127.0.0.1:5432:5432` (localhost only).
+- Password uses `${POSTGRES_PASSWORD:-builder_dev}` env var.
+- 5 new tests.
+
+### S6: M5 — API route pagination
+- `list_results_payload` accepts `limit`/`offset` params.
+- New `GET /api/results` route with pagination query params.
+- 3 new tests.
+
+### S7: M6 — Adapter fallback warning
+- `_client_configs` logs warning when adapter not in registry.
+- 1 new test.
+
+### S8: M8 — PostgresWorkflowRepository deprecation
+- `__getattr__`-based deprecation warning for alias.
+- Tests use `SqliteWorkflowRepository` directly.
+- 1 new test.
+
+### S9: M9 — Dockerfile safety
+- `RUN touch .env.execution.local` before COPY.
+- 2 new tests.
+
+### S10: L6 — `__import__` anti-pattern
+- Module-level `datetime` import replaces `__import__` call.
+
+### S11: L7+L8 — Rate limiting + CORS
+- `InMemoryRateLimiter` for zero-dependency rate limiting.
+- CORS middleware via `BUILDER_CORS_ORIGINS` env var.
+- 5 new tests.
