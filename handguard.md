@@ -1,92 +1,67 @@
 # Nautilus Builder Handguard
 
-**Purpose:** concise guardrails for future Nautilus Builder work after the 2026-05-28 deep review.
+**Review date:** 2026-05-29
+**Purpose:** Runtime-enforced boundaries and hardguard constraints that must not be violated. These are invariants, not suggestions.
 
-## 1. Target and authority guard
+---
 
-- Work only in `/home/mok/projects/nautilus_builder` unless the user explicitly changes target.
-- `/home/mok/projects/Nautilus-Daedalus` is a read-only alignment reference. Do not edit it from Builder sessions.
-- Builder is contract/authoring/backtest/shadow-request software.
-- Builder must never create `TradeAction` or call `submit_order`.
-- Live order authority remains external: Daedalus gate + execution lane only.
+## 1. Authority boundary
 
-## 2. Official NautilusTrader source guard
+Builder NEVER holds `submit_order` authority.
 
-When Builder behavior depends on NautilusTrader semantics, use official sources first:
-
-- https://github.com/nautechsystems/nautilus_trader
-- https://nautilustrader.io/docs/latest/developer_guide
-- https://nautilustrader.io/docs/latest/developer_guide/adapters/
-- https://nautilustrader.io/docs/latest/developer_guide/spec_exec_testing/
-- https://nautilustrader.io/docs/latest/concepts/backtesting/
-- https://nautilustrader.io/docs/latest/concepts/live/
-
-Current pinned version: `nautilus_trader==1.223.0`. Do not claim NautilusTrader readiness for versions beyond this pin without explicit upgrade testing.
-
-## 3. NautilusTrader version alignment guard
-
-- `BacktestVenueConfig.trade_execution` must be explicitly set in `config_builder.py` — never rely on defaults.
-- Add a version-alignment test that fails on major/minor version drift from the pin.
-- Plan v1.224+ upgrade covering: `fill_limit_inside_spread` rename, Coinbase IntX removal, `InstrumentProvider.load_all_async` default change, `trade_execution` default change.
-
-## 4. AI draft acceptance guard
-
-Before any AI draft is marked accepted or applied:
-
-1. Validate provider output against `StrategySpec` via `validate_strategy_spec()`.
-2. Run hard-rule validation over the full nested payload.
-3. Reject every forbidden token from `doc/nautilus_builder_hardguards.md`.
-4. Store validation errors in the AI audit record.
-5. Keep status as draft/unvalidated unless validation evidence exists.
-
-Minimum regression cases:
-
-- nested `TradeAction`
-- nested `submit_order`
-- `api_key`, `secret_key`, `credential`
-- `broker_order`, `exchange_order`
-- missing StrategySpec required fields
-- missing risk block
-- unsupported output mode
-
-## 5. StrategySpec validation guard
-
-The executable schema and `doc/nautilus_builder_hardguards.md` must agree.
-
-- If docs list an allowed v1 indicator/operator, schema/tests must accept it.
-- If schema intentionally supports only an MVP subset, docs/UI must say so explicitly.
-- Unknown fields remain forbidden unless schema versioning explicitly permits them.
-- Forbidden terms must be checked recursively across keys and values (current `_walk_strings` does this correctly).
-
-## 6. Frontend/backend DTO guard
-
-Any frontend form that calls the backend must be tested against the real backend payload shape.
-
-For market/backtest profile validation, the current backend requires:
-
-```text
-adapter_id
-instrument_id
-data_type
-timeframe
-market_type
-date_range
+```python
+# These must remain False in all production paths:
+execution_authority = False
+may_submit_order = False
+live_trading_authority = False
+advisory_only = True
 ```
 
-Add at least one contract test that proves UI-submitted payloads succeed against `services.api.app.create_app()` or FastAPI/OpenAPI-derived schemas.
+Enforcement:
+- `execution_lane/nautilus_runtime.py` — `Literal[False]` on `browser_credentials_allowed`, `credential_inputs_allowed`, `strategy_lane_coupled`
+- `strategy_validation/policy.py` — `FORBIDDEN_REFERENCES` blocks `submit_order`, `modify_order`, `cancel_order`, `close_position`, `TradeAction`
+- `strategy_validation/policy.py` — `RAW_CODE_PATTERNS` blocks `eval`, `exec`, `subprocess`, `socket`, `requests`
+- `backtest_runner/config_builder.py` — raises `ValueError` if `credentials` passed to backtest config
+- `compiler.py` — sets `execution_authority=False` for all profiles
 
-## 7. Execution lane guard
+Guard: Any PR that changes these to `True` or `Literal[True]` must be rejected.
 
-- `NautilusTradingNodeRuntimePlan` must keep: `browser_credentials_allowed=Literal[False]`, `credential_inputs_allowed=Literal[False]`, `strategy_lane_coupled=Literal[False]`.
-- Credential slots must use venue-prefixed env keys only. No bare `API_KEY` or `SECRET` keys.
-- `.env.execution.local` is gitignored and local-dev-only. Do not deploy with real credentials in this file.
-- `reconciliation_lookback_mins` must be >= 60 at the model level (enforced: `Field(ge=60)`).
-- Adapter resolution should be routed through `packages/adapter_registry/`, not hardcoded to Binance.
+## 2. Credential boundary
+
+- `.env.execution.local` is gitignored and local-dev-only. **Never deploy with real credentials in this file.**
+- Venue credentials use prefixed keys only: `BINANCE_API_KEY`, `BINANCE_API_SECRET`, etc.
+- Bare key names like `API_KEY`, `SECRET`, `PASSWORD` are forbidden by `credentials.py`.
+- `_SECRET_KEYS` set in `models.py` recursively rejects credential leakage in profiles, commands, and reports.
+- Browser UI must never collect or persist exchange/API credentials.
+
+Guard: Any PR that adds bare credential key names or removes gitignore entries must be rejected.
+
+## 3. Reconciliation boundary
+
+- `reconciliation_lookback_mins` must be ≥ 60 at the model level (enforced: `Field(ge=60)`).
+- `reconciliation_startup_delay_secs` must not be reduced below 10.
+- `open_check_lookback_mins` must not be reduced below 60.
+- Reconciliation must remain enabled for all execution profiles.
+
+Guard: Any PR that lowers these thresholds without explicit justification must be rejected.
+
+## 4. Adapter resolution boundary
+
+- Adapter resolution must be routed through `packages/adapter_registry/`, not hardcoded to Binance.
+- New adapters must be registered in the adapter registry before execution lane profiles can reference them.
+- `generic_client_config_builder` must raise a clear error when credentials are missing, not silently connect.
+
+Guard: Any PR that hardcodes adapter configuration outside the registry must be rejected.
+
+## 5. Worker isolation boundary
+
 - Native runner must not be used from the API event loop — worker process only.
+- `services/workers/` entrypoints own the runtime lifecycle.
+- The API layer must never directly import or start `TradingNode`.
 
-## 8. Promotion guard
+Guard: Any PR that imports `TradingNode` in `services/api/` must be rejected.
 
-Promotion requests must stay evidence-backed and non-authoritative.
+## 6. Promotion evidence boundary
 
 - Default `allow_legacy_fixture_refs` to `False` in production paths.
 - Require `strict_evidence=True` for all non-dev promotion requests.
@@ -94,65 +69,65 @@ Promotion requests must stay evidence-backed and non-authoritative.
 - Never fabricate evidence refs that were not produced/stored.
 - Final/production-candidate movement requires validation, backtest, no-lookahead, risk, gate-compatibility, runtime-boundary, and manual approval evidence.
 
-## 9. Terminal/UX guard
+Guard: Any PR that bypasses evidence requirements in production paths must be rejected.
+
+## 7. Terminal/UX boundary
 
 The normal terminal is not a shell.
 
-Allowed commands remain observational:
+Allowed commands: `help`, `status`, `show config`, `show validation`, `show metrics`, `tail logs`, `request cancel`
 
-```text
-help
-status
-show config
-show validation
-show metrics
-tail logs
-request cancel
-```
+Forbidden: shell, package install, network tools, process/container control, environment dumps, secrets, exchange credentials, direct worker memory mutation.
 
-Forbidden command classes include shell, package install, network tools, process/container control, environment dumps, secrets, exchange credentials, and direct worker memory mutation.
+Guard: Any PR that adds shell-like commands to the terminal must be rejected.
 
-## 10. Model naming guard
+## 8. Model naming boundary
 
 Do not name Pydantic models with `Test` prefix unless they are actual pytest test classes.
 
-- Rename `TestJobRecord` → `WorkflowJobRecord` or similar.
-- Rename `TestResultRecord` → `WorkflowResultRecord` or similar.
-- Add a linter/hook that flags Pydantic model classes starting with `Test`.
+- `WorkflowJobRecord` (renamed from `TestJobRecord`)
+- `WorkflowResultRecord` (renamed from `TestResultRecord`)
 
-## 11. Verification gate before readiness claims
+Guard: Add a linter/hook that flags Pydantic model classes starting with `Test`.
 
-Run and record:
+## 9. Verification gate before readiness claims
 
 ```bash
 python3 -m compileall -q packages services tests
-python3 -m pytest tests/ -q --tb=line
-cd apps/web && npm run typecheck && npm test && npm run build
+python3 -m pytest tests/ -q --tb=line        # Must pass: 429+
+cd apps/web && npx tsc --noEmit               # Must be clean
+cd apps/web && npx vitest run                 # Must pass: 44+ (4 skipped OK)
+cd apps/web && npm run build                  # Must succeed
 ```
 
-Playwright E2E is required for frontend-readiness claims. Install browsers first:
-
+Playwright E2E required for frontend-readiness claims:
 ```bash
 cd apps/web && npx playwright install chromium && npm run test:e2e
 ```
 
-## 12. UI design guard
+Guard: No readiness claim without fresh evidence from all commands above.
 
-- Treat `DESIGN.md` as the current design source of truth before changing UI/UX/frontend structure.
+## 10. UI design boundary
+
+- `DESIGN.md` is the current design source of truth.
 - Preserve the three primary sections: Strategy Builder, Backtest Center, Execution Lane.
 - Browser UI must not collect or persist exchange/API credentials.
-- Navigation labels should keep product vocabulary first; demo IDs remain route examples.
+- Navigation labels keep product vocabulary first; demo IDs remain route examples.
 
-## 13. DataTester/ExecTester boundary guard
+Guard: Any PR that changes the three-section structure or adds credential collection UI must be rejected.
+
+## 11. DataTester/ExecTester boundary
 
 Builder gates on evidence refs but does not produce DataTester/ExecTester evidence. This is by design:
 
 - Builder produces compile artifacts, validation reports, and backtest results.
-- Adapter test evidence (DataTester/ExecTester/reconciliation) comes from the adapter's own test suite or Daedalus.
+- Adapter test evidence comes from the adapter's own test suite or Daedalus.
 - Builder's execution lane correctly requires these refs to be non-blank before allowing commands.
 - Document this boundary explicitly in architecture docs.
 
-## 14. AI provider guard
+Guard: Any PR that claims Builder produces DataTester/ExecTester evidence must be rejected.
+
+## 12. AI provider boundary
 
 - OpenAI-compatible provider uses `urllib.request` with configurable timeout — no third-party HTTP dependency.
 - Provider endpoint is operator-configured via env vars (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`).
@@ -160,25 +135,50 @@ Builder gates on evidence refs but does not produce DataTester/ExecTester eviden
 - Always validate LLM output through `validate_strategy_spec()` before acceptance.
 - No certificate pinning currently — acceptable for operator-configured endpoints but should be documented.
 
-## 15. Security scan guard
+Guard: Any PR that adds third-party HTTP dependencies to the AI provider must be rejected.
 
-Confirmed clean:
+## 13. Security scan gate
 
-- No hardcoded secrets in production code.
-- No blocking I/O in hot paths.
-- No `submit_order`, `TradeAction`, `close_position` in builder-side code.
-- No `eval()`, `exec()`, `subprocess`, `os.system`, `time.sleep` in production code.
-- Credential keys are venue-prefixed and forbidden-key-filtered.
-- Artifact URIs are path-traversal-safe.
+Must remain clean:
+- No hardcoded secrets in production code
+- No blocking I/O in hot paths
+- No `submit_order`, `TradeAction`, `close_position` in builder-side code
+- No `eval()`, `exec()`, `subprocess`, `os.system`, `time.sleep` in production code
+- Credential keys are venue-prefixed and forbidden-key-filtered
+- Artifact URIs are path-traversal-safe
 
-## Catalog-backed replay reconciliation guard
+Guard: Run AST scan as CI gate. Reject any PR that introduces forbidden patterns.
+
+## 14. Catalog-backed replay reconciliation
 
 - `catalog_backed_replay_smoke` must remain runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
 - Synthetic historical quote ticks must exercise the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
 
-### Master reconciliation — catalog-backed Nautilus replay
+## 15. NT version alignment gate
 
-- `catalog_backed_replay_smoke` validates BacktestNode catalog replay using synthetic historical quote ticks.
-- This is a wiring and data-flow check — not full trading-production readiness.
+- Builder must track Daedalus's `nautilus_trader` version within 2 minor releases.
+- Current: Builder=1.223.0, Daedalus=1.227.0 → gap is 4 versions (HIGH finding H1).
+- Upgrade path: verify adapter config builder compatibility at each version step.
+- After upgrade, re-run full test suite and update `structure.md` version table.
+
+## 16. Daedalus Telegram integration boundary
+
+- Daedalus owns the aiogram-dialog Telegram gateway entirely.
+- Builder has no Telegram dependency and must not add one.
+- Strategy lifecycle events in Builder can be surfaced via Daedalus's signal delivery dialog, but only through Daedalus's `nautilus_runtime/live/telegram_gateway/` path.
+- Builder → Daedalus notification contract: optional `notification_config` in execution profiles (not yet implemented).
+
+Guard: Any PR that adds aiogram/aiogram-dialog dependencies to Builder must be rejected.
+
+## 17. Legacy/deprecation closure schedule
+
+| Item | Deadline | Action |
+|------|----------|--------|
+| `storage_config.py` legacy alias | 2026-07-01 | Remove, add tracking issue |
+| `backtest_jobs.py` legacy hash | 2026-07-01 | Remove, add tracking issue |
+| `allow_legacy_fixture_refs` | 2026-07-01 | Add hard cutoff with env flag |
+| `res_001` fixture fallback | 2026-07-01 | Default `allow_fixture_fallback=False` in production |
+
+Guard: After 2026-07-01, any PR that re-enables legacy paths without env flag must be rejected.

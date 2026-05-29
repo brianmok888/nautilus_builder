@@ -1,357 +1,208 @@
 # Nautilus Builder Deep Review Findings
 
-**Review date:** 2026-05-28 (updated deep review)
-**Target repository:** `/home/mok/projects/nautilus_builder`
-**Reference repository:** `/home/mok/projects/Nautilus-Daedalus` (read-only alignment reference)
-**Review mode:** `$superpowers:code-review` + `$superpowers:nt-review` (primary), with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`.
-
-## Verdict
-
-**Recommendation: COMMENT** — no CRITICAL or BLOCK issues remain. Several HIGH/MEDIUM items warrant attention before claiming Builder MVP or NautilusTrader production readiness.
-
-## Architectural Status: WATCH
-
-The execution lane TradingNode contract is well-designed but introduces a direct `nautilus_trader` runtime dependency. When NautilusTrader upgrades from v1.223 to v1.224+, the `BacktestVenueConfig.trade_execution` default change and adapter API shifts will need explicit migration testing. The pinned version protects against accidental breakage but creates technical debt.
-
-## Verification evidence
-
-```bash
-cd /home/mok/projects/nautilus_builder
-
-python3 -m compileall -q packages services tests
-# Clean
-
-python3 -m pytest tests/ -q --tb=line
-# 401 passed, 5 warnings
-```
-
-## Positive findings (preserved from prior review)
-
-- Builder-vs-Daedalus-vs-NautilusTrader boundaries are explicit in `doc/nautilus_builder_hardguards.md`, `doc/nautilus_builder_spec.md`, and `README.md`.
-- Compile artifacts set `execution_authority=False` for both backtest and signal-preview profiles.
-- Promotion payloads set `may_submit_order=False`, `may_create_trade_action=False`.
-- Backtest config rejects explicit live credentials: `if credentials: raise ValueError`.
-- `execution_lane/credentials.py` uses strict venue-prefixed key validation, owner-only file permissions, and never echoes secrets.
-- `NautilusTradingNodeRuntimePlan` uses `Literal[False]` type guards for browser_credentials, credential_inputs, strategy_lane_coupling.
-- AI builder routes through `validate_strategy_spec()` and `StrategySpec.model_validate()` (fixed since prior review).
-- Forbidden-token coverage in `strategy_validation/policy.py` now includes all hardguarded terms: `api_key`, `secret_key`, `credential`, `broker_order`, `exchange_order`, `TradeAction`.
-- 401 tests pass across 20+ test directories.
-- No hardcoded secrets in production code.
-- No blocking calls (`time.sleep`, `requests.get`, etc.) in hot paths.
-- No `submit_order` or `TradeAction` references in builder-side packages (enforced by test suite).
-- `_walk_strings` in `validators.py` recursively checks keys and values for forbidden tokens — correct.
-- `ExecutionLaneProfile` enforces `reconciliation_lookback_mins >= 60` at model level via `Field(ge=60)`.
-- `_SECRET_KEYS` in `execution_lane/models.py` rejects credentials in profiles, commands, and reports recursively.
-- `BacktestRunManifest` uses `Literal[False]` for `credentials_used`, `live_trading_enabled`, `execution_authority`.
-- OpenAI-compatible provider uses `urllib.request` (no third-party HTTP dependency) with configurable timeout.
-- Artifact store uses scoped `artifact://builder/` URIs with checksum validation.
-- `OpenAICompatibleProviderConfig` validates all required fields in `__post_init__`.
-
-## Findings by severity
-
-### CRITICAL (0)
-
-None.
-
-### HIGH (0 — all resolved)
-
-#### ~~HIGH-1~~ — NautilusTrader pinned at v1.223.0, upstream at v1.226+ ✅ RESOLVED
-
-**Evidence**
-
-- `pyproject.toml:7` pins `nautilus_trader==1.223.0`.
-- `packages/backtest_runner/engine_contract.py:3` hardcodes `NAUTILUS_TRADER_VERSION = "1.223.0"`.
-- v1.224+ renamed `fill_limit_at_touch` → `fill_limit_inside_spread`, removed Coinbase IntX adapter, changed `InstrumentProvider` default methods.
-- v1.223.0 changed `trade_execution` default to `True` in `BacktestVenueConfig`.
-- `packages/backtest_runner/config_builder.py` does not explicitly set `trade_execution` in the venue config, relying on defaults.
-- Daedalus reference also pinned at `nautilus_trader==1.223.0`.
-
-**Risk**
-
-When Builder upgrades to v1.224+, any BacktestVenueConfig that assumed the old `trade_execution=False` default will silently switch to trade execution. If the runtime plan expects observation-only backtests, this becomes a correctness issue.
-
-**Fix**
-
-- Explicitly set `trade_execution=True` (or `False` with documented intent) in `config_builder.py`.
-- Add a NautilusTrader version alignment test that fails on major/minor version drift.
-- Plan a v1.224+ upgrade with explicit migration checklist covering all NT version changes.
-
-#### ~~HIGH-2~~ — `TestJobRecord` / `TestResultRecord` Pydantic models collide with pytest class collection ✅ RESOLVED
-
-**Evidence**
-
-- `packages/workflow_spine/models.py:63` defines `class TestJobRecord(BaseModel)`.
-- `packages/workflow_spine/models.py:82` defines `class TestResultRecord(BaseModel)`.
-- Pytest raises `PytestCollectionWarning` (5 warnings total across 4 test files) because classes starting with `Test` have `__init__` constructors.
-
-**Risk**
-
-While currently warnings-only, this can mask real test collection failures or cause confusing test discovery behavior. Future pytest versions may escalate this to an error.
-
-**Fix**
-
-- Rename to `WorkflowJobRecord` / `WorkflowResultRecord` (they are not test classes).
-- Update all import sites across the codebase.
-- Add a linter rule that flags Pydantic model classes starting with `Test`.
-
-#### ~~HIGH-3~~ — Legacy fixture ref bypass in promotions service ✅ RESOLVED
-
-**Evidence**
-
-- `packages/promotions/service.py:19` accepts `allow_legacy_fixture_refs=True` (default).
-- `services/api/routes/promotions.py:23` passes `allow_legacy_fixture_refs=not strict_evidence`.
-- When `strict_evidence` is not requested (default), legacy unscoped fixture refs pass through promotion validation.
-- The `_validate_evidence` method skips artifact store resolution when `not requires_artifacts`, meaning legacy refs bypass the checksum and binding validation.
-
-**Risk**
-
-Non-strict promotion requests can reference artifacts that lack proper scope lineage. This weakens the evidence chain for promotion decisions.
-
-**Fix**
-
-- Flip default to `allow_legacy_fixture_refs=False`.
-- Add deprecation warning when legacy refs are used.
-- Require `strict_evidence=True` for all non-dev promotion paths.
-
-### MEDIUM (7)
-
-#### MEDIUM-1 — Execution lane sessions only support Binance adapter
-
-**Evidence**
-
-- `packages/execution_lane/sessions.py:383-414` hardcodes `_binance_client_configs()` with Binance-specific imports and config construction.
-- Non-Binance venues fall through to generic `LiveDataClientConfig()` / `LiveExecClientConfig()` without credential wiring (line 387-389).
-- `packages/adapter_registry/` exists but is not wired to the session builder.
-
-**Risk**
-
-Adding a new adapter (e.g., Bybit, OKX, or a Daedalus custom adapter) requires modifying `sessions.py` directly. The adapter registry package is disconnected from execution lane resolution.
-
-**Fix**
-
-- Route adapter resolution through `packages/adapter_registry/` with a plugin-style adapter config builder interface.
-- Each registered adapter provides its own client config builder function.
-- Remove the hardcoded Binance branch.
-
-#### MEDIUM-2 — `NativeTradingNodeSessionRunner` blocks caller thread
-
-**Evidence**
-
-- `packages/execution_lane/sessions.py:107-146` `NativeTradingNodeSessionRunner.start()` calls `node.run()` and `node.stop()` synchronously.
-- The class itself is guarded behind `BUILDER_EXECUTION_LANE_TRADINGNODE_RUNNER=native` env var.
-- But if used from a FastAPI handler, it would block the event loop.
-
-**Risk**
-
-In the default API server context, if an operator enables the native runner, the entire API server hangs until the TradingNode finishes. This is documented as operator-opt-in but has no runtime guard.
-
-**Fix**
-
-- Add explicit guard: if runner is `native` and caller is the API event loop, reject with a clear error.
-- Document that native runner must be used from a worker process, not the API server.
-
-#### MEDIUM-3 — `ExecutionLaneService` uses in-memory storage with no persistence
-
-**Evidence**
-
-- `packages/execution_lane/service.py` stores profiles, commands, sessions in `dict` attributes.
-- No disk or database backing. Service restart loses all state.
-- The `workflow_spine/` package has Postgres repository infrastructure but execution lane doesn't use it.
-
-**Risk**
-
-In production, a service restart drops all execution lane state (profiles, running sessions, queued commands). This limits the execution lane to single-process dev/demo use.
-
-**Fix**
-
-- Wire execution lane persistence to the existing Postgres repository infrastructure.
-- At minimum, serialize critical state to disk for recovery.
-
-#### MEDIUM-4 — `NautilusTradingNodeRuntimePlan.config_contract` is untyped `dict[str, Any]`
-
-**Evidence**
-
-- `packages/execution_lane/nautilus_runtime.py:43` defines `config_contract: dict[str, Any]`.
-- The `_config_contract()` helper constructs a well-structured dict but it's not schema-validated.
-- API routes serialize this directly to JSON.
-
-**Risk**
-
-No compile-time or validation-time guarantee that the config contract structure matches what TradingNode actually expects. Changes to the contract shape won't be caught by tests.
-
-**Fix**
-
-- Define a Pydantic model for the config contract.
-- Validate at construction time.
-- Add contract tests.
-
-#### MEDIUM-5 — No rate limiting on AI builder draft endpoint
-
-**Evidence**
-
-- `services/api/app.py` registers `POST /api/ai-builder/draft` with no rate limiting middleware.
-- `OpenAICompatibleDraftProvider` makes outbound HTTP calls to operator-configured LLM endpoints.
-- No authentication or rate limiting on the draft generation route.
-
-**Risk**
-
-Unauthenticated users could flood the draft endpoint, causing excessive LLM API costs or denial of service.
-
-**Fix**
-
-- Add rate limiting middleware to AI builder routes.
-- Require authentication for draft generation.
-- Add cost tracking/logging for LLM API calls.
-
-#### MEDIUM-6 — `reconciliation_lookback_mins` clamping discrepancy resolved
-
-**Evidence (updated)**
-
-- `ExecutionLaneProfile.reconciliation_lookback_mins` now uses `Field(default=60, ge=60)` — enforced at model level.
-- The runtime plan's `open_check_lookback_mins` and `position_check_lookback_mins` are clamped via `max(60, profile.reconciliation_lookback_mins)`.
-- The discrepancy from prior review is now resolved.
-
-**Status: RESOLVED**
-
-#### MEDIUM-7 — Frontend E2E tests depend on Playwright browser installation
-
-**Evidence**
-
-- `apps/web/e2e/builder-shell.spec.ts` requires Chromium installed via `npx playwright install chromium`.
-- Current environment doesn't have browsers installed, so E2E tests were skipped.
-- Python-side web contract tests (49 tests in `tests/web/`) compensate but don't test real browser rendering.
-
-**Risk**
-
-CSS/rendering regressions and AntD v6 style issues won't be caught until browsers are installed and E2E is run.
-
-**Fix**
-
-- Add Playwright browser installation to the CI/deployment pipeline.
-- Document the E2E prerequisite in README.
-
-### LOW (5)
-
-#### LOW-1 — `compile_hash` uses legacy SHA-256 derivation in backtest jobs route
-
-**Evidence**
-
-- `services/api/routes/backtest_jobs.py:268-269` computes a "legacy_hash" from `compile_artifact_id`.
-- This appears to be backward-compat for older job records.
-
-**Fix**
-
-- Document the legacy hash and plan its removal once all stored jobs use the canonical hash format.
-
-#### LOW-2 — `workflow_spine/storage_config.py` accepts legacy schema alias
-
-**Evidence**
-
-- `tests/workflow_spine/test_storage_config.py:14` tests that a legacy schema alias is accepted without a `shadow_field`.
-
-**Fix**
-
-- Document the alias and add a deprecation timeline.
-
-#### LOW-3 — `runtime_label` in `NautilusTradingNodeRuntimePlan` is verbose
-
-**Evidence**
-
-- `packages/execution_lane/nautilus_runtime.py:31` uses `Literal["python_live_integration_specific"]`.
-
-**Fix**
-
-- Consider shortening to `"python_integration"` or documenting why the full label is needed. Low priority.
-
-#### LOW-4 — No typed error hierarchy for builder service errors
-
-**Evidence**
-
-- Service methods raise `ValueError` for validation failures, `RuntimeError` for internal errors.
-- No custom error hierarchy (`BuilderValidationError`, `CredentialSlotError`, etc.).
-
-**Fix**
-
-- Introduce a small typed error hierarchy for cleaner API error mapping and test assertions.
-
-#### LOW-5 — `DESIGN.md` is present but not referenced from `README.md`
-
-**Evidence**
-
-- `DESIGN.md` exists as the UI source of truth but `README.md` doesn't link to it.
-
-**Fix**
-
-- Add a reference in README under the Architecture or UI section.
-
-## Architecture Watchlist
-
-### WATCH-1 — NautilusTrader version pin creates upgrade friction
-
-- The pinned `nautilus_trader==1.223.0` is 3+ minor versions behind the latest.
-- Builder should plan an explicit upgrade with a migration checklist that covers: `BacktestVenueConfig.trade_execution`, adapter config API changes, `InstrumentProvider` method changes.
-- The reference Daedalus repo is also pinned at v1.223.0, so both repos should upgrade in lockstep.
-
-### WATCH-2 — Execution lane couples Builder to Binance adapter
-
-- The current session builder only fully supports Binance. Non-Binance venues get generic configs without credential wiring.
-- The adapter registry package exists but isn't wired to the execution lane session builder.
-- As the adapter registry grows, this will need generalization.
-
-### WATCH-3 — DataTester/ExecTester evidence is architecturally external
-
-- Builder correctly gates on evidence refs but doesn't produce them.
-- This is by design (Builder is authoring, not testing), but the boundary should be explicit in docs.
-
-### WATCH-4 — OpenAI-compatible provider uses `urllib.request.urlopen` without certificate pinning
-
-- `packages/ai_builder/provider.py:246` uses `urllib.request.urlopen` for LLM endpoint calls.
-- No custom SSL context or certificate pinning.
-- The `# noqa: S310` suppression acknowledges this.
-- For operator-configured endpoints, this is acceptable but should be documented.
-
-## Legacy / Deprecation Inventory
-
-| Item | Location | Status | Action | Priority |
-|---|---|---|---|---|
-| Legacy compile hash | `services/api/routes/backtest_jobs.py:268` | Active backward-compat | Document + deprecation timeline | LOW |
-| Legacy fixture refs | `packages/promotions/service.py:19` | Active with `allow_legacy_fixture_refs=True` default | **Flip default to `False`** | HIGH |
-| Legacy storage schema alias | `packages/workflow_spine/storage_config.py` | Accepted without `shadow_field` | Document + deprecation timeline | LOW |
-| `TestJobRecord` naming | `packages/workflow_spine/models.py:63` | Causes pytest warnings | **Rename to `WorkflowJobRecord`** | HIGH |
-| `TestResultRecord` naming | `packages/workflow_spine/models.py:82` | Causes pytest warnings | **Rename to `WorkflowResultRecord`** | HIGH |
-| NautilusTrader v1.223.0 pin | `pyproject.toml:7`, `engine_contract.py:3` | 3+ versions behind | Plan upgrade | HIGH |
-| `PAPER_STRATEGY_PATH` string | `sessions.py:15` | Hardcoded module path | Extract to config | LOW |
-| `_DEFAULT_ENV_FILE` constant | `credentials.py:24` | Hardcoded `.env.execution.local` | Acceptable for current scope | INFO |
-
-## Synthesis
+**Review date:** 2026-05-29
+**Review scope:** Full codebase (packages/ + services/ + apps/web/ + tests/)
+**Reference:** NautilusTrader 1.223.0–1.227.0, Daedalus execution authority, aiogram-dialog patterns
+**Method:** Static analysis (AST scan, grep), manual code review, test verification, cross-repo alignment check, legacy/deprecation inventory
+
+---
+
+## Summary
+
+| Category | CRITICAL | HIGH | MEDIUM | LOW | INFO |
+|----------|----------|------|--------|-----|------|
+| Security | 0 | 0 | 0 | 1 | 0 |
+| Bugs | 0 | 1 | 2 | 1 | 0 |
+| Architecture | 0 | 1 | 2 | 1 | 1 |
+| Maintainability | 0 | 0 | 3 | 2 | 2 |
+| NT Alignment | 0 | 1 | 2 | 1 | 0 |
+| Legacy/Deprecation | 0 | 0 | 1 | 2 | 1 |
+| **Total** | **0** | **3** | **10** | **8** | **4** |
+
+---
+
+## CRITICAL (0)
+
+None found.
+
+---
+
+## HIGH (3)
+
+### H1. NT version mismatch with Daedalus
+**File:** `pyproject.toml:nautilus_trader==1.223.0`
+**Category:** NT Alignment
+**Risk:** Builder (1.223.0) and Daedalus (1.227.0) are 4 versions apart. If Daedalus produces compile artifacts or strategy specs using 1.227.0 features, Builder may fail to validate or round-trip them. The `adapter_config_builders.py` imports from `nautilus_trader.adapters.binance.*` may break if NT changes adapter APIs between versions.
+**Fix:** Upgrade Builder to 1.227.0 and run full test suite. Verify `BinanceDataClientConfig`, `BinanceExecClientConfig`, and `BinanceInstrumentProviderConfig` signatures haven't changed.
+
+### H2. Legacy fixture fallback allows result_id="res_001" without evidence
+**File:** `services/api/routes/workflow_results.py:49-51`
+**Category:** Bugs
+**Risk:** `workflow_result_payload` falls back to fixture data when `result_id == "res_001"` and `allow_fixture_fallback=True` (default). This means any request for `res_001` returns fabricated data with `evidence_mode: "fixture_dev_only"` instead of a 404. In production, this could mask missing real results.
+**Fix:** Default `allow_fixture_fallback=False` in production routes. Only enable in dev/test via explicit environment flag.
+
+### H3. Adapter config builder hardcoded to Binance only
+**File:** `packages/execution_lane/adapter_config_builders.py:97-99`
+**Category:** Architecture
+**Risk:** `_ADAPTER_CONFIG_BUILDERS` only has entries for `"BINANCE"` and `"BINANCE_PERP"`. All other adapter IDs fall through to `generic_client_config_builder` which returns empty `LiveDataClientConfig()` with no credentials or factories. This means paper trading sessions for non-Binance adapters silently fail or connect without auth.
+**Fix:** Add adapter config builders for OKX, Bybit, and other venues from the adapter registry. Validate that `generic_client_config_builder` at least raises a clear error when credentials are missing.
+
+---
+
+## MEDIUM (10)
+
+### M1. `list_results` has no pagination or limit
+**File:** `packages/workflow_spine/repository.py:56-57`, `packages/workflow_spine/postgres_repository.py`
+**Category:** Architecture
+**Risk:** `list_results()` returns all results without limit or offset. With production data, this could return millions of rows, causing memory pressure and slow response times.
+**Fix:** Add `limit` and `offset` parameters. Default to `limit=100`. Add query parameter support in the API route.
+
+### M2. Missing `created_at` timestamp in `WorkflowResultRecord`
+**File:** `packages/workflow_spine/models.py:WorkflowResultRecord`
+**Category:** Bugs
+**Risk:** The model has no timestamp field. `list_results_payload` uses `r.result_id` as `created_at` as a workaround (noted with TODO comment). This means results cannot be sorted or filtered by time.
+**Fix:** Add `created_at: str` field to `WorkflowResultRecord` with a default factory. Run migration on existing data.
+
+### M3. `runtime_label: Literal["python_live_integration_specific"]` is verbose and not extensible
+**File:** `packages/execution_lane/nautilus_runtime.py:37`
+**Category:** Maintainability
+**Risk:** The `runtime_label` field uses a `Literal` type that's tightly coupled to the current Python TradingNode implementation. When Rust LiveNode support is added, this field can't be extended without a migration.
+**Fix:** Change to `runtime_label: str` with a validator that checks against a known set of labels. This allows adding `"rust_live_node"` without breaking the model.
+
+### M4. Frontend api.test.ts still has network-dependent tests
+**File:** `apps/web/lib/api.test.ts`
+**Category:** Maintainability
+**Risk:** Several tests (lines 162-280) make assertions about full HTTP request/response cycles with mock `fetch`. The test for "posts to the backend-owned BacktestNode run route" expects the URL format `http://127.0.0.1:8000/api/...` but the mock only matches relative paths, causing failures when run from repo root instead of `apps/web/`.
+**Fix:** Either exclude `api.test.ts` from vitest when run from root, or always run from `apps/web/`. Consider using a test helper that normalizes URL matching.
+
+### M5. Dockerfile.api doesn't copy all necessary files
+**File:** `Dockerfile.api`
+**Category:** Bugs
+**Risk:** The Dockerfile copies `packages/` and `services/` but doesn't copy `pyproject.toml` dependency list properly (uses `pip install` with hardcoded packages instead of `uv sync`). It also copies `.env.execution.local` which shouldn't be in the image.
+**Fix:** Use multi-stage build. Copy `pyproject.toml` + `uv.lock` and use `uv sync`. Remove `.env.execution.local` copy — use env vars from `docker-compose.yml` instead.
+
+### M6. No database migration strategy for production
+**File:** `packages/workflow_spine/postgres_repository.py`
+**Category:** Architecture
+**Risk:** The Postgres repository uses raw SQL with `execute` for schema creation (`workflow_schema_statements`). There's no migration framework (Alembic, etc.) for schema evolution. Adding the `created_at` column (M2) would require manual DDL.
+**Fix:** Add Alembic or a lightweight migration runner. Version the schema statements.
+
+### M7. `ai_slop_cleaner` quality gate runs without regression lock
+**File:** Quality gate process (not a file)
+**Category:** Maintainability
+**Risk:** The ultragoal quality gate ran the ai-slop-cleaner as a manual review pass without first locking behavior with regression tests. This is acceptable for the current scope but won't scale.
+**Fix:** For future passes, create targeted regression tests for cleaned components before running cleanup.
+
+### M8. `allow_legacy_fixture_refs` deprecation path is incomplete
+**File:** `services/api/routes/promotions.py:22-25`
+**Category:** Maintainability
+**Risk:** The deprecation warning is just a log message. There's no enforcement timeline, no metrics, and no config toggle to hard-disable it after the 2026-07-01 date mentioned in `storage_config.py`.
+**Fix:** Add a config flag `ALLOW_LEGACY_FIXTURE_REFS` that defaults to `True` in dev and `False` in production. Add a hard cutoff date that raises after 2026-07-01.
+
+### M9. Daedalus Telegram aiogram-dialog menus not referenced in Builder
+**File:** Cross-repo alignment
+**Category:** NT Alignment
+**Risk:** Daedalus has a full `aiogram-dialog` Telegram gateway (`nautilus_runtime/live/telegram_gateway/ui_dialogs.py`) with signal delivery menus. Builder has no awareness of this integration surface. If Builder produces strategy specs that Daedalus executes, there's no contract connecting Builder's strategy lifecycle to Daedalus's Telegram notification menus.
+**Fix:** Document the Builder → Daedalus → Telegram notification boundary. Consider adding a `notification_config` field to `ExecutionLaneProfile` that references Daedalus's signal delivery dialog.
+
+### M10. Custom DEX adapters in Daedalus have no Builder-side registry entries
+**File:** `packages/adapter_registry/` vs `Nautilus-Daedalus/crates/adapters/`
+**Category:** NT Alignment
+**Risk:** Daedalus has 11 custom adapters (apex_omni, paradex, ethereal, grvt, etc.) in Rust. Builder's adapter registry has no entries for these. If an operator creates a strategy targeting one of these venues in Builder, the execution lane can't resolve it.
+**Fix:** Add adapter profiles for Daedalus-supported venues to `packages/adapter_registry/`. Consider auto-generating from Daedalus's `Cargo.toml` workspace members.
+
+---
+
+## LOW (8)
+
+### L1. `Dockerfile.api` copies `.env.execution.local`
+**File:** `Dockerfile.api:14`
+**Category:** Security
+**Risk:** Copies `.env.execution.local` into the Docker image. While the file is gitignored and should be empty in CI, this is an unnecessary surface.
+**Fix:** Remove the COPY line. Use `environment:` in `docker-compose.yml` instead.
+
+### L2. AntD `Space` deprecation warnings in tests
+**File:** `apps/web/components/dashboard/BuilderDashboard.test.tsx` (stderr)
+**Category:** Maintainability
+**Risk:** AntD v6 deprecated `direction` prop on `Space` in favor of `orientation`. This causes noisy warnings in test output.
+**Fix:** Replace `direction="vertical"` with `orientation="vertical"` in all `Space` components.
+
+### L3. `__all__` exports incomplete in several packages
+**File:** Multiple `__init__.py` files
+**Category:** Maintainability
+**Risk:** Some packages export a subset of their public API in `__all__`, making it unclear what's intended as public vs internal.
+**Fix:** Audit all `__init__.py` files for complete `__all__` exports.
+
+### L4. `npx vitest run` from repo root fails (JSX parse errors)
+**File:** Project root vs `apps/web/`
+**Category:** Maintainability
+**Risk:** `vitest.config.mts` lives in `apps/web/` but not at repo root. Running `npx vitest run` from repo root causes JSX parse failures because the config isn't found. This confused the initial ultragoal resume.
+**Fix:** Add a root-level `vitest.config.ts` that delegates to `apps/web/vitest.config.mts`, or document that vitest must run from `apps/web/`.
+
+### L5. `BuilderDashboard.test.tsx` uses `screen.getByText(/Strategy Builder/)` which is fragile
+**File:** `apps/web/components/dashboard/BuilderDashboard.test.tsx:47`
+**Category:** Maintainability
+**Risk:** Tests use regex text matching which breaks if button labels change.
+**Fix:** Use `data-testid` attributes for stable test selectors.
+
+### L6. No health check endpoint in Dockerfile.api
+**File:** `Dockerfile.api`
+**Category:** Maintainability
+**Risk:** No HEALTHCHECK instruction. Docker/K8s can't monitor API health.
+**Fix:** Add `HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1`.
+
+### L7. `storage_config.py` deprecated legacy alias has no migration path
+**File:** `packages/workflow_spine/storage_config.py:1-2`
+**Category:** Legacy/Deprecation
+**Risk:** The DEPRECATED comment says "legacy alias will be removed after 2026-07-01" but there's no migration tooling or tracking issue.
+**Fix:** Create a tracking issue. Add a runtime warning when the legacy alias is used.
+
+### L8. Backtest `legacy_hash` derivation in `backtest_jobs.py`
+**File:** `services/api/routes/backtest_jobs.py:267-272`
+**Category:** Legacy/Deprecation
+**Risk:** DEPRECATED legacy compile hash derivation is still executed. The comment says "removed after 2026-07-01" but there's no feature flag to disable it.
+**Fix:** Add a `USE_LEGACY_COMPILE_HASH` env flag. Default `False` in production.
+
+---
+
+## INFO (4)
+
+### I1. Daedalus `crates/core/src/lib.rs` is a placeholder
+**File:** `/home/mok/projects/Nautilus-Daedalus/crates/core/src/lib.rs`
+**Note:** Only contains `hello_from_rust()` test function. The real adapter logic lives in `crates/adapters/*/`. Not a risk but indicates the core crate is scaffolding.
+
+### I2. Daedalus Telegram gateway follows aiogram-dialog v2 patterns correctly
+**File:** `Nautilus-Daedalus/nautilus_runtime/live/telegram_gateway/ui_dialogs.py`
+**Note:** The signal delivery dialog correctly uses `StatesGroup`, `Window`, `Select`, `SwitchTo`, `Back`, `Cancel`, `StartMode.RESET_STACK`, and getter functions. Widget IDs are unique within the dialog. Error handling uses `_safe_answer`. Recovery contract is defined. This is well-aligned with the aiogram-dialog skill.
+
+### I3. Builder has no direct aiogram-dialog dependency
+**File:** `pyproject.toml`
+**Note:** Builder doesn't use Telegram/aiogram-dialog at all. This is correct — Telegram UI is Daedalus's responsibility. The `aiogram-dialog-menus` skill review was used only for cross-repo alignment verification.
+
+### I4. `nautilus_rule_graph/strategy.py` is a minimal placeholder
+**File:** `packages/nautilus_rule_graph/strategy.py`
+**Note:** Contains a stub NT Strategy that only subscribes to quote ticks. No trading logic. This is intentionally minimal — real strategy execution happens in Daedalus.
+
+---
+
+## Legacy/Deprecation Closure Inventory
+
+| Item | Location | Status | Deadline | Action Required |
+|------|----------|--------|----------|-----------------|
+| Legacy storage schema alias | `workflow_spine/storage_config.py` | Deprecated | 2026-07-01 | Remove after migration |
+| Legacy fixture fallback | `workflow_results.py:res_001` | Active | None | Gate behind env flag |
+| Legacy compile hash | `backtest_jobs.py:267` | Deprecated | 2026-07-01 | Remove after migration |
+| `allow_legacy_fixture_refs` | `promotions/service.py` | Deprecated | None | Add hard cutoff |
+| `TestJobRecord`/`TestResultRecord` naming | `workflow_spine/models.py` | Resolved | Done | Already renamed to `WorkflowJobRecord`/`WorkflowResultRecord` |
+| `shadow_candidate` lifecycle status | `lifecycle/models.py` | Resolved | Done | Removed in commit `cee5d03` |
+| Block Canvas UI | `apps/web/` | Resolved | Done | Removed in commit `182a419` |
+
+---
+
+## Review verdict
 
 - **code-reviewer recommendation:** COMMENT
 - **architect status:** WATCH
 - **final recommendation:** COMMENT
 
-Address HIGH-1 (NautilusTrader version alignment), HIGH-2 (model naming), and HIGH-3 (legacy fixture bypass) before treating the codebase as merge-ready for a significant release.
-
-## Master reconciliation — catalog-backed Nautilus replay
-
-The `catalog_backed_replay_smoke` smoke test validates BacktestNode catalog replay using synthetic historical quote ticks. This is a wiring and data-flow check — not full trading-production readiness.
-
----
-
-## Production Beta Status — 2026-05-29
-
-All prior HIGH findings resolved. The following MEDIUM/LOW items have been closed:
-
-| Finding | Status | Resolution |
-|---|---|---|
-| MEDIUM-1: Execution lane Binance-only coupling | ✅ RESOLVED | Wired AdapterRegistryService into _client_configs with plugin-style builder registry |
-| MEDIUM-5: No rate limiting on AI builder | ✅ RESOLVED | TokenBucketRateLimiter + auth gate already implemented; added 4 tests |
-| LOW-1: Legacy compile hash undocumented | ✅ RESOLVED | Added deprecation comment with 2026-07-01 timeline |
-| LOW-2: Legacy storage schema alias undocumented | ✅ RESOLVED | Added module-level deprecation notice |
-| LOW-4: No typed error hierarchy | ✅ RESOLVED | Added packages/errors with BuilderError hierarchy |
-| LOW-5: DESIGN.md not linked from README | ✅ ALREADY DONE | README references DESIGN.md under Architecture & Design section |
-
-Additional cleanup:
-- `allow_legacy_fixture_refs` default is `False` (was already correct)
-- Suppressed intentional legacy-mode DeprecationWarnings in pytest config
-- Added runtime_check minor-drift detection
-- 429 tests passing, 0 warnings, frontend build clean
+Address H1 (NT version upgrade), H2 (fixture fallback), and H3 (adapter registry) before production readiness. MEDIUM items should be tracked for near-term resolution.
