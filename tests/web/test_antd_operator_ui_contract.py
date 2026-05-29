@@ -28,7 +28,7 @@ def test_root_layout_mounts_ant_design_operator_shell() -> None:
     assert "Menu" in shell
     assert "Builder-only" in shell
     assert "No live order authority" in shell
-    for href in ("/", "/strategies", "/config", "/backtests", "/results/res_001"):
+    for href in ("/", "/strategies", "/config", "/?tab=backtest", "/?tab=execution", "/results/res_001"):
         assert href in shell
     assert "submit_order" not in shell
     assert "TradeAction" not in shell

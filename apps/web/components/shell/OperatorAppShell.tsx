@@ -24,14 +24,14 @@ const navigationItems = [
     label: <a href="/">Strategy Builder</a>,
   },
   {
-    key: "/backtests",
+    key: "/?tab=backtest",
     icon: <ExperimentOutlined />,
-    label: <a href="/backtests">Backtest Center</a>,
+    label: <a href="/?tab=backtest">Backtest Center</a>,
   },
   {
-    key: "/execution",
+    key: "/?tab=execution",
     icon: <PlayCircleOutlined />,
-    label: <a href="/execution">Execution Lane</a>,
+    label: <a href="/?tab=execution">Execution Lane</a>,
   },
   {
     key: "/config",
@@ -50,11 +50,11 @@ const navigationItems = [
   },
 ];
 
-function selectedNavigationKey(pathname: string) {
+function selectedNavigationKey(pathname: string, search: string) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
-  if (pathname.startsWith("/execution")) return "/execution";
-  if (pathname.startsWith("/backtests")) return "/backtests";
+  if (pathname === "/" && search.includes("tab=backtest")) return "/?tab=backtest";
+  if (pathname === "/" && search.includes("tab=execution")) return "/?tab=execution";
   if (pathname.startsWith("/results")) return "/results/res_001";
   return "/";
 }
@@ -68,7 +68,7 @@ function HealthIndicator() {
 
 export function OperatorAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const selectedKey = selectedNavigationKey(pathname);
+  const selectedKey = selectedNavigationKey(pathname, typeof window !== 'undefined' ? window.location.search : '');
 
   return (
     <ConfigProvider

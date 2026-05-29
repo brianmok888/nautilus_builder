@@ -42,8 +42,8 @@ const steps = [
   },
 ] as const;
 
-export function BuilderDashboard() {
-  const [activeSection, setActiveSection] = useState("strategy");
+export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: string }) {
+  const [activeSection, setActiveSection] = useState(initialTab);
 
   return (
     <div className="builder-dashboard">
