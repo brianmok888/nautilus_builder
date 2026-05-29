@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { createStrategy, fetchStrategies } from "../../lib/api";
 import type { StrategySummary } from "../../lib/types";
@@ -90,9 +92,9 @@ export function StrategyListClient() {
       <ul>
         {strategies?.map((strategy) => (
           <li key={strategy.strategy_id}>
-            <a href={`/strategies/${strategy.strategy_id}`}>
+            <Link href={`/strategies/${strategy.strategy_id}`}>
               {strategy.strategy_id}
-            </a>{" "}
+            </Link>{" "}
             <span>{strategy.strategy_lineage_id}</span>
           </li>
         ))}

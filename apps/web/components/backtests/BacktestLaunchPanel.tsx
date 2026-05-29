@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useMemo, useState } from "react";
 import { Alert, Button, Card, Col, Descriptions, Form, Input, Row, Space, Tag, Typography } from "antd";
 import { createBacktestJob, runBacktestJob } from "../../lib/api";
@@ -274,7 +276,7 @@ export function BacktestLaunchPanel() {
                   <Typography.Text type="secondary">
                     Runs POST /api/backtest-jobs/{job.job_id}/run without StrategySpec payloads, catalog paths, worker commands, shell, or credentials from the browser.
                   </Typography.Text>
-                  <a href={`/backtests/${job.job_id}`}>Open job console</a>
+                  <Link href={`/backtests/${job.job_id}`}>Open job console</Link>
                 </Space>
               </Col>
             </Row>

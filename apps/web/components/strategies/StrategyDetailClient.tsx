@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState } from "react";
 import { fetchStrategyDetail } from "../../lib/api";
 import type { StrategyDetail } from "../../lib/types";
@@ -33,7 +35,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
           </li>
         ))}
       </ul>
-      <a href={`/builder/${strategyId}`}>Open in Builder</a>
+      <Link href={`/builder/${strategyId}`}>Open in Builder</Link>
     </section>
   );
 }
