@@ -184,9 +184,19 @@ function credentialPayload(wireDraft: PaperWireDraft, credentialDraft: Credentia
   };
 }
 
-export function ExecutionLaneFeaturePanel() {
+export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_id: string; strategy_lineage_id?: string } | null }) {
   const [status, setStatus] = useState<ExecutionLaneStatus>(fallbackStatus);
   const [wireDraft, setWireDraft] = useState<PaperWireDraft>(defaultWireDraft);
+
+  // Auto-fill strategy fields when strategy is loaded from execution lane
+  useEffect(() => {
+    if (!strategy) return;
+    setWireDraft((prev) => ({
+      ...prev,
+      strategy_lineage_id: strategy.strategy_lineage_id ?? prev.strategy_lineage_id,
+      strategy_version_id: strategy.strategy_id ?? prev.strategy_version_id,
+    }));
+  }, [strategy]);
   const [credentialDraft, setCredentialDraft] = useState<CredentialDraft>(defaultCredentialDraft);
   const [credentialSlot, setCredentialSlot] = useState<ExecutionCredentialSlot | null>(null);
   const [runtimePlan, setRuntimePlan] = useState<ExecutionLaneRuntimePlan | null>(null);

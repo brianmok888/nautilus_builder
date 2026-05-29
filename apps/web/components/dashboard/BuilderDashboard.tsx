@@ -211,7 +211,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                 title={`Execution: ${selectedStrategy.strategy_id}`}
                 extra={<Tag color="red">Backend-owned credentials</Tag>}
               >
-                <ExecutionLaneFeaturePanel />
+                <ExecutionLaneFeaturePanel strategy={selectedStrategy} />
               </Card>
             )}
             {!selectedStrategy && (
@@ -223,7 +223,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                 <Paragraph type="secondary">
                   Select an approved or execution-ready strategy above to configure execution lane.
                 </Paragraph>
-                <ExecutionLaneFeaturePanel />
+                <ExecutionLaneFeaturePanel strategy={selectedStrategy} />
               </Card>
             )}
           </Space>
