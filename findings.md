@@ -53,9 +53,9 @@ python3 -m pytest tests/ -q --tb=line
 
 None.
 
-### HIGH (3)
+### HIGH (0 — all resolved)
 
-#### HIGH-1 — NautilusTrader pinned at v1.223.0, upstream at v1.226+
+#### ~~HIGH-1~~ — NautilusTrader pinned at v1.223.0, upstream at v1.226+ ✅ RESOLVED
 
 **Evidence**
 
@@ -76,7 +76,7 @@ When Builder upgrades to v1.224+, any BacktestVenueConfig that assumed the old `
 - Add a NautilusTrader version alignment test that fails on major/minor version drift.
 - Plan a v1.224+ upgrade with explicit migration checklist covering all NT version changes.
 
-#### HIGH-2 — `TestJobRecord` / `TestResultRecord` Pydantic models collide with pytest class collection
+#### ~~HIGH-2~~ — `TestJobRecord` / `TestResultRecord` Pydantic models collide with pytest class collection ✅ RESOLVED
 
 **Evidence**
 
@@ -94,7 +94,7 @@ While currently warnings-only, this can mask real test collection failures or ca
 - Update all import sites across the codebase.
 - Add a linter rule that flags Pydantic model classes starting with `Test`.
 
-#### HIGH-3 — Legacy fixture ref bypass in promotions service
+#### ~~HIGH-3~~ — Legacy fixture ref bypass in promotions service ✅ RESOLVED
 
 **Evidence**
 
