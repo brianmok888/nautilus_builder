@@ -40,7 +40,6 @@ _DEMO_STRATEGIES: list[tuple[str, str, StrategyStatus, StrategyStage]] = [
     ("demo_draft", "EMA RSI Crossover — Draft", StrategyStatus.DRAFT, StrategyStage.DRAFT),
     ("demo_validated", "EMA RSI Crossover — Validated", StrategyStatus.VALIDATED, StrategyStage.TESTING),
     ("demo_backtested", "EMA RSI Crossover — Backtested", StrategyStatus.BACKTESTED, StrategyStage.TESTING),
-    ("demo_shadow", "EMA RSI Crossover — Shadow Candidate", StrategyStatus.SHADOW_CANDIDATE, StrategyStage.BETA),
     ("demo_approved", "EMA RSI Crossover — Approved", StrategyStatus.APPROVED, StrategyStage.BETA),
     ("demo_execution_ready", "EMA RSI Crossover — Execution Ready", StrategyStatus.EXECUTION_READY, StrategyStage.FINAL),
 ]
@@ -53,7 +52,6 @@ def _make_spec(label: str, status: StrategyStatus, stage: StrategyStage) -> Stra
         stage=stage,
         status=status,
         created_from=CreatedFrom.AI_BUILDER if stage == StrategyStage.DRAFT else CreatedFrom.USER,
-        is_frozen=stage in (StrategyStage.BETA, StrategyStage.FINAL),
         adapter_id="BINANCE_PERP",
         venue="BINANCE",
         instrument_id="BTCUSDT-PERP",

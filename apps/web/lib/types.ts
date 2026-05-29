@@ -192,7 +192,7 @@ export type BackendHealth = {
   service: string;
 };
 
-export type StrategyStatus = "draft" | "validated" | "backtested" | "shadow_candidate" | "approved" | "execution_ready";
+export type StrategyStatus = "draft" | "validated" | "backtested" | "approved" | "execution_ready";
 
 export type StrategySummary = {
   strategy_id: string;
@@ -368,8 +368,8 @@ export type PromotionRequestResult = {
 
 /** Which statuses each lane can see */
 export const LANE_ALLOWED_STATUSES: Record<"builder" | "backtest" | "execution", StrategyStatus[]> = {
-  builder: ["draft", "validated", "backtested", "shadow_candidate", "approved", "execution_ready"],
-  backtest: ["validated", "backtested", "shadow_candidate", "approved", "execution_ready"],
+  builder: ["draft", "validated", "backtested", "approved", "execution_ready"],
+  backtest: ["validated", "backtested", "approved", "execution_ready"],
   execution: ["approved", "execution_ready"],
 };
 
@@ -382,7 +382,6 @@ export const STRATEGY_STATUS_COLORS: Record<StrategyStatus, string> = {
   draft: "default",
   validated: "blue",
   backtested: "purple",
-  shadow_candidate: "cyan",
   approved: "green",
   execution_ready: "gold",
 };

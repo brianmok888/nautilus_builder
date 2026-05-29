@@ -66,7 +66,7 @@ export function StrategyListClient() {
   }
 
   function canBacktest(status: StrategyStatus): boolean {
-    return ["draft", "validated", "backtested", "shadow_candidate"].includes(status);
+    return ["draft", "validated", "backtested"].includes(status);
   }
 
   if (error) {

@@ -22,7 +22,6 @@ class StrategyStatus(str, Enum):
     DRAFT = "draft"
     VALIDATED = "validated"
     BACKTESTED = "backtested"
-    SHADOW_CANDIDATE = "shadow_candidate"
     APPROVED = "approved"
     EXECUTION_READY = "execution_ready"
 

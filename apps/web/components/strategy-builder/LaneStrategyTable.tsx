@@ -26,7 +26,7 @@ type LaneAction = {
 };
 
 const ALL_STATUSES: StrategyStatus[] = [
-  "draft", "validated", "backtested", "shadow_candidate", "approved", "execution_ready",
+  "draft", "validated", "backtested", "approved", "execution_ready",
 ];
 
 const LANE_ACTIONS: Record<LaneKey, LaneAction[]> = {
@@ -35,30 +35,15 @@ const LANE_ACTIONS: Record<LaneKey, LaneAction[]> = {
     { key: "clone", label: "Clone", icon: <CopyOutlined />, allowedStatuses: ALL_STATUSES, tooltip: "Clone as new draft" },
   ],
   backtest: [
-    { key: "select", label: "Select", icon: <ExperimentOutlined />, allowedStatuses: ["validated", "backtested", "shadow_candidate", "approved", "execution_ready"], tooltip: "Load into backtest panel" },
-    { key: "approve", label: "Approve", icon: <SafetyCertificateOutlined />, allowedStatuses: ["backtested", "shadow_candidate", "approved"], tooltip: "Promote to next status" },
+    { key: "select", label: "Select", icon: <ExperimentOutlined />, allowedStatuses: ["validated", "backtested", "approved", "execution_ready"], tooltip: "Load into backtest panel" },
+    { key: "approve", label: "Approve", icon: <SafetyCertificateOutlined />, allowedStatuses: ["backtested"], tooltip: "Approve after backtest review" },
     { key: "clone", label: "Clone", icon: <CopyOutlined />, allowedStatuses: ALL_STATUSES, tooltip: "Clone as new draft" },
   ],
   execution: [
     { key: "load", label: "Load", icon: <ThunderboltOutlined />, allowedStatuses: ["approved", "execution_ready"], tooltip: "Load into execution lane" },
+    { key: "promote", label: "→ Execution Ready", icon: <SafetyCertificateOutlined />, allowedStatuses: ["approved"], tooltip: "Promote to execution ready after paper/shadow verification" },
   ],
 };
-
-/** What the Approve button promotes TO, based on current status */
-function promoteTarget(status: StrategyStatus): StrategyStatus | null {
-  switch (status) {
-    case "backtested": return "shadow_candidate";
-    case "shadow_candidate": return "approved";
-    case "approved": return "execution_ready";
-    default: return null;
-  }
-}
-
-function promoteLabel(status: StrategyStatus): string {
-  const target = promoteTarget(status);
-  if (!target) return "Approve";
-  return `→ ${target.replace("_", " ")}`;
-}
 
 export function LaneStrategyTable({
   lane,
@@ -104,6 +89,7 @@ export function LaneStrategyTable({
           await cloneStrategy(strategy.strategy_id);
           break;
         case "approve":
+        case "promote":
           await approveStrategy(strategy.strategy_id);
           break;
         case "edit":
@@ -112,7 +98,7 @@ export function LaneStrategyTable({
           onSelect?.(strategy);
           break;
       }
-      if (actionKey === "clone" || actionKey === "approve") {
+      if (actionKey === "clone" || actionKey === "approve" || actionKey === "promote") {
         loadStrategies();
         onActionComplete?.();
       }
@@ -135,7 +121,7 @@ export function LaneStrategyTable({
     const emptyMessages: Record<LaneKey, string> = {
       builder: "No strategies yet. Use AI prompt to create one.",
       backtest: "No strategies available for backtest. Validate a draft in Strategy Builder first.",
-      execution: "No approved or execution-ready strategies. Strategies must pass backtest review and approval first.",
+      execution: "No approved strategies. Strategies must pass backtest and human approval first.",
     };
     return <Empty description={emptyMessages[lane]} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
   }
@@ -181,18 +167,17 @@ export function LaneStrategyTable({
               {actions.map((action) => {
                 const allowed = action.allowedStatuses.includes(record.status);
                 const isLoading = actionLoading === `${action.key}:${record.strategy_id}`;
-                const label = action.key === "approve" ? promoteLabel(record.status) : action.label;
                 return (
                   <Tooltip key={action.key} title={allowed ? action.tooltip : `Not available for ${record.status.replace("_", " ")} strategies`}>
                     <Button
                       size="small"
-                      type={action.key === "approve" ? "primary" : "link"}
+                      type={action.key === "approve" || action.key === "promote" ? "primary" : "link"}
                       icon={action.icon}
                       loading={isLoading}
                       disabled={!allowed || isLoading}
                       onClick={() => handleAction(action.key, record)}
                     >
-                      {label}
+                      {action.label}
                     </Button>
                   </Tooltip>
                 );
