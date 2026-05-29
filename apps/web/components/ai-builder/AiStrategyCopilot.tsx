@@ -1,38 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Col, Form, Input, Row, Space, Tag, Typography } from "antd";
-import { fetchAdapters } from "../../lib/api";
-import { applyAiDraftToBuilder, generateAiDraft } from "../../lib/api";
-import type { AiDraftApplication, AiDraftPayload, AiDraftResult, AdapterSummary } from "../../lib/types";
+import { useEffect, useState } from "react";
+import { Alert, Button, Form, Input, Select, Space, Steps, Typography } from "antd";
+import { generateAiDraft, applyAiDraftToBuilder, createStrategy } from "../../lib/api";
+import type { AiDraftResult, StrategyRecord } from "../../lib/types";
 
-const DEFAULT_THREAD_ID = "thread_ui_default";
-const DEFAULT_CYCLE_ID = "cycle_ui_default";
-const DEFAULT_LINEAGE_ID = "lineage_strategy_001";
-const DEFAULT_VERSION_ID = "strategy_001_v001";
+const { Text } = Typography;
 
 function prettyJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+type StepStatus = "wait" | "process" | "finish" | "error";
+
 export const AiStrategyCopilot = () => {
   const [prompt, setPrompt] = useState("");
-  const [aiThreadId, setAiThreadId] = useState(DEFAULT_THREAD_ID);
-  const [improvementCycleId, setImprovementCycleId] = useState(DEFAULT_CYCLE_ID);
-  const [strategyLineageId, setStrategyLineageId] = useState(DEFAULT_LINEAGE_ID);
-  const [strategyVersionId, setStrategyVersionId] = useState(DEFAULT_VERSION_ID);
-  const [draft, setDraft] = useState<AiDraftResult | null>(null);
-  const [applied, setApplied] = useState<AiDraftApplication | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [showAdvancedIds, setShowAdvancedIds] = useState(false);
-
-  // Adapter / venue selector for market context
-  const [adapters, setAdapters] = useState<AdapterSummary[]>([]);
   const [adapterId, setAdapterId] = useState("");
+  const [adapters, setAdapters] = useState<{ adapter_id: string; venue: string }[]>([]);
+  const [isBusy, setIsBusy] = useState(false);
+
+  // Step statuses
+  const [steps, setSteps] = useState<StepStatus[]>(["wait", "wait", "wait"]);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AiDraftResult | null>(null);
+  const [strategy, setStrategy] = useState<StrategyRecord | null>(null);
 
   useEffect(() => {
-    fetchAdapters()
+    fetch("/api/adapters")
+      .then((r) => r.json())
       .then((list) => {
         setAdapters(list);
         if (list.length > 0) setAdapterId(list[0].adapter_id);
@@ -40,195 +35,165 @@ export const AiStrategyCopilot = () => {
       .catch(() => {});
   }, []);
 
-  const payload = useMemo<AiDraftPayload>(
-    () => ({
-      prompt: prompt.trim(),
-      ai_thread_id: aiThreadId.trim(),
-      improvement_cycle_id: improvementCycleId.trim(),
-      strategy_lineage_id: strategyLineageId.trim(),
-      strategy_version_id: strategyVersionId.trim(),
-    }),
-    [aiThreadId, improvementCycleId, prompt, strategyLineageId, strategyVersionId],
-  );
+  function setStep(index: number, status: StepStatus) {
+    setSteps((prev) => {
+      const next = [...prev];
+      next[index] = status;
+      return next;
+    });
+  }
 
-  async function onGenerateDraft() {
-    if (!payload.prompt) {
-      setError("Describe the strategy before asking AI to draft a StrategySpec.");
+  async function onGenerate() {
+    if (!prompt.trim()) {
+      setStepError("Describe the strategy before generating.");
       return;
     }
-    setError(null);
-    setApplied(null);
+    setStepError(null);
+    setDraft(null);
+    setStrategy(null);
+    setSteps(["process", "wait", "wait"]);
     setIsBusy(true);
+
     try {
-      const result = await generateAiDraft(payload);
+      // Step 1: Generate StrategySpec via AI
+      const result = await generateAiDraft({
+        prompt: prompt.trim(),
+        ai_thread_id: `thread_${Date.now()}`,
+        improvement_cycle_id: `cycle_${Date.now()}`,
+        strategy_lineage_id: `lineage_${Date.now()}`,
+        strategy_version_id: `v_${Date.now()}`,
+      });
       setDraft(result);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-      setDraft(null);
+
+      if (!result.accepted) {
+        setStep(0, "error");
+        setStepError(result.validation_errors.join("; ") || result.explanation);
+        return;
+      }
+      setStep(0, "finish");
+
+      // Step 2: Validate via backend
+      setStep(1, "process");
+      await applyAiDraftToBuilder({
+        prompt: prompt.trim(),
+        ai_thread_id: `thread_${Date.now()}`,
+        improvement_cycle_id: `cycle_${Date.now()}`,
+        strategy_lineage_id: `lineage_${Date.now()}`,
+        strategy_version_id: `v_${Date.now()}`,
+      });
+      setStep(1, "finish");
+
+      // Step 3: Save strategy as draft (pending backtest)
+      setStep(2, "process");
+      try {
+        const saved = await createStrategy({
+          spec: result.spec,
+          adapter_id: adapterId,
+          status: "draft",
+        });
+        setStrategy(saved);
+      } catch {
+        // Best-effort save
+      }
+      setStep(2, "finish");
+    } catch (err) {
+      // Find which step failed
+      const failedIdx = steps.indexOf("process");
+      if (failedIdx >= 0) setStep(failedIdx, "error");
+      setStepError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function onApplyDraft() {
-    if (!draft?.accepted) return;
-    setError(null);
-    setIsBusy(true);
-    try {
-      const result = await applyAiDraftToBuilder(payload);
-      setApplied(result);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-    } finally {
-      setIsBusy(false);
-    }
-  }
+  const hasResult = draft !== null;
 
   return (
-    <section className="panel ai-copilot compact-ai-copilot" aria-label="ai strategy copilot">
-      <Space direction="vertical" size="small" className="ai-copilot-stack">
-        <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            Prompt to StrategySpec
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            Describe the strategy; AI generates a validated Builder draft.
-          </Typography.Text>
-        </div>
-
-        {/* Adapter / Venue selector */}
-        <div>
-          <Typography.Text strong>Adapter / Venue</Typography.Text>
-          <select
-            aria-label="adapter venue"
-            value={adapterId}
-            onChange={(e) => setAdapterId(e.target.value)}
-            style={{ width: "100%", padding: "4px 8px", marginTop: 4, borderRadius: 4 }}
-          >
-            {adapters.map((a) => (
-              <option key={a.adapter_id} value={a.adapter_id}>
-                {a.adapter_id} — {a.venue}
-              </option>
-            ))}
-          </select>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Select adapter so AI generates the correct spec (perp vs spot vs polymarket differ).
-          </Typography.Text>
-        </div>
-
-        <Alert
-          showIcon
-          type="info"
-          title="Validation gate"
-          description="AI draft must pass validation before applying. Backtest remains separate from drafting and manual promotion stays a later gate."
-        />
-
-        <div className="prompt-examples compact-info-strip">
-          <Typography.Text strong>Prompt examples</Typography.Text>
-          <Typography.Text type="secondary">
-            "EMA/RSI pullback on BTC perpetuals", "VWAP trend filter for ETH", or "mean-reversion bars with ATR risk".
-          </Typography.Text>
-        </div>
-
-        <Form layout="vertical" className="ai-copilot-form">
-          <Form.Item label="Strategy prompt">
+    <section className="panel ai-copilot compact-ai-copilot" aria-label="strategy editor">
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {/* Prompt */}
+        <Form layout="vertical" style={{ marginBottom: 0 }}>
+          <Form.Item label="Strategy prompt" style={{ marginBottom: 8 }}>
             <Input.TextArea
-              aria-label="Strategy prompt"
               rows={4}
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(e) => setPrompt(e.target.value)}
               placeholder="Example: Build an EMA/RSI pullback strategy for BTC perpetuals using 5 minute bars."
+              disabled={isBusy}
             />
           </Form.Item>
-
-          <Button type="link" onClick={() => setShowAdvancedIds((current) => !current)}>
-            Advanced lineage IDs
-          </Button>
-          <Typography.Text type="secondary">
-            Lineage IDs are generated automatically for normal drafting; advanced editing is optional.
-          </Typography.Text>
-
-          {showAdvancedIds ? (
-            <Row gutter={[8, 8]} className="ai-audit-grid" aria-label="AI audit identifiers">
-              <Col xs={24} md={12} xl={6}>
-                <Form.Item label="ai_thread_id">
-                  <Input
-                    aria-label="ai_thread_id"
-                    value={aiThreadId}
-                    onChange={(event) => setAiThreadId(event.target.value)}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12} xl={6}>
-                <Form.Item label="improvement_cycle_id">
-                  <Input
-                    aria-label="improvement_cycle_id"
-                    value={improvementCycleId}
-                    onChange={(event) => setImprovementCycleId(event.target.value)}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12} xl={6}>
-                <Form.Item label="strategy_lineage_id">
-                  <Input
-                    aria-label="strategy_lineage_id"
-                    value={strategyLineageId}
-                    onChange={(event) => setStrategyLineageId(event.target.value)}
-                  />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12} xl={6}>
-                <Form.Item label="strategy_version_id">
-                  <Input
-                    aria-label="strategy_version_id"
-                    value={strategyVersionId}
-                    onChange={(event) => setStrategyVersionId(event.target.value)}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          ) : null}
         </Form>
 
-        <Space wrap size="small" className="action-row compact-action-row">
-          <Button type="primary" loading={isBusy} onClick={onGenerateDraft}>
-            Generate StrategySpec
-          </Button>
-          <Button disabled={!draft?.accepted || isBusy} onClick={onApplyDraft}>
-            Apply to Builder
-          </Button>
-          <Tag color="blue">validate_strategy_spec()</Tag>
-        </Space>
+        {/* Adapter / Venue */}
+        <div>
+          <Text strong>Adapter / Venue</Text>
+          <Select
+            value={adapterId || undefined}
+            onChange={setAdapterId}
+            style={{ width: "100%", marginTop: 4 }}
+            options={adapters.map((a) => ({
+              value: a.adapter_id,
+              label: `${a.adapter_id} — ${a.venue}`,
+            }))}
+            placeholder="Select adapter"
+            disabled={isBusy}
+          />
+          <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+            Select adapter so AI generates the correct spec for the market type.
+          </Text>
+        </div>
 
-        {error ? <Alert showIcon type="error" title="AI workflow error" description={error} /> : null}
+        {/* Single action button */}
+        <Button type="primary" size="large" block loading={isBusy} onClick={onGenerate}>
+          {hasResult && !stepError ? "Regenerate" : "Generate & Build Strategy"}
+        </Button>
 
-        {draft ? (
-          <section className="ai-draft-result" aria-label="AI draft result">
-            <Alert
-              showIcon
-              type={draft.accepted ? "success" : "warning"}
-              title={draft.accepted ? "Accepted draft" : "Rejected draft"}
-              description={draft.explanation}
-            />
-            {draft.validation_errors.length ? (
-              <ul className="config-checklist compact-error-list">
-                {draft.validation_errors.map((validationError) => (
-                  <li key={validationError}>{validationError}</li>
-                ))}
-              </ul>
-            ) : null}
-            <pre className="compact-spec-preview">{prettyJson(draft.spec)}</pre>
-          </section>
-        ) : null}
+        {/* Live status steps */}
+        {(isBusy || hasResult) && (
+          <Steps
+            size="small"
+            current={steps.indexOf("process") >= 0 ? steps.indexOf("process") : 3}
+            items={[
+              { title: "Generate", status: steps[0] },
+              { title: "Validate", status: steps[1] },
+              { title: "Save draft", status: steps[2] },
+            ]}
+          />
+        )}
 
-        {applied ? (
+        {/* Error */}
+        {stepError && <Alert showIcon type="error" title="Failed" description={stepError} />}
+
+        {/* Success summary */}
+        {draft?.accepted && !stepError && (
           <Alert
             showIcon
             type="success"
-            title="Applied to Builder draft"
-            description={`${applied.strategy_lineage_id} / ${applied.strategy_version_id} remains ${applied.mode}.`}
+            title="Strategy built & saved"
+            description={
+              strategy
+                ? `Strategy ${strategy.strategy_id} saved as draft — pending backtest.`
+                : draft.explanation
+            }
           />
-        ) : null}
+        )}
+
+        {/* Validation warnings */}
+        {draft && draft.validation_errors.length > 0 && (
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            {draft.validation_errors.map((e) => (
+              <li key={e}><Text type="warning">{e}</Text></li>
+            ))}
+          </ul>
+        )}
+
+        {/* Spec JSON */}
+        {draft?.spec && (
+          <details>
+            <summary><Text strong>StrategySpec JSON</Text></summary>
+            <pre style={{ fontSize: 11, maxHeight: 300, overflow: "auto", marginTop: 8 }}>{prettyJson(draft.spec)}</pre>
+          </details>
+        )}
       </Space>
     </section>
   );

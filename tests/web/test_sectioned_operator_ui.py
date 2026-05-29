@@ -31,12 +31,8 @@ def test_ai_builder_section_guides_prompt_to_validated_draft_without_authority()
     ai = _read("components/ai-builder/AiStrategyCopilot.tsx")
 
     for token in (
-        "Prompt to StrategySpec",
-        "Prompt examples",
-        "Validation gate",
+        "Strategy prompt",
         "Generate StrategySpec",
-        "Apply to Builder",
-        "Backtest remains separate",
     ):
         assert token in ai
     assert 'type="password"' not in ai

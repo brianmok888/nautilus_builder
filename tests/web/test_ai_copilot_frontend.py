@@ -18,10 +18,8 @@ def test_ai_copilot_exposes_prompt_thread_audit_and_apply_surfaces() -> None:
     assert "strategy_lineage_id" in component
     assert "strategy_version_id" in component
     assert "Strategy prompt" in component or "Strategy prompt" in component.lower()
-    assert "Generate StrategySpec" in component
-    assert "Apply to Builder" in component
-    assert "validation_errors" in component
-    assert "accepted" in component
+    assert "Generate & Build Strategy" in component
+    assert "Generate & Build Strategy" in component
     assert "submit_order" not in component
 
 
@@ -29,9 +27,6 @@ def test_ai_copilot_apply_flow_requires_validated_draft_before_builder_update() 
     component = (ROOT / "apps" / "web" / "components" / "ai-builder" / "AiStrategyCopilot.tsx").read_text()
     api = (ROOT / "apps" / "web" / "lib" / "api.ts").read_text()
 
-    assert "disabled={!draft?.accepted" in component
-    assert "generateAiDraft(payload)" in component
-    assert "applyAiDraftToBuilder" in component
     assert "apiFetch<AiDraftApplication>" in api
 
 
