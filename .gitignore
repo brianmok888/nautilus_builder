@@ -7,3 +7,4 @@
 .pytest_cache/
 __pycache__/
 apps/web/test-results/
+nautilus_builder.egg-info/

@@ -1,3 +1,6 @@
+# Storage config supports a legacy schema alias (without shadow_field)
+# DEPRECATED: legacy alias will be removed after 2026-07-01.
+# All new storage configs must include shadow_field.
 from __future__ import annotations
 
 import re

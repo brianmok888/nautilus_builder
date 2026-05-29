@@ -1,14 +1,23 @@
-Production beta readiness for Nautilus Builder web app.
+Nautilus Builder production beta completion.
 
-Remaining MEDIUM-priority items to resolve:
-1. MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blocking from API event loop
-2. MEDIUM-3: Add execution lane persistence seam (serialize to disk for recovery)
-3. MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan config_contract
-4. MEDIUM-7: Install Playwright browsers and ensure E2E tests can run
+All prior HIGH items resolved, 418 tests passing. Remaining items to close before production beta:
 
-Frontend production polish:
-5. Add loading states and error boundaries to all page components
-6. Add responsive layout improvements for mobile/tablet viewports
-7. Ensure all API-backed components handle 429/422/404 gracefully
-8. Add production health check integration to the dashboard
-9. Final verification: full test suite + frontend build + typecheck clean
+MEDIUM-priority fixes still open:
+1. MEDIUM-1: Route execution lane adapter resolution through adapter_registry with plugin-style config builders (remove hardcoded Binance branch)
+2. MEDIUM-5: Add rate limiting and auth requirement to AI builder draft endpoint
+
+Low-priority cleanup (promote to production blockers):
+3. LOW-1: Document legacy compile hash with deprecation timeline
+4. LOW-2: Document legacy storage schema alias with deprecation timeline
+5. LOW-4: Introduce typed error hierarchy (BuilderValidationError, CredentialSlotError, etc.)
+6. LOW-5: Add DESIGN.md reference in README.md
+
+Deprecation inventory closure:
+7. Flip allow_legacy_fixture_refs default to False in promotions service
+8. Clean up remaining 2 DeprecationWarning emissions in test suite
+
+Uncommitted changes stabilization:
+9. Commit staged worktree changes (runtime_check.py minor drift detection, loading.tsx, ErrorBoundary.tsx) and untracked files (upgrade checklist, drift test)
+
+Final production beta gate:
+10. Full verification: 418+ tests pass, 0 warnings, typecheck clean, frontend build clean, findings.md updated to reflect all items resolved

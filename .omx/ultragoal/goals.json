@@ -1,93 +1,119 @@
 {
   "version": 1,
-  "createdAt": "2026-05-29T03:09:41.088Z",
-  "updatedAt": "2026-05-29T04:30:00.000Z",
+  "createdAt": "2026-05-29T05:42:28.034Z",
+  "updatedAt": "2026-05-29T05:53:29.162Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
   "codexGoalMode": "aggregate",
   "goals": [
     {
-      "id": "G001-medium-2-add-runtime-guard-to-native",
-      "title": "MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blockin...",
-      "objective": "MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blocking from API event loop",
+      "id": "G001-medium-1-route-execution-lane-adapte",
+      "title": "MEDIUM-1: Route execution lane adapter resolution through adapter_reg...",
+      "objective": "MEDIUM-1: Route execution lane adapter resolution through adapter_registry with plugin-style config builders (remove hardcoded Binance branch)",
       "status": "complete",
       "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:47:11.490Z",
+      "startedAt": "2026-05-29T05:42:41.576Z",
+      "completedAt": "2026-05-29T05:47:11.490Z",
+      "evidence": "Wired AdapterRegistryService validation into _client_configs in sessions.py. Added adapter_config_builders.py with plugin-style builder registry. 3 new tests passing (registered/disabled/unregistered adapter paths)."
     },
     {
-      "id": "G002-medium-3-add-execution-lane-persiste",
-      "title": "MEDIUM-3: Add execution lane persistence seam (serialize to disk for...",
-      "objective": "MEDIUM-3: Add execution lane persistence seam (serialize to disk for recovery)",
+      "id": "G002-medium-5-add-rate-limiting-and-auth",
+      "title": "MEDIUM-5: Add rate limiting and auth requirement to AI builder draft...",
+      "objective": "MEDIUM-5: Add rate limiting and auth requirement to AI builder draft endpoint",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:48:11.910Z",
+      "completedAt": "2026-05-29T05:48:11.910Z",
+      "evidence": "MEDIUM-5 already implemented: TokenBucketRateLimiter wired in app.py, auth required in fastapi_app.py. Added 4 rate limiter tests."
     },
     {
-      "id": "G003-medium-4-add-typed-pydantic-model-fo",
-      "title": "MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan...",
-      "objective": "MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan config_contract",
+      "id": "G003-low-1-document-legacy-compile-hash-w",
+      "title": "LOW-1: Document legacy compile hash with deprecation timeline",
+      "objective": "LOW-1: Document legacy compile hash with deprecation timeline",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:26.578Z",
+      "completedAt": "2026-05-29T05:53:26.578Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G004-medium-7-install-playwright-browsers",
-      "title": "MEDIUM-7: Install Playwright browsers and ensure E2E tests can run",
-      "objective": "MEDIUM-7: Install Playwright browsers and ensure E2E tests can run",
+      "id": "G004-low-2-document-legacy-storage-schema",
+      "title": "LOW-2: Document legacy storage schema alias with deprecation timeline",
+      "objective": "LOW-2: Document legacy storage schema alias with deprecation timeline",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:27.047Z",
+      "completedAt": "2026-05-29T05:53:27.047Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G005-add-loading-states-and-error-boundar",
-      "title": "Add loading states and error boundaries to all page components",
-      "objective": "Add loading states and error boundaries to all page components",
+      "id": "G005-low-4-introduce-typed-error-hierarch",
+      "title": "LOW-4: Introduce typed error hierarchy (BuilderValidationError, Crede...",
+      "objective": "LOW-4: Introduce typed error hierarchy (BuilderValidationError, CredentialSlotError, etc.)",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:27.644Z",
+      "completedAt": "2026-05-29T05:53:27.644Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G006-add-responsive-layout-improvements-f",
-      "title": "Add responsive layout improvements for mobile/tablet viewports",
-      "objective": "Add responsive layout improvements for mobile/tablet viewports",
+      "id": "G006-low-5-add-design-md-reference-in-rea",
+      "title": "LOW-5: Add DESIGN.md reference in README.md",
+      "objective": "LOW-5: Add DESIGN.md reference in README.md",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:28.154Z",
+      "completedAt": "2026-05-29T05:53:28.154Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G007-ensure-all-api-backed-components-han",
-      "title": "Ensure all API-backed components handle 429/422/404 gracefully",
-      "objective": "Ensure all API-backed components handle 429/422/404 gracefully",
+      "id": "G007-flip-allow-legacy-fixture-refs-defau",
+      "title": "Flip allow_legacy_fixture_refs default to False in promotions service",
+      "objective": "Flip allow_legacy_fixture_refs default to False in promotions service",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:28.653Z",
+      "completedAt": "2026-05-29T05:53:28.653Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G008-add-production-health-check-integrat",
-      "title": "Add production health check integration to the dashboard",
-      "objective": "Add production health check integration to the dashboard",
+      "id": "G008-clean-up-remaining-2-deprecationwarn",
+      "title": "Clean up remaining 2 DeprecationWarning emissions in test suite",
+      "objective": "Clean up remaining 2 DeprecationWarning emissions in test suite",
       "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:53:29.162Z",
+      "completedAt": "2026-05-29T05:53:29.162Z",
+      "evidence": "Batch completed: 429 tests, 0 warnings."
     },
     {
-      "id": "G009-final-verification-full-test-suite-f",
-      "title": "Final verification: full test suite + frontend build + typecheck clean",
-      "objective": "Final verification: full test suite + frontend build + typecheck clean",
-      "status": "complete",
-      "attempt": 1,
-      "createdAt": "2026-05-29T03:09:41.088Z",
-      "updatedAt": "2026-05-29T03:09:41.088Z"
+      "id": "G009-commit-staged-worktree-changes-runti",
+      "title": "Commit staged worktree changes (runtime_check.py minor drift detectio...",
+      "objective": "Commit staged worktree changes (runtime_check.py minor drift detection, loading.tsx, ErrorBoundary.tsx) and untracked files (upgrade checklist, drift test)",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:42:28.034Z"
+    },
+    {
+      "id": "G010-full-verification-418-tests-pass-0-w",
+      "title": "Full verification: 418+ tests pass, 0 warnings, typecheck clean, fron...",
+      "objective": "Full verification: 418+ tests pass, 0 warnings, typecheck clean, frontend build clean, findings.md updated to reflect all items resolved",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-05-29T05:42:28.034Z",
+      "updatedAt": "2026-05-29T05:42:28.034Z"
     }
   ],
-  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-medium-2-add-runtime-guard-to-native MEDIUM-2: Add runtime guard to NativeTradingNodeSessionRunner blockin...; G002-medium-3-add-execution-lane-persiste MEDIUM-3: Add execution lane persistence seam (serialize to disk for...; G003-medium-4-add-typed-pydantic-model-fo MEDIUM-4: Add typed Pydantic model for NautilusTradingNodeRuntimePlan...; G004-medium-7-install-playwright-browsers MEDIUM-7: Install Playwright browsers and ensure E2E tests can run; G005-add-loading-states-and-error-boundar Add loading states and error boundaries to all page components; G006-add-responsive-layout-improvements-f Add responsive layout improvements for mobile/tablet viewports; G007-ensure-all-api-backed-components-han Ensure all API-backed components handle 429/422/404 gracefully; G008-add-production-health-check-integrat Add production health check integration to the dashboard; G009-final-verification-full-test-suite-f Final verification: full test suite + frontend build + typecheck clean"
+  "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-medium-1-route-execution-lane-adapte MEDIUM-1: Route execution lane adapter resolution through adapter_reg...; G002-medium-5-add-rate-limiting-and-auth MEDIUM-5: Add rate limiting and auth requirement to AI builder draft...; G003-low-1-document-legacy-compile-hash-w LOW-1: Document legacy compile hash with deprecation timeline; G004-low-2-document-legacy-storage-schema LOW-2: Document legacy storage schema alias with deprecation timeline; G005-low-4-introduce-typed-error-hierarch LOW-4: Introduce typed error hierarchy (BuilderValidationError, Crede...; G006-low-5-add-design-md-reference-in-rea LOW-5: Add DESIGN.md reference in README.md; G007-flip-allow-legacy-fixture-refs-defau Flip allow_legacy_fixture_refs default to False in promotions service; G008-clean-up-remaining-2-deprecationwarn Clean up remaining 2 DeprecationWarning emissions in test suite; G009-commit-staged-worktree-changes-runti Commit staged worktree changes (runtime_check.py minor drift detectio...; G010-full-verification-418-tests-pass-0-w Full verification: 418+ tests pass, 0 warnings, typecheck clean, fron..."
 }

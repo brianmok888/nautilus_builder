@@ -2,7 +2,7 @@ import { Card, Skeleton, Space, Spin } from "antd";
 
 export default function Loading() {
   return (
-    <Space direction="vertical" size="middle" style={{ width: "100%", padding: 16 }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%", padding: 16 }}>
       <Card size="small">
         <Skeleton active paragraph={{ rows: 3 }} />
       </Card>

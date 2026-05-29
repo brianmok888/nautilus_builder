@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from packages.promotions.service import PromotionService
 
 
@@ -14,7 +15,7 @@ REQUIRED_EVIDENCE = {
 
 
 def test_builder_promotion_request_is_signal_preview_only() -> None:
-    service = PromotionService(allow_legacy_fixture_refs=True)
+    service = PromotionService(allow_legacy_fixture_refs=True)  # noqa: testing legacy compat
 
     request = service.create_shadow_request(
         strategy_version="0.3.0-beta.1",
@@ -29,7 +30,7 @@ def test_builder_promotion_request_is_signal_preview_only() -> None:
 
 
 def test_promotion_request_carries_builder_side_evidence_refs() -> None:
-    service = PromotionService(allow_legacy_fixture_refs=True)
+    service = PromotionService(allow_legacy_fixture_refs=True)  # noqa: testing legacy compat
 
     request = service.create_shadow_request(
         strategy_version="0.3.0-beta.1",

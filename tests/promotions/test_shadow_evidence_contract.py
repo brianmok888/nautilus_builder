@@ -146,6 +146,10 @@ from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import ProjectScopeError, UserProjectContext
 from services.api.routes.promotions import create_shadow_payload
 
+import warnings
+
+warnings.filterwarnings("ignore", message="allow_legacy_fixture_refs=True is deprecated", category=DeprecationWarning)
+
 
 STRICT_EVIDENCE_KEYS = (
     "validation_report",

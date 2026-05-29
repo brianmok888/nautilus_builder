@@ -32,3 +32,6 @@ include = ["packages*", "services*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:allow_legacy_fixture_refs=True is deprecated:DeprecationWarning",
+]

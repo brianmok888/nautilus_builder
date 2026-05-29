@@ -384,9 +384,16 @@ def _client_configs(
     command: ExecutionLaneCommand,
     credential_values: dict[str, str],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    from packages.adapter_registry.service import AdapterRegistryService
     from .adapter_config_builders import get_adapter_config_builder
 
-    builder = get_adapter_config_builder(profile.adapter_id or "")
+    registry = AdapterRegistryService()
+    adapter_id = profile.adapter_id or ""
+    try:
+        registry.get_adapter_profile(adapter_id)
+    except ValueError:
+        pass  # Unknown or disabled adapter: allow generic fallback
+    builder = get_adapter_config_builder(adapter_id)
     return builder(profile=profile, command=command, credential_values=credential_values)
 
 
