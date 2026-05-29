@@ -175,7 +175,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                   title="BacktestNode Replay"
                   extra={<Tag color="purple">Historical evidence-only</Tag>}
                 >
-                  <BacktestLaunchPanel />
+                  <BacktestLaunchPanel strategy={selectedStrategy} />
                   <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
                     {JobTerminal()}
                   </Text>

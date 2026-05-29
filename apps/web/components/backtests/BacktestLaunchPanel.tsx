@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Col, Descriptions, Form, Input, Row, Space, Tag, Typography } from "antd";
 import { createBacktestJob, runBacktestJob } from "../../lib/api";
 import type { BacktestJobStatus, BacktestRunResponse, RuntimeEvent } from "../../lib/types";
@@ -63,8 +63,24 @@ function isTerminalJob(job: BacktestJobStatus | null): boolean {
   return state.includes("succeed") || state.includes("fail") || state.includes("cancel");
 }
 
-export function BacktestLaunchPanel() {
+export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: string; latest_spec: Record<string, unknown> } | null }) {
   const [manifest, setManifest] = useState<RunManifestDraft>(defaultManifest);
+
+  // Auto-fill manifest from selected strategy
+  useEffect(() => {
+    if (!strategy) return;
+    const spec = strategy.latest_spec || {};
+    setManifest((prev) => ({
+      ...prev,
+      strategy_version_id: strategy.strategy_id,
+      adapter_profile_id: String(spec.adapter_id ?? prev.adapter_profile_id),
+      instrument_id: String(spec.instrument_id ?? prev.instrument_id),
+      market_type: String((spec as any).venue === "BINANCE" ? "crypto_perp" : prev.market_type),
+    }));
+    setJob(null);
+    setRunResult(null);
+    setRunError(null);
+  }, [strategy]);
   const [job, setJob] = useState<BacktestJobStatus | null>(null);
   const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
