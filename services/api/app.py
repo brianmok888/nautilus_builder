@@ -35,7 +35,20 @@ def create_app(
 ) -> ApiApp:
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
-    if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+    # Postgres: when BUILDER_DATABASE_URL is set, use real persistence
+    _pg_conn = None
+    _pg_adapter_repo = None
+    _pg_dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
+    if _pg_dsn:
+        from packages.postgres import connect_pool, apply_migrations, PostgresStrategyRepository, PostgresAdapterRepository, seed_default_market_data as pg_seed_market
+        _pg_conn = connect_pool(_pg_dsn)
+        apply_migrations(_pg_conn)
+        strategy_repository = PostgresStrategyRepository(_pg_conn)
+        _pg_adapter_repo = PostgresAdapterRepository(_pg_conn)
+        pg_seed_market(_pg_conn)
+        if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
+            seed_demo_strategies(strategy_repository)
+    elif os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
         seed_demo_strategies(strategy_repository)
     backtest_job_service = backtest_job_service or BacktestJobService()
     execution_lane_service = execution_lane_service or ExecutionLaneService()
@@ -43,10 +56,10 @@ def create_app(
     runtime_event_service = runtime_event_service or RuntimeEventService()
     app = ApiApp()
     app.route("GET", "/health", health_payload)
-    app.route("GET", "/api/adapters", adapters_payload)
-    app.route("GET", "/api/instruments", instruments_payload)
-    app.route("GET", "/api/instruments/{adapter_id}/{query}", instruments_payload)
-    app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", data_availability_payload)
+    app.route("GET", "/api/adapters", lambda: adapters_payload(pg_repo=_pg_adapter_repo))
+    app.route("GET", "/api/instruments", lambda adapter_id=None, query=None: instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo))
+    app.route("GET", "/api/instruments/{adapter_id}/{query}", lambda adapter_id, query: instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo))
+    app.route("GET", "/api/data-availability/{adapter_id}/{instrument_id}", lambda adapter_id, instrument_id: data_availability_payload(adapter_id, instrument_id, pg_repo=_pg_adapter_repo))
     app.route("POST", "/api/backtest-profiles/validate", validate_backtest_profile_payload)
     app.route("POST", "/api/backtest-jobs", lambda payload: create_backtest_job_payload(backtest_job_service, payload))
     app.route("GET", "/api/backtest-jobs/{job_id}", lambda job_id, user_id=None, project_id=None: backtest_job_payload(backtest_job_service, job_id, user_id=user_id, project_id=project_id))

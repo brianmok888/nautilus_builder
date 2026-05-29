@@ -57,11 +57,13 @@ def create_fastapi_app(
     import os
     _pg_dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
     _pg_conn = None
+    _pg_adapter_repo = None
     if _pg_dsn:
-        from packages.postgres import connect, apply_migrations, PostgresStrategyRepository, seed_default_market_data
-        _pg_conn = connect(_pg_dsn)
+        from packages.postgres import connect_pool, apply_migrations, PostgresStrategyRepository, PostgresAdapterRepository, seed_default_market_data
+        _pg_conn = connect_pool(_pg_dsn)
         apply_migrations(_pg_conn)
         strategy_repository = PostgresStrategyRepository(_pg_conn)
+        _pg_adapter_repo = PostgresAdapterRepository(_pg_conn)
         seed_default_market_data(_pg_conn)
         if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
             from packages.strategy_spec.demo_seed import seed_demo_strategies
@@ -87,19 +89,19 @@ def create_fastapi_app(
 
     @app.get("/api/adapters")
     def adapters() -> list[dict[str, object]]:
-        return adapters_payload()
+        return adapters_payload(pg_repo=_pg_adapter_repo)
 
     @app.get("/api/instruments/{adapter_id}/{query}")
     def instruments(adapter_id: str, query: str) -> Any:
-        return _fastapi_response(instruments_payload(adapter_id, query), JSONResponse)
+        return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/instruments")
     def instruments_query(adapter_id: str, query: str) -> Any:
-        return _fastapi_response(instruments_payload(adapter_id, query), JSONResponse)
+        return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
     def data_availability(adapter_id: str, instrument_id: str) -> Any:
-        return _fastapi_response(data_availability_payload(adapter_id, instrument_id), JSONResponse)
+        return _fastapi_response(data_availability_payload(adapter_id, instrument_id, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any]) -> Any:

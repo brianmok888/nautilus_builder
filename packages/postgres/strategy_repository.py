@@ -25,41 +25,39 @@ class PostgresStrategyRepository:
         return f"{strategy_id}_v{index:03d}"
 
     def save(self, spec: StrategySpec, *, context: UserProjectContext | None = None) -> dict[str, object]:
-        with self._conn.transaction():
-            row = self._conn.execute(
-                f"SELECT count(*) FROM {self._table('strategies')}"
-            ).fetchone()
+        with self._conn.transaction() as tx:
+            row = tx.execute(f"SELECT count(*) FROM {self._table('strategies')}").fetchone()
             count = row[0] if row else 0
             strategy_id = "strategy_001" if count == 0 else f"strategy_{count + 1:03d}"
 
             spec_json = json.dumps(spec.model_dump(mode="json"), sort_keys=True)
-            self._conn.execute(
+            tx.execute(
                 f"INSERT INTO {self._table('strategies')} (strategy_id, strategy_lineage_id, status, latest_spec) VALUES (%s, %s, %s, %s)",
                 (strategy_id, self._lineage_id(strategy_id), spec.status.value, spec_json),
             )
-            self._conn.execute(
+            tx.execute(
                 f"INSERT INTO {self._table('strategy_versions')} (strategy_version_id, strategy_id, strategy_lineage_id, spec) VALUES (%s, %s, %s, %s)",
                 (self._version_id(strategy_id, 1), strategy_id, self._lineage_id(strategy_id), spec_json),
             )
         return self._record(strategy_id, spec, 1)
 
     def save_explicit(self, strategy_id: str, spec: StrategySpec, *, context: UserProjectContext | None = None) -> dict[str, object]:
-        with self._conn.transaction():
+        with self._conn.transaction() as tx:
             spec_json = json.dumps(spec.model_dump(mode="json"), sort_keys=True)
-            self._conn.execute(
+            tx.execute(
                 f"INSERT INTO {self._table('strategies')} (strategy_id, strategy_lineage_id, status, latest_spec) VALUES (%s, %s, %s, %s) ON CONFLICT (strategy_id) DO UPDATE SET status = EXCLUDED.status, latest_spec = EXCLUDED.latest_spec, updated_at = now()",
                 (strategy_id, self._lineage_id(strategy_id), spec.status.value, spec_json),
             )
             version_id = self._version_id(strategy_id, 1)
-            self._conn.execute(
+            tx.execute(
                 f"INSERT INTO {self._table('strategy_versions')} (strategy_version_id, strategy_id, strategy_lineage_id, spec) VALUES (%s, %s, %s, %s) ON CONFLICT (strategy_version_id) DO UPDATE SET spec = EXCLUDED.spec",
                 (version_id, strategy_id, self._lineage_id(strategy_id), spec_json),
             )
         return self._record(strategy_id, spec, 1)
 
     def update_draft(self, strategy_id: str, spec: StrategySpec, *, context: UserProjectContext | None = None) -> dict[str, object] | None:
-        with self._conn.transaction():
-            row = self._conn.execute(
+        with self._conn.transaction() as tx:
+            row = tx.execute(
                 f"SELECT count(*) FROM {self._table('strategy_versions')} WHERE strategy_id = %s",
                 (strategy_id,),
             ).fetchone()
@@ -68,20 +66,20 @@ class PostgresStrategyRepository:
                 return None
 
             spec_json = json.dumps(spec.model_dump(mode="json"), sort_keys=True)
-            self._conn.execute(
+            tx.execute(
                 f"UPDATE {self._table('strategies')} SET status = %s, latest_spec = %s, updated_at = now() WHERE strategy_id = %s",
                 (spec.status.value, spec_json, strategy_id),
             )
             version_id = self._version_id(strategy_id, version_count)
-            self._conn.execute(
+            tx.execute(
                 f"UPDATE {self._table('strategy_versions')} SET spec = %s WHERE strategy_version_id = %s",
                 (spec_json, version_id),
             )
         return self._record(strategy_id, spec, version_count)
 
     def create_version(self, strategy_id: str, spec: StrategySpec, *, context: UserProjectContext | None = None) -> dict[str, object] | None:
-        with self._conn.transaction():
-            row = self._conn.execute(
+        with self._conn.transaction() as tx:
+            row = tx.execute(
                 f"SELECT count(*) FROM {self._table('strategy_versions')} WHERE strategy_id = %s",
                 (strategy_id,),
             ).fetchone()
@@ -91,11 +89,11 @@ class PostgresStrategyRepository:
 
             new_version = version_count + 1
             spec_json = json.dumps(spec.model_dump(mode="json"), sort_keys=True)
-            self._conn.execute(
+            tx.execute(
                 f"UPDATE {self._table('strategies')} SET status = %s, latest_spec = %s, updated_at = now() WHERE strategy_id = %s",
                 (spec.status.value, spec_json, strategy_id),
             )
-            self._conn.execute(
+            tx.execute(
                 f"INSERT INTO {self._table('strategy_versions')} (strategy_version_id, strategy_id, strategy_lineage_id, spec) VALUES (%s, %s, %s, %s)",
                 (self._version_id(strategy_id, new_version), strategy_id, self._lineage_id(strategy_id), spec_json),
             )
@@ -162,22 +160,6 @@ class PostgresStrategyRepository:
             "spec": json.loads(row[3]) if isinstance(row[3], str) else row[3],
         }
 
-    def _current_version_id(self, strategy_id: str) -> str:
-        row = self._conn.execute(
-            f"SELECT count(*) FROM {self._table('strategy_versions')} WHERE strategy_id = %s",
-            (strategy_id,),
-        ).fetchone()
-        return self._version_id(strategy_id, row[0] if row else 1)
-
-    def _record(self, strategy_id: str, spec: StrategySpec, version_index: int) -> dict[str, object]:
-        return {
-            "strategy_id": strategy_id,
-            "strategy_lineage_id": self._lineage_id(strategy_id),
-            "strategy_version_id": self._version_id(strategy_id, version_index),
-            "status": spec.status.value,
-            "spec": spec.model_dump(mode="json"),
-        }
-
     # --- Promotion and clone support ---
 
     _PROMOTE_MAP: dict[str, str] = {
@@ -213,3 +195,19 @@ class PostgresStrategyRepository:
             "provenance": Provenance(created_by=CreatedFrom.USER, parent_version_id=strategy_id),
         })
         return self.save(cloned)
+
+    def _current_version_id(self, strategy_id: str) -> str:
+        row = self._conn.execute(
+            f"SELECT count(*) FROM {self._table('strategy_versions')} WHERE strategy_id = %s",
+            (strategy_id,),
+        ).fetchone()
+        return self._version_id(strategy_id, row[0] if row else 1)
+
+    def _record(self, strategy_id: str, spec: StrategySpec, version_index: int) -> dict[str, object]:
+        return {
+            "strategy_id": strategy_id,
+            "strategy_lineage_id": self._lineage_id(strategy_id),
+            "strategy_version_id": self._version_id(strategy_id, version_index),
+            "status": spec.status.value,
+            "spec": spec.model_dump(mode="json"),
+        }
