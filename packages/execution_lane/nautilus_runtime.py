@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .config_contract import DataClientEntry, ExecClientEntry, ExecEngineConfig, RiskEngineConfig, TradingNodeConfigContract
 from .models import ExecutionLaneCommand, ExecutionLaneMode, ExecutionLaneProfile
@@ -28,7 +28,7 @@ class NautilusTradingNodeRuntimePlan(BaseModel):
     readiness_status: Literal["READY", "BLOCKED"]
     blocked_reasons: list[str] = Field(default_factory=list)
     node_runtime: Literal["python_trading_node"] = "python_trading_node"
-    runtime_label: Literal["python_live_integration_specific"] = "python_live_integration_specific"
+    runtime_label: str = "python_live_integration_specific"
     future_runtime: Literal["rust_live_node"] = "rust_live_node"
     runtime_environment: Literal["sandbox", "live"]
     adapter_id: str = Field(min_length=1)
@@ -55,6 +55,14 @@ class NautilusTradingNodeRuntimePlan(BaseModel):
     nautilus_imports: list[str] = Field(default_factory=lambda: list(NAUTILUS_TRADING_NODE_IMPORTS))
     config_contract: TradingNodeConfigContract
     nautilus_trader_version: str | None = None
+
+    @field_validator("runtime_label")
+    @classmethod
+    def validate_runtime_label(cls, value: str) -> str:
+        _KNOWN_RUNTIME_LABELS = {"python_live_integration_specific", "rust_live_node"}
+        if value not in _KNOWN_RUNTIME_LABELS:
+            raise ValueError(f"runtime_label must be one of {_KNOWN_RUNTIME_LABELS}, got: {value}")
+        return value
 
 
 def build_trading_node_runtime_plan(

@@ -11,13 +11,16 @@ def workflow_result_payload(
     result_id: str,
     *,
     context: UserProjectContext | None = None,
-    allow_fixture_fallback: bool = True,
+    allow_fixture_fallback: bool | None = None,
 ) -> ApiResponse:
     try:
         result = repository.result(result_id, context=context)
     except ProjectScopeError as exc:
         return ApiResponse({"error": "forbidden", "message": str(exc)}, status_code=403)
     if result is None:
+        import os
+        if allow_fixture_fallback is None:
+            allow_fixture_fallback = os.environ.get("BUILDER_ALLOW_FIXTURE_FALLBACK", "").strip().lower() in ("1", "true", "yes")
         if result_id != "res_001" or not allow_fixture_fallback:
             return ApiResponse({"error": "result_not_found", "result_id": result_id}, status_code=404)
         return ApiResponse(_dashboard_result_payload(result_id, fixture=True))
@@ -65,7 +68,7 @@ def list_results_payload(
             'strategy_version_id': r.strategy_version_id,
             'test_job_id': r.test_job_id,
             'metrics': r.metrics,
-            'created_at': r.result_id,  # TODO: add timestamp to model
+            'created_at': r.created_at,
         })
     return ApiResponse(items)
 

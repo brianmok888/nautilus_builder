@@ -267,6 +267,9 @@ def _compile_lineage_from_payload(payload: dict[str, object], *, strict_scope: b
     # DEPRECATED: legacy compile hash derivation (removed after 2026-07-01).
     # All new jobs must provide an explicit compile_hash; this branch supports
     # older job records that only stored compile_artifact_id.
+    import os
+    if os.environ.get("USE_LEGACY_COMPILE_HASH", "").strip().lower() not in ("1", "true", "yes"):
+        raise ValueError("compile_hash is required (legacy derivation disabled; set USE_LEGACY_COMPILE_HASH=1 to re-enable)")
     if compile_artifact_id:
         legacy_hash = hashlib.sha256(f"compile_artifact_id:{compile_artifact_id}".encode("utf-8")).hexdigest()
         return legacy_hash, compile_artifact_id

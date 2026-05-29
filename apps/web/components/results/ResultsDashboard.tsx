@@ -42,7 +42,7 @@ export const ResultsDashboard = ({
 }: ResultsDashboardProps) => {
   if (!payload) {
     return (
-      <Space direction="vertical" style={{ width: "100%" }}>
+      <Space orientation="vertical" style={{ width: "100%" }}>
         <Card>
           <p className="hero-kicker">Results / Research</p>
           <Typography.Title level={4}>Result: {resultId}</Typography.Title>
@@ -59,7 +59,7 @@ export const ResultsDashboard = ({
 
   return (
     <section className="app-shell" aria-label="observational results dashboard">
-      <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Space orientation="vertical" style={{ width: "100%" }} size="middle">
         {/* Header */}
         <Card>
           <p className="hero-kicker">Results / Research</p>

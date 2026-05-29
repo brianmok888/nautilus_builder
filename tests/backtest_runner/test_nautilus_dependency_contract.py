@@ -8,7 +8,7 @@ from packages.backtest_runner.runner import run_backtest_fixture
 
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPECTED_NAUTILUS_VERSION = "1.223.0"
+EXPECTED_NAUTILUS_VERSION = "1.227.0"
 
 
 def test_pyproject_pins_nautilus_trader_to_daedalus_runtime() -> None:

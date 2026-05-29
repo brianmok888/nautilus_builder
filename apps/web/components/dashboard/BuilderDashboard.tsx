@@ -119,7 +119,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
       <div style={{ marginTop: 8 }}>
         {/* TAB 1: Strategy Builder — draft/validated only */}
         {activeSection === "strategy" && (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <Card
               size="small"
               title="Strategies"
@@ -169,7 +169,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
               )}
             </Col>
             <Col xs={24} xl={14}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 <Card
                   size="small"
                   title="BacktestNode Replay"
@@ -194,7 +194,7 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
 
         {/* TAB 3: Execution Lane — approved/execution_ready only */}
         {activeSection === "execution" && (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <Card
               size="small"
               title="Approved Strategies"

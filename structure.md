@@ -1,6 +1,6 @@
 # Nautilus Builder Structure Review
 
-**Review date:** 2026-05-29 (deep review, post-ultragoal)
+**Review date:** 2026-05-29 (updated post-segment-1+2 fixes)
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, `$superpowers:aiogram-dialog-menus` supporting checks.
@@ -22,7 +22,7 @@
 
 ```text
 nautilus_builder/
-├── packages/                # Canonical Python domain layer (113 files, ~8,194 LOC)
+├── packages/                # Canonical Python domain layer (113 files)
 │   ├── strategy_spec/       # Pydantic StrategySpec schema, in-memory repository
 │   ├── strategy_validation/ # Hard-rule checks, forbidden refs, raw-code detection
 │   ├── strategy_compiler/   # StrategySpec -> compile artifact/profile metadata
@@ -46,13 +46,13 @@ nautilus_builder/
 │   ├── strategy_registry/   # Read-only external strategy registry/import-as-draft
 │   ├── system_verification/ # Composed MVP verification report
 │   └── ui_contracts/        # Python-backed executable UI contract helpers
-├── services/api/            # FastAPI + thin ApiApp routes over packages/* (21 files, ~2,200 LOC)
+├── services/api/            # FastAPI + thin ApiApp routes over packages/* (21 files)
 ├── services/workers/        # Backend-owned worker entrypoint stubs
-├── apps/web/                # Next.js 15 + Ant Design v6 app shell (~86 TSX/TS files, ~8,598 LOC)
+├── apps/web/                # Next.js 15 + Ant Design v6 app shell (~86 TSX/TS files)
 │   ├── app/                 # Next.js App Router pages (strategies, backtests, results, builder, execution)
 │   ├── components/          # AntD components (shell, strategies, backtests, results, config, dashboard, etc.)
 │   └── lib/                 # API client (api.ts), types, strategy spec helpers
-├── tests/                   # 429 pytest tests across 20+ test directories (~8,856 LOC)
+├── tests/                   # 436 pytest tests across 20+ test directories (133 files)
 ├── docker-compose.yml       # Full-stack Docker (postgres:16-alpine, FastAPI, Next.js)
 ├── Dockerfile.api           # FastAPI container
 ├── apps/web/Dockerfile      # Next.js container
@@ -83,7 +83,7 @@ Code-level enforcement:
 
 | Repo | nautilus_trader | Status |
 |------|----------------|--------|
-| Builder | 1.223.0 | Pinned — 4 versions behind Daedalus |
+| Builder | 1.227.0 | **Aligned** with Daedalus |
 | Daedalus | 1.227.0 | Current |
 
 **Deprecation gap analysis (1.223.0 → 1.227.0):**
@@ -102,7 +102,7 @@ Code-level enforcement:
 - **Ant Design v6** for UI components (Table, Descriptions, Statistic, Tag, Card)
 - **API proxy** via Next.js rewrites → `BUILDER_API_BASE_URL`
 - **Auth**: Bearer token from `BUILDER_API_TOKEN` / `NEXT_PUBLIC_BUILDER_API_TOKEN` env vars
-- **44 vitest component tests**, 429 pytest backend tests
+- **44 vitest component tests**, 436 pytest backend tests
 - **Docker** ready: `docker-compose up` brings full stack (postgres, api, web)
 
 ## Security posture
@@ -124,3 +124,31 @@ Key Daedalus components reviewed for alignment:
 - `nautilus_runtime/live/telegram_gateway/ui_dialogs.py` — aiogram-dialog menu system for signal delivery
 - `crates/adapters/` — 11 custom DEX adapters (apex_omni, paradex, ethereal, etc.) with Rust core
 - `nautilus_brain/` — ML signal pipeline, genome evolution, graph-based strategy construction
+
+## Fixes applied (this session)
+
+### S1: Master reconciliation text + H2 fixture fallback gate
+
+- Added "Master reconciliation — catalog-backed Nautilus replay" section to all three review docs.
+- `workflow_result_payload` now gates fixture fallback behind `BUILDER_ALLOW_FIXTURE_FALLBACK` env var (defaults to off).
+- Tests updated: 3 existing tests set the env flag explicitly; 2 new tests verify 404 when off, 200 when on.
+
+### S2: H3 adapter config builder credential safety
+
+- `generic_client_config_builder` now raises `ValueError` when no venue-prefixed credentials are found, instead of silently connecting with empty `LiveDataClientConfig`.
+- Added `_require_non_blank_credentials()` helper that checks for `{VENUE}_*` prefixed keys with non-empty values.
+- 5 new tests in `tests/execution_lane/test_adapter_config_builders.py` verify builder routing and credential enforcement.
+- 2 existing tests in `test_adapter_registry_wiring.py` updated to expect `ValueError` instead of silent fallback.
+
+### S3: H1 NT version upgrade + M3 runtime_label extensibility
+
+- Upgraded `nautilus_trader` from 1.223.0 to 1.227.0 in `pyproject.toml` and `engine_contract.py`.
+- Replaced deprecated `testnet` param with `environment` in Binance adapter config builder.
+- `runtime_label` changed from `Literal["python_live_integration_specific"]` to `str` with validator accepting `python_live_integration_specific` and `rust_live_node`.
+- 440 tests passing (was 436 before segment 3).
+
+## Master reconciliation — catalog-backed Nautilus replay
+
+- `catalog_backed_replay_smoke` runs synthetic historical quote ticks through the full BacktestNode pipeline.
+- This is a wiring and data-flow check — not full trading-production readiness.
+- Supports `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable for smoke test gating.

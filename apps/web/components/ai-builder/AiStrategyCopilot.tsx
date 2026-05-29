@@ -110,7 +110,7 @@ export const AiStrategyCopilot = () => {
 
   return (
     <section className="panel ai-copilot compact-ai-copilot" aria-label="strategy editor">
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         {/* Prompt */}
         <Form layout="vertical" style={{ marginBottom: 0 }}>
           <Form.Item label="Strategy prompt" style={{ marginBottom: 8 }}>

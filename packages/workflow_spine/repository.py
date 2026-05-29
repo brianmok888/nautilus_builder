@@ -56,8 +56,13 @@ class InMemoryWorkflowRepository:
                 return result
         return None
 
-    def list_results(self) -> list[WorkflowResultRecord]:
-        return list(self._results.values())
+    def list_results(self, *, limit: int | None = None, offset: int = 0) -> list[WorkflowResultRecord]:
+        all_results = sorted(self._results.values(), key=lambda r: r.created_at)
+        start = min(offset, len(all_results))
+        sliced = all_results[start:]
+        if limit is not None:
+            sliced = sliced[:limit]
+        return sliced
 
     def save_ai_suggestion(self, suggestion: AiSuggestionRecord) -> None:
         self._suggestions[suggestion.suggestion_id] = suggestion

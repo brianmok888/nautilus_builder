@@ -83,7 +83,7 @@ export const CredentialSlotBootstrap = () => {
           title="Credential slot ready"
           style={{ marginTop: 12 }}
           description={
-            <Space direction="vertical" size={2}>
+            <Space orientation="vertical" size={2}>
               <Typography.Text>{credentialSlot.credential_slot_ref}</Typography.Text>
               <Typography.Text>redacted keys: {credentialSlot.redacted_keys.join(", ")}</Typography.Text>
               <Typography.Text>env file: {credentialSlot.env_file_path}</Typography.Text>

@@ -45,9 +45,9 @@ const navigationItems = [
     label: <Link href="/strategies">Strategy records</Link>,
   },
   {
-    key: "/results/res_001",
+    key: "/results",
     icon: <BarChartOutlined />,
-    label: <Link href="/results/res_001">Results / Reports</Link>,
+    label: <Link href="/results">Results / Reports</Link>,
   },
 ];
 
@@ -56,7 +56,7 @@ function selectedNavigationKey(pathname: string, tab: string | null) {
   if (pathname.startsWith("/config")) return "/config";
   if (pathname === "/" && tab === "backtest") return "/?tab=backtest";
   if (pathname === "/" && tab === "execution") return "/?tab=execution";
-  if (pathname.startsWith("/results")) return "/results/res_001";
+  if (pathname.startsWith("/results")) return "/results";
   return "/";
 }
 
@@ -117,7 +117,7 @@ function ShellContent({ children }: { children: ReactNode }) {
             />
           </nav>
           <div className="operator-safety-card">
-            <Space direction="vertical" size={8}>
+            <Space orientation="vertical" size={8}>
               <Tag color="success" icon={<SafetyCertificateOutlined />}>
                 Builder-only
               </Tag>

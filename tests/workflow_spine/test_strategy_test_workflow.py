@@ -113,3 +113,49 @@ def test_strategy_test_workflow_records_suggestion_created_event_with_builder_nd
     assert workflow_events[-1].result_id == "res_001"
     assert workflow_events[-1].ai_thread_id == "ai_thread_001"
     assert stream.events_for("nd:advisory") == []
+
+
+def test_workflow_result_record_has_created_at_timestamp() -> None:
+    """M2: WorkflowResultRecord must include a created_at field."""
+    from packages.workflow_spine.models import WorkflowResultRecord
+    result = WorkflowResultRecord(
+        result_id="res_001",
+        test_job_id="job_001",
+        project_id="proj_001",
+        strategy_lineage_id="lineage_001",
+        strategy_version_id="sv_001",
+        metrics={"sharpe": 1.5},
+        artifact_refs={"equity": "artifact://res_001/equity.parquet"},
+    )
+    assert hasattr(result, "created_at")
+    assert result.created_at  # not empty
+    # Should be ISO format
+    import re
+    assert re.match(r"\d{4}-\d{2}-\d{2}", result.created_at)
+
+
+def test_list_results_accepts_pagination_params() -> None:
+    """M1: list_results must accept limit and offset."""
+    from packages.workflow_spine.repository import InMemoryWorkflowRepository
+    from packages.workflow_spine.models import WorkflowResultRecord
+    repo = InMemoryWorkflowRepository()
+    for i in range(5):
+        repo.save_result(WorkflowResultRecord(
+            result_id=f"res_{i:03d}",
+            test_job_id="job_001",
+            project_id="proj_001",
+            strategy_lineage_id="lineage_001",
+            strategy_version_id="sv_001",
+            metrics={"sharpe": float(i)},
+            artifact_refs={},
+        ))
+    # Default returns all
+    all_results = repo.list_results()
+    assert len(all_results) == 5
+    # With limit
+    limited = repo.list_results(limit=2)
+    assert len(limited) == 2
+    # With limit + offset
+    paged = repo.list_results(limit=2, offset=2)
+    assert len(paged) == 2
+    assert paged[0].result_id != limited[0].result_id

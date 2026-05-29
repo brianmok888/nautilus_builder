@@ -1,6 +1,6 @@
 # Nautilus Builder Handguard
 
-**Review date:** 2026-05-29
+**Review date:** 2026-05-29 (updated post-segment-1+2 fixes)
 **Purpose:** Runtime-enforced boundaries and hardguard constraints that must not be violated. These are invariants, not suggestions.
 
 ---
@@ -94,7 +94,7 @@ Guard: Add a linter/hook that flags Pydantic model classes starting with `Test`.
 
 ```bash
 python3 -m compileall -q packages services tests
-python3 -m pytest tests/ -q --tb=line        # Must pass: 429+
+python3 -m pytest tests/ -q --tb=line        # Must pass: 440+
 cd apps/web && npx tsc --noEmit               # Must be clean
 cd apps/web && npx vitest run                 # Must pass: 44+ (4 skipped OK)
 cd apps/web && npm run build                  # Must succeed
@@ -152,16 +152,16 @@ Guard: Run AST scan as CI gate. Reject any PR that introduces forbidden patterns
 ## 14. Catalog-backed replay reconciliation
 
 - `catalog_backed_replay_smoke` must remain runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
-- Synthetic historical quote ticks must exercise the full BacktestNode pipeline.
+- synthetic historical quote ticks must exercise the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
 
 ## 15. NT version alignment gate
 
 - Builder must track Daedalus's `nautilus_trader` version within 2 minor releases.
-- Current: Builder=1.223.0, Daedalus=1.227.0 → gap is 4 versions (HIGH finding H1).
+- Current: Builder=1.227.0, Daedalus=1.227.0 → **aligned** (H1 FIXED).
 - Upgrade path: verify adapter config builder compatibility at each version step.
-- After upgrade, re-run full test suite and update `structure.md` version table.
+- Upgrade complete: 1.223.0 → 1.227.0, `testnet` → `environment` param, 440 tests passing.
 
 ## 16. Daedalus Telegram integration boundary
 
@@ -172,7 +172,32 @@ Guard: Run AST scan as CI gate. Reject any PR that introduces forbidden patterns
 
 Guard: Any PR that adds aiogram/aiogram-dialog dependencies to Builder must be rejected.
 
-## 17. Legacy/deprecation closure schedule
+## 17. Fixture fallback gate (H2 fix)
+
+- `workflow_result_payload` gates fixture fallback behind `BUILDER_ALLOW_FIXTURE_FALLBACK` env var.
+- Default behavior (env var unset): returns 404 for `res_001` with no real data.
+- Only returns fixture data when env var is explicitly `1`, `true`, or `yes`.
+- Production must never set this env var.
+
+Guard: Any PR that re-enables fixture fallback by default must be rejected.
+
+## 18. Adapter credential enforcement (H3 fix)
+
+- `generic_client_config_builder` raises `ValueError` when no venue-prefixed credentials are found.
+- Silent empty-config connections are no longer possible.
+- All adapters must provide `{VENUE}_*` prefixed credential keys with non-empty values.
+
+Guard: Any PR that removes the `_require_non_blank_credentials` check must be rejected.
+
+## 19. Runtime label extensibility (M3 fix)
+
+- `runtime_label` is `str` with a validator accepting `python_live_integration_specific` and `rust_live_node`.
+- New labels must be added to `_KNOWN_RUNTIME_LABELS` in `nautilus_runtime.py`.
+- Default remains `python_live_integration_specific`.
+
+Guard: Any PR that removes the validator or adds labels without updating the known set must be rejected.
+
+## 20. Legacy/deprecation closure schedule
 
 | Item | Deadline | Action |
 |------|----------|--------|

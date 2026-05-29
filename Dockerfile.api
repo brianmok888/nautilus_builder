@@ -2,8 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system deps for psycopg
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+# Install system deps for psycopg + curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev curl && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir "psycopg[binary,pool]>=3.2" fastapi uvicorn pydantic
@@ -13,5 +13,8 @@ COPY services/ services/
 COPY .env.execution.local .env.local
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["uvicorn", "services.api.fastapi_app:create_fastapi_app()", "--factory", "--host", "0.0.0.0", "--port", "8000"]

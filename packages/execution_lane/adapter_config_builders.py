@@ -43,6 +43,7 @@ def binance_client_config_builder(
         else BinanceAccountType.SPOT
     )
     testnet = _truthy(credential_values.get("BINANCE_TESTNET", "true"))
+    environment = "testnet" if testnet else None
     base_url_http = credential_values.get("BINANCE_BASE_URL")
 
     data_client = BinanceDataClientConfig(
@@ -50,7 +51,7 @@ def binance_client_config_builder(
         api_secret=api_secret,
         account_type=account_type,
         instrument_provider=instrument_provider,
-        testnet=testnet,
+        environment=environment,
         base_url_http=base_url_http,
     )
     exec_client = BinanceExecClientConfig(
@@ -58,7 +59,7 @@ def binance_client_config_builder(
         api_secret=api_secret,
         account_type=account_type,
         instrument_provider=instrument_provider,
-        testnet=testnet,
+        environment=environment,
         base_url_http=base_url_http,
     )
     return (
@@ -78,6 +79,7 @@ def generic_client_config_builder(
     from nautilus_trader.live.config import LiveDataClientConfig, LiveExecClientConfig
 
     venue = (profile.venue or command.venue).upper()
+    _require_non_blank_credentials(venue, credential_values)
     return ({venue: LiveDataClientConfig()}, {venue: LiveExecClientConfig()}, {}, {})
 
 
@@ -93,3 +95,18 @@ def get_adapter_config_builder(adapter_id: str) -> AdapterClientConfigBuilder:
 
 def _truthy(value: object) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _require_non_blank_credentials(venue: str, credential_values: dict[str, str]) -> None:
+    """Raise a clear error when no usable credentials are found for the given venue."""
+    venue_prefix = venue.upper()
+    has_credential = any(
+        key.upper().startswith(venue_prefix) and v.strip()
+        for key, v in credential_values.items()
+    )
+    if not has_credential:
+        raise ValueError(
+            f"{venue} execution lane session requires venue-prefixed credentials "
+            f"(e.g. {venue}_API_KEY, {venue}_API_SECRET); "
+            f"none found in credential_values"
+        )

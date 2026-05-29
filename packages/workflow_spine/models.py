@@ -89,6 +89,7 @@ class WorkflowResultRecord(BaseModel):
     strategy_version_id: str = Field(min_length=1)
     metrics: dict[str, float]
     artifact_refs: dict[str, str]
+    created_at: str = Field(default_factory=lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat())
 
 
 class AiSuggestionRecord(BaseModel):

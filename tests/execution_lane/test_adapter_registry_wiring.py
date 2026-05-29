@@ -52,25 +52,27 @@ def test_registered_adapter_builds_client_configs() -> None:
     assert "BINANCE" in exec_clients
 
 
-def test_unregistered_adapter_falls_back_to_generic() -> None:
-    """Unknown adapter_id does not raise; generic builder produces LiveDataClientConfig."""
+def test_unregistered_adapter_raises_on_missing_credentials() -> None:
+    """Unknown adapter_id with no credentials raises a clear ValueError."""
+    import pytest
     profile = _make_profile(adapter_id="UNKNOWN_VENUE", venue="UNKNOWN_VENUE")
     command = _make_command(adapter_id="UNKNOWN_VENUE", venue="UNKNOWN_VENUE")
     creds: dict[str, str] = {}
 
-    data_clients, exec_clients, data_factories, exec_factories = _client_configs(
-        profile=profile, command=command, credential_values=creds,
-    )
-    assert "UNKNOWN_VENUE" in data_clients
+    with pytest.raises(ValueError, match="credential"):
+        _client_configs(
+            profile=profile, command=command, credential_values=creds,
+        )
 
 
-def test_disabled_adapter_falls_back_to_generic() -> None:
-    """Disabled adapter (KRAKEN_SPOT) falls back gracefully without raising."""
+def test_disabled_adapter_raises_on_missing_credentials() -> None:
+    """Disabled adapter (KRAKEN_SPOT) with no credentials raises ValueError."""
+    import pytest
     profile = _make_profile(adapter_id="KRAKEN_SPOT", venue="KRAKEN")
     command = _make_command(adapter_id="KRAKEN_SPOT", venue="KRAKEN")
     creds: dict[str, str] = {}
 
-    data_clients, exec_clients, data_factories, exec_factories = _client_configs(
-        profile=profile, command=command, credential_values=creds,
-    )
-    assert "KRAKEN" in data_clients
+    with pytest.raises(ValueError, match="credential"):
+        _client_configs(
+            profile=profile, command=command, credential_values=creds,
+        )

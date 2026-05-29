@@ -2,7 +2,8 @@ from packages.workflow_spine import AiSuggestionRecord, InMemoryWorkflowReposito
 from services.api.app import create_app
 
 
-def test_result_dashboard_payload_includes_metrics_artifacts_trades_fills_and_logs() -> None:
+def test_result_dashboard_payload_includes_metrics_artifacts_trades_fills_and_logs(monkeypatch) -> None:
+    monkeypatch.setenv("BUILDER_ALLOW_FIXTURE_FALLBACK", "true")
     response = create_app().get("/api/results/res_001")
 
     assert response.status_code == 200
@@ -14,7 +15,8 @@ def test_result_dashboard_payload_includes_metrics_artifacts_trades_fills_and_lo
     assert "logs" in response.json()
 
 
-def test_result_dashboard_payload_includes_report_summary_for_rich_ui() -> None:
+def test_result_dashboard_payload_includes_report_summary_for_rich_ui(monkeypatch) -> None:
+    monkeypatch.setenv("BUILDER_ALLOW_FIXTURE_FALLBACK", "true")
     response = create_app().get("/api/results/res_001")
 
     payload = response.json()
@@ -102,10 +104,32 @@ def test_workflow_lineage_status_endpoint_returns_read_projection() -> None:
     assert "display_name" not in payload
 
 
-def test_result_dashboard_fixture_fallback_is_explicitly_labeled_dev_only() -> None:
+def test_result_dashboard_fixture_fallback_is_explicitly_labeled_dev_only(monkeypatch) -> None:
+    monkeypatch.setenv("BUILDER_ALLOW_FIXTURE_FALLBACK", "true")
     response = create_app().get("/api/results/res_001")
 
     payload = response.json()
     assert payload["evidence_mode"] == "fixture_dev_only"
     assert payload["fixture_evidence_only"] is True
     assert payload["artifacts"]["result"].startswith("fixture://backtests/")
+
+
+def test_result_fixture_fallback_returns_404_when_env_flag_is_not_set(monkeypatch) -> None:
+    """H2: fixture fallback for res_001 must be gated behind env flag."""
+    import os
+    monkeypatch.delenv("BUILDER_ALLOW_FIXTURE_FALLBACK", raising=False)
+    app = create_app()
+
+    response = app.get("/api/results/res_001")
+    assert response.status_code == 404
+    assert response.json()["error"] == "result_not_found"
+
+
+def test_result_fixture_fallback_allowed_when_env_flag_is_true(monkeypatch) -> None:
+    """Fixture fallback only allowed when explicitly enabled."""
+    monkeypatch.setenv("BUILDER_ALLOW_FIXTURE_FALLBACK", "true")
+    app = create_app()
+
+    response = app.get("/api/results/res_001")
+    assert response.status_code == 200
+    assert response.json()["evidence_mode"] == "fixture_dev_only"

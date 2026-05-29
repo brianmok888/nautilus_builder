@@ -353,3 +353,30 @@ def test_paper_session_start_requires_server_side_credential_slot(tmp_path) -> N
             worker_id="web_exec_worker",
             runner=ContractTradingNodeSessionRunner(),
         )
+
+
+def test_runtime_label_accepts_known_labels_via_str_field() -> None:
+    """M3: runtime_label should accept any known label string, not just a Literal."""
+    service = ExecutionLaneService()
+    profile = service.register_profile(_paper_profile())
+    plan = build_trading_node_runtime_plan(profile)
+    # Existing default must still work
+    assert plan.runtime_label == "python_live_integration_specific"
+    # The field type is str, not Literal — verify the model accepts it
+    from packages.execution_lane.nautilus_runtime import NautilusTradingNodeRuntimePlan
+    data = plan.model_dump()
+    data["runtime_label"] = "rust_live_node"
+    updated = NautilusTradingNodeRuntimePlan(**data)
+    assert updated.runtime_label == "rust_live_node"
+
+
+def test_runtime_label_rejects_unknown_label() -> None:
+    """M3: runtime_label must validate against known set."""
+    from packages.execution_lane.nautilus_runtime import NautilusTradingNodeRuntimePlan
+    service = ExecutionLaneService()
+    profile = service.register_profile(_paper_profile())
+    plan = build_trading_node_runtime_plan(profile)
+    data = plan.model_dump()
+    data["runtime_label"] = "unknown_runtime"
+    with pytest.raises(ValueError, match="runtime_label"):
+        NautilusTradingNodeRuntimePlan(**data)

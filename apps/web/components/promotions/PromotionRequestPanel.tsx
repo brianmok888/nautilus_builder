@@ -81,7 +81,7 @@ export const PromotionRequestPanel = ({
           style={{ marginTop: 12 }}
           title="Promotion request submitted"
           description={
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Typography.Text>Target: {result.target}</Typography.Text>
               <Typography.Text>Manual approval required: {String(result.manual_approval_required)}</Typography.Text>
               <Tag color="warning">approval_state: manual_approval_pending</Tag>

@@ -98,7 +98,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
   const currentIdx = LIFECYCLE_CHAIN.indexOf(status);
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       {/* Status timeline */}
       <Card size="small" title="Status">
         <Space wrap>
@@ -177,7 +177,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
 
       {/* Rules */}
       <Card size="small" title="Entry/Exit Rules">
-        <Space direction="vertical" style={{ width: "100%" }}>
+        <Space orientation="vertical" style={{ width: "100%" }}>
           {Object.entries(rules).map(([name, block]) => (
             <Descriptions
               key={name}

@@ -145,9 +145,14 @@ class SqliteWorkflowRepository:
         payload = self._fetch_payload("test_results", "result_id", result_id)
         return WorkflowResultRecord(**payload) if payload else None
 
-    def list_results(self) -> list[WorkflowResultRecord]:
+    def list_results(self, *, limit: int | None = None, offset: int = 0) -> list[WorkflowResultRecord]:
         table = _table(self._schema, "test_results")
-        rows = self._connection.execute(f"SELECT payload FROM {table}").fetchall()
+        sql = f"SELECT payload FROM {table} ORDER BY rowid"
+        if offset:
+            sql += f" LIMIT {int(limit or -1)} OFFSET {int(offset)}"
+        elif limit is not None:
+            sql += f" LIMIT {int(limit)}"
+        rows = self._connection.execute(sql).fetchall()
         return [WorkflowResultRecord(**json.loads(row[0])) for row in rows]
 
     def suggestions_for_lineage(self, strategy_lineage_id: str) -> list[AiSuggestionRecord]:
