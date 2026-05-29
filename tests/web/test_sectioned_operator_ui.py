@@ -14,13 +14,13 @@ def test_dashboard_home_exposes_compact_command_center_workflow() -> None:
     dashboard = _read("components/dashboard/BuilderDashboard.tsx")
 
     for token in (
-        "Command center",
-        "Three-section operator workflow",
-        "Strategy Builder → Backtest Center → Execution Lane",
-        "Open Strategy Builder",
-        "Run BacktestNode",
-        "Open Execution Lane",
-        "Authority split",
+        "Nautilus Builder",
+        "Strategy Builder",
+        "Backtest Center",
+        "Execution Lane",
+        "AiStrategyCopilot",
+        "BacktestLaunchPanel",
+        "ExecutionLaneFeaturePanel",
     ):
         assert token in dashboard
     assert "submit_order" not in dashboard

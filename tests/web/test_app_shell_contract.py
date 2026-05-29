@@ -54,7 +54,7 @@ def test_home_page_uses_visual_shell_without_live_authority() -> None:
     dashboard = (ROOT / "apps" / "web" / "components" / "dashboard" / "BuilderDashboard.tsx").read_text()
 
     assert "app-shell" in page
-    for token in ("Card", "Statistic", "Steps", "Tabs"):
-        assert token in dashboard
+    assert "Card" in dashboard
+    assert "Tabs" in dashboard
     assert "submit_order" not in page
     assert "TradeAction" not in page

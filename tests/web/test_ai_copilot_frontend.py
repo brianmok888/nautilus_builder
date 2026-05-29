@@ -42,9 +42,10 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
 
     assert 'useState("strategy")' in dashboard
     assert "activeKey={activeSection}" in dashboard
-    assert "Strategy Builder → Backtest Center → Execution Lane" in dashboard
-    assert "compact-dashboard" in dashboard
-    assert "compact-workflow-card" in dashboard
+    assert "AiStrategyCopilot" in dashboard
+    assert "StrategyBuilderWorkspace" in dashboard
+    assert "BacktestLaunchPanel" in dashboard
+    assert "ExecutionLaneFeaturePanel" in dashboard
+    assert "Nautilus Builder" in dashboard
     assert 'componentSize="small"' in (ROOT / "apps" / "web" / "components" / "shell" / "OperatorAppShell.tsx").read_text()
-    assert ".compact-dashboard" in css
-    assert "font-size: 0.88rem" in css
+    assert ".builder-dashboard" in css
