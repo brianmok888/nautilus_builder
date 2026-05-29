@@ -394,7 +394,7 @@ export function ExecutionLaneFeaturePanel() {
     <section className="panel config-panel" aria-label="execution lane feature configuration">
       <Space orientation="vertical" size="middle" className="config-stack">
         <div>
-          <Typography.Text className="hero-kicker">Execution Lane / Config</Typography.Text>
+          <Typography.Text className="hero-kicker">Execution Lane</Typography.Text>
           <Typography.Title level={3}>Feature visibility matrix</Typography.Title>
           <Typography.Paragraph type="secondary">
             Venue binding, paper controls visibility only, live controls visibility only, and no browser runtime authority.
@@ -458,73 +458,7 @@ export function ExecutionLaneFeaturePanel() {
           </Row>
         </Card>
 
-        <Card title="Credential slot bootstrap" size="small">
-          <Typography.Paragraph type="secondary">
-            Local/dev bootstrap only: the browser sends venue-scoped credential variables once,
-            the backend writes them to a gitignored local env file, and the UI keeps only a credential_slot_ref.
-            Secrets are cleared after save and never echoed in reports.
-          </Typography.Paragraph>
-          <Form layout="vertical" className="form-grid">
-            <Form.Item label="Requested by">
-              <Input
-                aria-label="Credential requested by"
-                value={credentialDraft.requested_by}
-                onChange={(event) => updateCredentialField("requested_by", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Credential variable 1">
-              <Input
-                aria-label="Credential variable 1"
-                placeholder="BINANCE_API_KEY"
-                value={credentialDraft.variable_1}
-                onChange={(event) => updateCredentialField("variable_1", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Credential value 1">
-              <Input.Password
-                aria-label="Credential value 1"
-                value={credentialDraft.value_1}
-                onChange={(event) => updateCredentialField("value_1", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Credential variable 2">
-              <Input
-                aria-label="Credential variable 2"
-                placeholder="BINANCE_API_SECRET"
-                value={credentialDraft.variable_2}
-                onChange={(event) => updateCredentialField("variable_2", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Credential value 2">
-              <Input.Password
-                aria-label="Credential value 2"
-                value={credentialDraft.value_2}
-                onChange={(event) => updateCredentialField("value_2", event.target.value)}
-              />
-            </Form.Item>
-          </Form>
-          <Space wrap>
-            <Button disabled={!canSaveCredentialSlot} loading={action === "credential"} onClick={onSaveCredentialSlot}>
-              Save credential slot
-            </Button>
-            <Tag color="blue">writes .env.execution.local</Tag>
-            <Tag color="green">browser secret echo: false</Tag>
-          </Space>
-          {credentialSlot ? (
-            <Alert
-              showIcon
-              type="success"
-              title="Credential slot ready"
-              description={
-                <Space orientation="vertical" size={2}>
-                  <Typography.Text>{credentialSlot.credential_slot_ref}</Typography.Text>
-                  <Typography.Text>redacted keys: {credentialSlot.redacted_keys.join(", ")}</Typography.Text>
-                  <Typography.Text>env file: {credentialSlot.env_file_path}</Typography.Text>
-                </Space>
-              }
-            />
-          ) : null}
-        </Card>
+
 
         <Card title="Paper TradingNode wire" size="small">
           <Typography.Paragraph type="secondary">

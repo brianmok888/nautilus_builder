@@ -21,11 +21,13 @@ def test_execution_page_exposes_execution_lane_venue_feature_panel() -> None:
     assert "Live controls" in component
     assert "credential inputs allowed: false" in component
     assert "server-side credential slot only" in component
-    assert "Credential slot bootstrap" in component
-    assert "Save credential slot" in component
-    assert "Credential variable 1" in component
-    assert "Credential value 1" in component
-    assert "Input.Password" in component
+    # Credential slot bootstrap moved to Config page
+    config = (WEB / "app" / "config" / "page.tsx").read_text()
+    assert "CredentialSlotBootstrap" in config
+    assert "Save credential slot" in (WEB / "components" / "config" / "CredentialSlotBootstrap.tsx").read_text()
+    assert "Credential variable 1" in (WEB / "components" / "config" / "CredentialSlotBootstrap.tsx").read_text()
+    assert "Credential value 1" in (WEB / "components" / "config" / "CredentialSlotBootstrap.tsx").read_text()
+    assert "Input.Password" in (WEB / "components" / "config" / "CredentialSlotBootstrap.tsx").read_text()
     assert "NEXT_PUBLIC" not in component
     assert "saveExecutionLaneCredentialSlot" in api
     assert "/api/execution-lane/credential-slots" in api

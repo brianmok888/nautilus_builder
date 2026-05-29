@@ -24,9 +24,9 @@ const navigationItems = [
     label: <a href="/">Strategy Builder</a>,
   },
   {
-    key: "/backtests/bt_job_001",
+    key: "/backtests",
     icon: <ExperimentOutlined />,
-    label: <a href="/backtests/bt_job_001">Backtest Center</a>,
+    label: <a href="/backtests">Backtest Center</a>,
   },
   {
     key: "/execution",
@@ -54,7 +54,7 @@ function selectedNavigationKey(pathname: string) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
   if (pathname.startsWith("/execution")) return "/execution";
-  if (pathname.startsWith("/backtests")) return "/backtests/bt_job_001";
+  if (pathname.startsWith("/backtests")) return "/backtests";
   if (pathname.startsWith("/results")) return "/results/res_001";
   return "/";
 }

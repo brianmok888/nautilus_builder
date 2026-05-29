@@ -104,74 +104,79 @@ export function BuilderDashboard() {
       <div style={{ marginTop: 8 }}>
         {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <StrategyList
-              onSelect={(id) => {
-                console.log("Edit strategy:", id);
-              }}
-              onClone={(id) => {
-                console.log("Clone strategy:", id);
-              }}
-            />
-            <Row gutter={[16, 16]}>
-              <Col xs={24} xl={10}>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={10}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <StrategyList
+                  onSelect={(id) => console.log("Edit strategy:", id)}
+                  onClone={(id) => console.log("Clone strategy:", id)}
+                />
                 <Card size="small" title="Strategy Editor">
                   <AiStrategyCopilot />
                 </Card>
-              </Col>
-              <Col xs={24} xl={14}>
-                <Card size="small" title="Block Canvas">
-                  <StrategyBuilderWorkspace />
-                </Card>
-              </Col>
-            </Row>
-          </Space>
+              </Space>
+            </Col>
+            <Col xs={24} xl={14}>
+              <Card size="small" title="Block Canvas">
+                <StrategyBuilderWorkspace />
+              </Card>
+            </Col>
+          </Row>
         )}
 
         {/* TAB 2: Backtest Center */}
         {activeSection === "backtest" && (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <Card
-              size="small"
-              title="StrategySpec Review"
-              extra={<Tag color="purple">AI review before backtest</Tag>}
-            >
-              <Paragraph type="secondary">
-                Review or edit the StrategySpec before running. AI can check spec
-                correctness, parameter validity, and adapter compatibility prior to
-                BacktestNode execution.
-              </Paragraph>
-              <StrategySpecEditor spec={undefined} />
-            </Card>
-            <Card
-              size="small"
-              title="BacktestNode Replay"
-              extra={<Tag color="purple">Historical evidence-only</Tag>}
-            >
-              <BacktestLaunchPanel />
-              <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-                {JobTerminal()}
-              </Text>
-            </Card>
-            <Card
-              size="small"
-              title="Manual Promotion Review"
-              extra={<Tag color="blue">Human gate</Tag>}
-            >
-              <PromotionRequestPanel />
-            </Card>
-          </Space>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={10}>
+              <Card
+                size="small"
+                title="StrategySpec Review"
+                extra={<Tag color="purple">AI review before backtest</Tag>}
+              >
+                <Paragraph type="secondary">
+                  Review or edit the StrategySpec before running. AI can check
+                  correctness, parameter validity, and adapter compatibility.
+                </Paragraph>
+                <StrategySpecEditor spec={undefined} />
+              </Card>
+            </Col>
+            <Col xs={24} xl={14}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <Card
+                  size="small"
+                  title="BacktestNode Replay"
+                  extra={<Tag color="purple">Historical evidence-only</Tag>}
+                >
+                  <BacktestLaunchPanel />
+                  <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+                    {JobTerminal()}
+                  </Text>
+                </Card>
+                <Card
+                  size="small"
+                  title="Manual Promotion Review"
+                  extra={<Tag color="blue">Human gate</Tag>}
+                >
+                  <PromotionRequestPanel />
+                </Card>
+              </Space>
+            </Col>
+          </Row>
         )}
 
-        {/* TAB 3: Execution Lane — loads config from backend */}
+        {/* TAB 3: Execution Lane */}
         {activeSection === "execution" && (
-          <Card
-            size="small"
-            title="Paper / Live TradingNode"
-            extra={<Tag color="red">Backend-owned credentials</Tag>}
-          >
-            <ExecutionLaneFeaturePanel />
-          </Card>
+          <Row gutter={[16, 16]}>
+            <Col xs={24}>
+              <Card
+                size="small"
+                title="Paper / Live TradingNode"
+                extra={<Tag color="red">Backend-owned credentials</Tag>}
+              >
+                <ExecutionLaneFeaturePanel />
+              </Card>
+            </Col>
+          </Row>
         )}
       </div>
     </div>
