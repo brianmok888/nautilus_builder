@@ -22,6 +22,7 @@ import type {
   LlmConfigSavePayload,
   PromotionRequestResult,
   ResultDashboardPayload,
+  ResultListItem,
   StrategyDetail,
   StrategyRecord,
   StrategySummary,
@@ -323,6 +324,10 @@ export async function fetchBacktestJobEvents(
   jobId: string,
 ): Promise<BacktestJobEvents> {
   return apiFetch<BacktestJobEvents>(`/api/backtest-jobs/${jobId}/events`);
+}
+
+export async function fetchResultList(): Promise<ResultListItem[]> {
+  return apiFetch<ResultListItem[]>('/api/results');
 }
 
 export async function fetchResultSummary(

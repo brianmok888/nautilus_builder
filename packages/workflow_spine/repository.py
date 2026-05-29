@@ -56,6 +56,9 @@ class InMemoryWorkflowRepository:
                 return result
         return None
 
+    def list_results(self) -> list[WorkflowResultRecord]:
+        return list(self._results.values())
+
     def save_ai_suggestion(self, suggestion: AiSuggestionRecord) -> None:
         self._suggestions[suggestion.suggestion_id] = suggestion
 

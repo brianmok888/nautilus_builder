@@ -53,6 +53,23 @@ def _dashboard_result_payload(result_id: str, *, fixture: bool) -> dict[str, obj
     }
 
 
+def list_results_payload(
+    repository: InMemoryWorkflowRepository,
+) -> ApiResponse:
+    results = repository.list_results()
+    items = []
+    for r in results:
+        items.append({
+            'result_id': r.result_id,
+            'strategy_lineage_id': r.strategy_lineage_id,
+            'strategy_version_id': r.strategy_version_id,
+            'test_job_id': r.test_job_id,
+            'metrics': r.metrics,
+            'created_at': r.result_id,  # TODO: add timestamp to model
+        })
+    return ApiResponse(items)
+
+
 def workflow_result_suggestions_payload(
     repository: InMemoryWorkflowRepository,
     result_id: str,

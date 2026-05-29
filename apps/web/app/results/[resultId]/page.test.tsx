@@ -23,10 +23,14 @@ describe("ResultPage", () => {
     render(await ResultPage({ params: Promise.resolve({ resultId: "result-42" }) }));
 
     expect(fetchResultSummary).toHaveBeenCalledWith("result-42");
+    // Metric title rendered
     expect(screen.getByText("pnl")).toBeTruthy();
-    expect(screen.getByText("12.5")).toBeTruthy();
+    // Statistic splits 12.5 into "12" and ".5000"
+    expect(screen.getByText(".5000")).toBeTruthy();
+    // Artifacts in Descriptions
     expect(screen.getByText("report")).toBeTruthy();
     expect(screen.getByText("db_data/reports/result-42.json")).toBeTruthy();
-    expect(screen.getByText(/symbol: BTCUSDT/)).toBeTruthy();
+    // Trades table
+    expect(screen.getByText("BTCUSDT")).toBeTruthy();
   });
 });

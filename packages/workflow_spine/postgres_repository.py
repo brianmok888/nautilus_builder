@@ -145,6 +145,11 @@ class SqliteWorkflowRepository:
         payload = self._fetch_payload("test_results", "result_id", result_id)
         return WorkflowResultRecord(**payload) if payload else None
 
+    def list_results(self) -> list[WorkflowResultRecord]:
+        table = _table(self._schema, "test_results")
+        rows = self._connection.execute(f"SELECT payload FROM {table}").fetchall()
+        return [WorkflowResultRecord(**json.loads(row[0])) for row in rows]
+
     def suggestions_for_lineage(self, strategy_lineage_id: str) -> list[AiSuggestionRecord]:
         return self._fetch_suggestions("strategy_lineage_id", strategy_lineage_id)
 

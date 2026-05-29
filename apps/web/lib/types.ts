@@ -302,6 +302,15 @@ export type ReportSummary = {
   execution_authority: false;
 };
 
+export type ResultListItem = {
+  result_id: string;
+  strategy_lineage_id: string;
+  strategy_version_id: string;
+  test_job_id: string;
+  metrics: Record<string, unknown>;
+  created_at: string;
+};
+
 export type ResultDashboardPayload = {
   result_id: string;
   metrics: Record<string, unknown>;

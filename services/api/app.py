@@ -10,7 +10,7 @@ from services.api.routes.promotions import create_shadow_payload, request_promot
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
-from services.api.routes.workflow_results import workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
+from services.api.routes.workflow_results import list_results_payload, workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.backtest_jobs.service import BacktestJobService
@@ -111,6 +111,7 @@ def create_app(
     app.route("POST", "/api/promotions/request", request_promotion_payload)
     app.route("GET", "/api/workflow/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
     app.route("GET", "/api/results/{result_id}", lambda result_id: workflow_result_payload(workflow_repository, result_id))
+    app.route("GET", "/api/results", lambda: list_results_payload(workflow_repository))
     app.route(
         "GET",
         "/api/workflow/results/{result_id}/suggestions",

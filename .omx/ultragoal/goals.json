@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-05-29T15:02:37.390Z",
-  "updatedAt": "2026-05-29T15:02:50.496Z",
+  "updatedAt": "2026-05-29T19:40:22.420Z",
   "briefPath": ".omx/ultragoal/brief.md",
   "goalsPath": ".omx/ultragoal/goals.json",
   "ledgerPath": ".omx/ultragoal/ledger.jsonl",
@@ -11,128 +11,142 @@
       "id": "G001-rewrite-strategies-id-page-and-strat",
       "title": "Rewrite `/strategies/[id]` page and `StrategyDetailClient` component",
       "objective": "Rewrite `/strategies/[id]` page and `StrategyDetailClient` component",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:50.496Z",
-      "startedAt": "2026-05-29T15:02:50.496Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "startedAt": "2026-05-29T15:02:50.496Z",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G002-show-full-strategyspec-indicators-ru",
       "title": "Show full StrategySpec (indicators, rules, risk, validation) in reada...",
       "objective": "Show full StrategySpec (indicators, rules, risk, validation) in readable AntD Descriptions",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G003-show-version-history-table-with-vers",
       "title": "Show version history table with version IDs and timestamps",
       "objective": "Show version history table with version IDs and timestamps",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G004-show-current-status-with-colored-chi",
       "title": "Show current status with colored chip and the lifecycle chain (draft...",
       "objective": "Show current status with colored chip and the lifecycle chain (draft → validated → backtested → approved → execution_ready)",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G005-add-action-buttons-matching-current",
       "title": "Add action buttons matching current status (Edit if draft/validated,...",
       "objective": "Add action buttons matching current status (Edit if draft/validated, Clone always, Backtest if eligible)",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G006-tests-typecheck-vitest-component-tes",
       "title": "Tests: typecheck + vitest component test",
       "objective": "Tests: typecheck + vitest component test",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G007-when-operator-selects-a-strategy-in",
       "title": "When operator selects a strategy in Backtest Center, auto-populate th...",
       "objective": "When operator selects a strategy in Backtest Center, auto-populate the BacktestLaunchPanel manifest fields (strategy_version_id, adapter_profile_id, instrument_id) from the strategy's spec",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G008-show-selected-strategy-context-above",
       "title": "Show selected strategy context above the launch panel",
       "objective": "Show selected strategy context above the launch panel",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G009-clear-previous-job-results-when-a-ne",
       "title": "Clear previous job results when a new strategy is selected",
       "objective": "Clear previous job results when a new strategy is selected",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G010-tests-typecheck-vitest",
       "title": "Tests: typecheck + vitest",
       "objective": "Tests: typecheck + vitest",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G011-when-an-approved-strategy-is-loaded",
       "title": "When an approved strategy is loaded into Execution Lane, wire it into...",
       "objective": "When an approved strategy is loaded into Execution Lane, wire it into the paper session start payload",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G012-show-the-attached-strategy-info-id-s",
       "title": "Show the attached strategy info (ID, status, instrument, adapter) in...",
       "objective": "Show the attached strategy info (ID, status, instrument, adapter) in the session card",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G013-the-paper-session-start-should-refer",
       "title": "The paper session start should reference the loaded strategy's versio...",
       "objective": "The paper session start should reference the loaded strategy's version_id and lineage_id",
-      "status": "pending",
+      "status": "complete",
       "attempt": 0,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:17.015923+00:00",
+      "completedAt": "2026-05-29T19:40:17.015923+00:00"
     },
     {
       "id": "G014-replace-hardcoded-res-001-with-dynam",
       "title": "Replace hardcoded `res_001` with dynamic result listing",
       "objective": "Replace hardcoded `res_001` with dynamic result listing",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-05-29T15:02:37.390Z",
-      "updatedAt": "2026-05-29T15:02:37.390Z"
+      "updatedAt": "2026-05-29T19:40:22.420Z",
+      "startedAt": "2026-05-29T19:40:22.420Z"
     },
     {
       "id": "G015-show-list-of-available-results-with",
@@ -316,5 +330,5 @@
     }
   ],
   "codexObjective": "Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-rewrite-strategies-id-page-and-strat Rewrite `/strategies/[id]` page and `StrategyDetailClient` component; G002-show-full-strategyspec-indicators-ru Show full StrategySpec (indicators, rules, risk, validation) in reada...; G003-show-version-history-table-with-vers Show version history table with version IDs and timestamps; G004-show-current-status-with-colored-chi Show current status with colored chip and the lifecycle chain (draft...; G005-add-action-buttons-matching-current Add action buttons matching current status (Edit if draft/validated,...; G006-tests-typecheck-vitest-component-tes Tests: typecheck + vitest component test; G007-when-operator-selects-a-strategy-in When operator selects a strategy in Backtest Center, auto-populate th...; G008-show-selected-strategy-context-above Show selected strategy context above the launch panel; G009-clear-previous-job-results-when-a-ne Clear previous job results when a new strategy is selected; G010-tests-typecheck-vitest Tests: typecheck + vitest; G011-when-an-approved-strategy-is-loaded When an approved strategy is loaded into Execution Lane, wire it into...; G012-show-the-attached-strategy-info-id-s Show the attached strategy info (ID, status, instrument, adapter) in...; G013-the-paper-session-start-should-refer The paper session start should reference the loaded strategy's versio...; G014-replace-hardcoded-res-001-with-dynam Replace hardcoded `res_001` with dynamic result listing; G015-show-list-of-available-results-with Show list of available results with strategy name, date, and metrics...; G016-result-detail-page-shows-key-metrics Result detail page shows: key metrics (PnL, sharpe, drawdown), trade...; G017-fix-executionlanefeaturepanel-test-t Fix `ExecutionLaneFeaturePanel.test.tsx` credential label mismatches...; G018-fix-app-builder-strategyid-page-test Fix `app/builder/[strategyId]/page.test.tsx` missing Next.js router m...; G019-fix-builderdashboard-test-tsx-if-any Fix `BuilderDashboard.test.tsx` if any regressions from G001-G004; G020-all-42-vitest-tests-must-pass All 42+ vitest tests must pass; G021-create-docker-compose-yml-at-repo-ro Create `docker-compose.yml` at repo root; G022-services-postgres-16-alpine-builder Services: postgres (16-alpine), builder-api (FastAPI), web (Next.js); G023-postgres-uses-persistent-volume Postgres uses persistent volume; G024-api-connects-to-postgres-seeds-demo API connects to Postgres, seeds demo data; G025-web-proxies-api-requests Web proxies API requests; G026-docker-compose-up-brings-everything `docker compose up` brings everything up; G027-read-builder-api-token-from-env-and Read `BUILDER_API_TOKEN` from env and attach as Bearer token to all A...; G028-add-auth-token-to-apiclient-ts-api-t Add auth token to `apiClient.ts` / `api.ts` request headers; G029-handle-401-responses-gracefully-show Handle 401 responses gracefully (show auth error, don't crash); G030-login-logout-not-needed-token-based Login/logout not needed — token-based like current backend; G031-run-ai-slop-cleaner-on-all-changed-f Run ai-slop-cleaner on all changed files; G032-rerun-full-verification-pytest-429-v Rerun full verification (pytest 429+, vitest all green, tsc clean, np...; G033-run-code-review-on-all-changes Run $code-review on all changes; G034-fix-any-review-blockers Fix any review blockers",
-  "activeGoalId": "G001-rewrite-strategies-id-page-and-strat"
+  "activeGoalId": "G014-replace-hardcoded-res-001-with-dynam"
 }

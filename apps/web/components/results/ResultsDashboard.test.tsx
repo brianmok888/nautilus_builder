@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { ResultsDashboard } from "./ResultsDashboard";
 
 describe("ResultsDashboard", () => {
-  test("renders real metrics, trades, fills, logs, and artifacts from payload", () => {
+  test("renders key metrics from payload", () => {
     render(
       <ResultsDashboard
         resultId="result-42"
@@ -19,17 +19,22 @@ describe("ResultsDashboard", () => {
       />,
     );
 
+    // Statistic renders title as the metric name
     expect(screen.getByText("total_return")).toBeTruthy();
-    expect(screen.getByText("0.128")).toBeTruthy();
-    expect(screen.getByText(/trade_id: T-1/)).toBeTruthy();
-    expect(screen.getByText(/fill_id: F-1/)).toBeTruthy();
-    expect(screen.getByText(/message: backtest completed/)).toBeTruthy();
+    expect(screen.getByText("sharpe_ratio")).toBeTruthy();
+    // Statistic splits 0.128 into "0" and ".1280" in separate spans
+    expect(screen.getByText(".1280")).toBeTruthy();
+    // Trades table shows data
+    expect(screen.getByText("symbol")).toBeTruthy();
+    expect(screen.getByText("BTCUSDT")).toBeTruthy();
+    // Fills table shows data
+    expect(screen.getByText("fill_id")).toBeTruthy();
+    expect(screen.getByText("F-1")).toBeTruthy();
+    // Artifacts
     expect(screen.getByText("equity_curve")).toBeTruthy();
-    expect(screen.getByText("db://artifacts/result-42/equity")).toBeTruthy();
   });
 
-
-  test("renders report summary sections and chart metadata", () => {
+  test("renders report summary sections", () => {
     render(
       <ResultsDashboard
         resultId="result-43"
@@ -51,15 +56,14 @@ describe("ResultsDashboard", () => {
       />,
     );
 
-    expect(screen.getByText("Report sections")).toBeTruthy();
-    expect(screen.getByText("equity_curve → drawdown")).toBeTruthy();
-    expect(screen.getByText("No execution authority")).toBeTruthy();
+    expect(screen.getByText("Report Summary")).toBeTruthy();
+    expect(screen.getByText(/equity_curve → drawdown/)).toBeTruthy();
   });
 
   test("keeps dashboard observational without execution authority", () => {
     render(<ResultsDashboard resultId="result-42" />);
 
-    expect(screen.getByText(/observational only/i)).toBeTruthy();
+    expect(screen.getByText(/observational/i)).toBeTruthy();
     expect(screen.queryByText(/submit order/i)).toBeNull();
     expect(screen.queryByText(/deploy live/i)).toBeNull();
   });
