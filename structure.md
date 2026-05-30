@@ -200,3 +200,77 @@ python3 -m pytest tests/ -q --tb=line             # 459 passed
 - `InMemoryRateLimiter` for zero-dependency rate limiting.
 - CORS middleware via `BUILDER_CORS_ORIGINS` env var.
 - 5 new tests.
+
+## Segments applied — QuantDinger fluidity gap (2026-05-30)
+
+### S12: .env.example + scripts/run_dev.sh + scripts/run_tests.sh
+- `.env.example` documents all configurable env vars with safe defaults.
+- `scripts/run_dev.sh` starts API + frontend with `--api-only`, `--web-only`, `--full` modes.
+- `scripts/run_tests.sh` runs verification gate with `--quick`, `--full`, `--frontend` modes.
+- 13 new tests in `tests/onboarding/test_env_and_scripts.py`.
+
+### S13: DEVELOPMENT.md
+- Full onboarding guide: prerequisites, 5-command quickstart, local dev, testing, troubleshooting.
+- Documents all environment variables with defaults and descriptions.
+- Architecture boundaries section: what Builder owns and doesn't own.
+
+### S14: docs/examples/ with runnable demos
+- `docs/examples/demo_strategy_basic.py` — spec → validate → compile.
+- `docs/examples/demo_strategy_backtest.py` — full pipeline through backtest config.
+- `docs/examples/demo_adapter_discovery.py` — adapter registry exploration.
+- 11 new tests in `tests/examples/test_demo_scripts.py`.
+
+### S15: Strategy development guide
+- `doc/strategy_dev_guide.md` — write indicator → save → backtest → promote.
+- Full indicator reference, rule operators, risk parameters.
+- Safety boundaries and lifecycle stages documented.
+- 9 new tests in `tests/onboarding/test_dev_guide_references.py`.
+
+### S16: Adapter auto-discovery factory pattern
+- `packages/adapter_registry/discovery.py` — `AdapterFactory` base class with `@register_adapter` decorator.
+- `discover_adapter()`, `adapter_factory()`, `list_discovered_adapters()` API.
+- Drop-in pattern: new adapters register via decorator, no manual wiring.
+- 8 new tests in `tests/adapter_registry/test_discovery.py`.
+
+### S17: # @param convention for AI Builder
+- `packages/ai_builder/param_parser.py` — parses `# @param name:type:default desc` comments.
+- `# @strategy name="..." adapter="..."` header parsing.
+- `ParseResult` and `ParamDecl` Pydantic models.
+- 14 new tests in `tests/ai_builder/test_param_parser.py`.
+
+### S18: Zero-config docker compose
+- `docker-compose.yml` — API healthcheck, web depends on API healthy, postgres localhost-only.
+- `.env.example` covers all docker-compose env vars.
+- 12 new tests in `tests/onboarding/test_docker_zero_config.py`.
+
+### S19: Open findings closure
+- M4: Frontend tests use vi.fn() mocks (verified).
+- L1: storage_config.py has deprecation deadline (verified).
+- L2: Backtest legacy_hash documented (verified).
+- L3: Frontend selectors mitigated with mocks (verified).
+- L4: All packages have __all__ exports (verified).
+- L9: Token exposure documented in .env.example (verified).
+- L10: InMemory stores documented with Postgres migration note (verified).
+- 10 new tests in `tests/onboarding/test_open_findings.py`.
+
+## Verification gate (current)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 536 passed
+```
+
+## Master reconciliation — QuantDinger fluidity gap
+
+All 7 QuantDinger improvements implemented and verified:
+1. `.env.example` + `scripts/` operational tooling
+2. `DEVELOPMENT.md` onboarding guide
+3. 3 runnable example strategy demos
+4. Strategy development guide
+5. Adapter auto-discovery factory pattern
+6. `# @param` convention for AI Builder
+7. Zero-config `docker compose up -d` experience
+
+All open findings (M4, L1-L4, L9, L10) resolved or documented.
+
+**Test evidence:** 536 passed (77 new), 0 compilation errors, all handguards intact.

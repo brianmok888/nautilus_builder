@@ -218,3 +218,31 @@ Guard: After 2026-07-01, any PR that re-enables legacy paths without env flag mu
 - Tests: `tests/api/test_production_safety.py` (5 tests).
 
 Guard: Any PR that removes the `_UNSAFE_DEV_TOKENS` check or reverts port/password hardening must be rejected.
+
+## 22. Onboarding boundary (S12-S18)
+
+The repo must maintain the developer onboarding experience:
+
+- `.env.example` must document all docker-compose and application env vars.
+- `scripts/run_dev.sh` must start the development environment.
+- `scripts/run_tests.sh` must run the verification gate.
+- `DEVELOPMENT.md` must be the single source for onboarding instructions.
+- `docs/examples/` must contain runnable demo scripts exercising the full pipeline.
+- `doc/strategy_dev_guide.md` must document the strategy lifecycle.
+- Adapter discovery must support drop-in registration via `@register_adapter`.
+- `# @param` convention must be parseable by `packages/ai_builder/param_parser.py`.
+
+Guard: Any PR that removes onboarding files, scripts, or demo examples without replacement must be rejected.
+
+## 23. Docker zero-config boundary (S18)
+
+`docker compose up -d` must start a working application:
+
+- All services have health checks.
+- API depends on postgres being healthy.
+- Web depends on API being healthy.
+- Postgres port bound to 127.0.0.1 only.
+- `.env.example` covers all compose env vars.
+- Demo strategies seeded on first startup.
+
+Guard: Any PR that removes health checks or reverts port/password hardening must be rejected.
