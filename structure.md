@@ -274,3 +274,30 @@ All 7 QuantDinger improvements implemented and verified:
 All open findings (M4, L1-L4, L9, L10) resolved or documented.
 
 **Test evidence:** 536 passed (77 new), 0 compilation errors, all handguards intact.
+
+## Segments applied — End-to-end pipeline and spec files (2026-05-30)
+
+### S20: Example JSON spec files
+- `docs/examples/specs/dual_ma.json` — EMA crossover strategy spec.
+- `docs/examples/specs/rsi_reversal.json` — RSI mean reversion strategy spec.
+- Both validate as StrategySpec and exercise the full validation pipeline.
+- 8 new tests in `tests/examples/test_spec_files.py`.
+
+### S21: scripts/run_backtest.py — End-to-end chained pipeline
+- Chains all seams: load JSON → validate → compile → backtest → result.
+- CLI args: `--spec`, `--profile`, `--output`, `--json`.
+- Human-readable report by default, JSON output with `--json`.
+- Writes result artifacts to file with `--output`.
+- Execution authority always False. No venue connection required.
+- 11 new tests in `tests/examples/test_run_backtest.py`.
+
+### S22: Strategy dev guide updated
+- `doc/strategy_dev_guide.md` now includes "Running the End-to-End Pipeline" section.
+- Documents `scripts/run_backtest.py` usage with examples and output.
+
+## Verification gate (current)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 555 passed
+```

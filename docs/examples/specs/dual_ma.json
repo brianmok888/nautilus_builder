@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "version": "1.0.0",
+  "stage": "draft",
+  "status": "draft",
+  "created_from": "user",
+  "is_frozen": false,
+  "adapter_id": "binance",
+  "venue": "BINANCE",
+  "instrument_id": "BTCUSDT-PERP.BINANCE",
+  "bar_type": "BTCUSDT-PERP.BINANCE-5-MINUTE-LAST-EXTERNAL",
+  "data_range": {
+    "start": "2024-01-01T00:00:00Z",
+    "end": "2024-06-01T00:00:00Z"
+  },
+  "indicators": {
+    "ema_fast": {
+      "type": "EMA",
+      "input": "close",
+      "period": 10
+    },
+    "ema_slow": {
+      "type": "EMA",
+      "input": "close",
+      "period": 20
+    }
+  },
+  "rules": {
+    "entry_long": {
+      "all": [
+        {"crossed_above": ["ema_fast", "ema_slow"]}
+      ]
+    },
+    "exit_long": {
+      "all": [
+        {"crossed_below": ["ema_fast", "ema_slow"]}
+      ]
+    }
+  },
+  "risk": {
+    "position_size_pct": 0.02,
+    "stop_loss_pct": 0.05,
+    "take_profit_pct": 0.10,
+    "max_hold_bars": 60
+  },
+  "validation": {
+    "bar_close_only": true,
+    "no_lookahead_required": true,
+    "requires_backtest_before_shadow": true,
+    "output_mode": "signal_preview_only"
+  },
+  "provenance": {
+    "created_by": "user"
+  }
+}

@@ -60,6 +60,9 @@
 | S17 | `# @param` convention for AI Builder | **DONE** — `param_parser.py`, 14 tests |
 | S18 | Zero-config docker compose | **DONE** — API healthcheck, env coverage, 12 tests |
 | S19 | Open findings closure | **DONE** — M4, L1-L4, L9, L10 verified, 10 tests |
+| S20 | Example JSON spec files (dual_ma, rsi_reversal) | **DONE** — 8 tests |
+| S21 | scripts/run_backtest.py — end-to-end chained pipeline | **DONE** — 11 tests |
+| S22 | Strategy dev guide updated with run_backtest usage | **DONE** |
 
 ---
 
@@ -81,3 +84,11 @@
 5. ✅ Adapter auto-discovery factory
 6. ✅ `# @param` convention for AI Builder
 7. ✅ Zero-config `docker compose up -d` experience
+
+---
+
+## Master reconciliation — catalog-backed Nautilus replay
+
+- `catalog_backed_replay_smoke` runs synthetic historical quote ticks through the full BacktestNode pipeline.
+- This is a wiring and data-flow check — not full trading-production readiness.
+- Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).

@@ -246,3 +246,16 @@ Guard: Any PR that removes onboarding files, scripts, or demo examples without r
 - Demo strategies seeded on first startup.
 
 Guard: Any PR that removes health checks or reverts port/password hardening must be rejected.
+
+## 24. End-to-end pipeline boundary (S20-S22)
+
+The `scripts/run_backtest.py` script chains all Builder seams into a single flow:
+
+- Must accept `--spec <path>` pointing to a valid StrategySpec JSON file.
+- Must validate, compile, and run backtest in sequence.
+- Must always set `execution_authority=False`.
+- Must support `--json` for machine-readable output.
+- Must fail cleanly for invalid or missing spec files.
+- Example spec files must exist in `docs/examples/specs/`.
+
+Guard: Any PR that removes `scripts/run_backtest.py` or example spec files without replacement must be rejected.

@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "version": "1.0.0",
+  "stage": "draft",
+  "status": "draft",
+  "created_from": "user",
+  "is_frozen": false,
+  "adapter_id": "binance",
+  "venue": "BINANCE",
+  "instrument_id": "ETHUSDT-PERP.BINANCE",
+  "bar_type": "ETHUSDT-PERP.BINANCE-15-MINUTE-LAST-EXTERNAL",
+  "data_range": {
+    "start": "2024-03-01T00:00:00Z",
+    "end": "2024-09-01T00:00:00Z"
+  },
+  "indicators": {
+    "rsi": {
+      "type": "RSI",
+      "input": "close",
+      "period": 14
+    },
+    "ema_trend": {
+      "type": "EMA",
+      "input": "close",
+      "period": 50
+    }
+  },
+  "rules": {
+    "oversold_entry": {
+      "all": [
+        {"lt": ["rsi", 30]}
+      ]
+    },
+    "overbought_exit": {
+      "all": [
+        {"gt": ["rsi", 70]}
+      ]
+    }
+  },
+  "risk": {
+    "position_size_pct": 0.01,
+    "stop_loss_pct": 0.03,
+    "take_profit_pct": 0.06,
+    "max_hold_bars": 120
+  },
+  "validation": {
+    "bar_close_only": true,
+    "no_lookahead_required": true,
+    "requires_backtest_before_shadow": true,
+    "output_mode": "signal_preview_only"
+  },
+  "provenance": {
+    "created_by": "user"
+  }
+}

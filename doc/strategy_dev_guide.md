@@ -208,3 +208,86 @@ python3 docs/examples/demo_adapter_discovery.py
 - Read `doc/nautilus_builder_hardguards.md` for safety boundaries
 - Read `DEVELOPMENT.md` for development environment setup
 - Explore `docs/examples/` for runnable demo scripts
+
+## Running the End-to-End Pipeline
+
+The `scripts/run_backtest.py` script chains all seams into a single flow:
+
+```bash
+# Run with a JSON spec file
+python scripts/run_backtest.py --spec docs/examples/specs/dual_ma.json
+
+# Run with JSON output (for scripting/CI)
+python scripts/run_backtest.py --spec docs/examples/specs/dual_ma.json --json
+
+# Save result to file
+python scripts/run_backtest.py --spec docs/examples/specs/rsi_reversal.json --output results/
+
+# See help
+python scripts/run_backtest.py --help
+```
+
+### What happens in 30 seconds
+
+```
+Load JSON spec → Validate → Compile → Run backtest → Print result
+     0.000s        0.001s     0.000s      0.000s        0.002s total
+```
+
+The pipeline:
+1. **Loads** the JSON spec file and parses it as a `StrategySpec`
+2. **Validates** against all hard rules (no forbidden refs, risk block present, etc.)
+3. **Compiles** to a `CompileArtifact` with `execution_authority=False`
+4. **Runs backtest** in fixture mode (no venue connection needed)
+5. **Prints** a human-readable report (or JSON with `--json`)
+
+### Example output
+
+```
+================================================================
+  Nautilus Builder — Backtest Pipeline Result
+================================================================
+  Spec:        v1.0.0
+  Instrument:  BTCUSDT-PERP.BINANCE
+  Adapter:     binance
+  Indicators:  ema_fast, ema_slow
+  Rules:       entry_long, exit_long
+  NT Version:  1.227.0
+
+  Validation:  PASSED
+
+  Compile:     backtest
+  Class:       RuleGraphBacktestStrategy
+  Authority:   False
+  Hash:        5026d42a740bc15c...
+
+  Backtest:
+    Trades:    1
+    Return:    0.0000
+    trade_count: 1
+    fill_count: 1
+
+  Timing:      0.002s total
+================================================================
+  Pipeline complete.
+================================================================
+```
+
+### Creating your own spec
+
+1. Copy an example spec:
+   ```bash
+   cp docs/examples/specs/dual_ma.json my_strategy.json
+   ```
+
+2. Edit the spec with your indicators, rules, and risk parameters.
+
+3. Run the pipeline:
+   ```bash
+   python scripts/run_backtest.py --spec my_strategy.json
+   ```
+
+4. If validation passes, you can use the JSON output in CI:
+   ```bash
+   python scripts/run_backtest.py --spec my_strategy.json --json | jq '.is_valid'
+   ```
