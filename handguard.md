@@ -259,3 +259,72 @@ The `scripts/run_backtest.py` script chains all Builder seams into a single flow
 - Example spec files must exist in `docs/examples/specs/`.
 
 Guard: Any PR that removes `scripts/run_backtest.py` or example spec files without replacement must be rejected.
+
+---
+
+## 25. BUILDER_ENV validation gate (H2)
+
+Startup must validate the `BUILDER_ENV` environment variable:
+- Allowed values: `local`, `staging`, `production`.
+- Empty or unset defaults to `local`.
+- Unknown values raise `ValueError` at startup.
+
+In `staging` or `production`:
+- `BUILDER_API_TOKEN` must exist, be ≥32 chars, and not be a known dev token.
+- `NEXT_PUBLIC_BUILDER_API_TOKEN` must not be set.
+- CORS origins must not be empty or wildcard (`*`).
+
+Guard: Any PR that weakens `validate_production_token` or `validate_cors_config` checks must be rejected.
+
+## 26. Promotion mode enforcement gate (H3)
+
+Promotion modes are limited to:
+- `shadow_only`
+- `signal_preview_only`
+- `paper_replay_candidate`
+
+Forbidden modes (will raise `ForbiddenPromotionMode`):
+- `live_trade_authority`
+- `direct_trade_action_authority`
+- `direct_submit_order_authority`
+
+`PromotionLedgerEntry` enforces `execution_authority: Literal[False]`.
+
+Guard: Any PR that adds `live_trade_authority` to `AllowedPromotionMode` or changes `Literal[False]` must be rejected.
+
+## 27. Immutable audit event gate (H3)
+
+`AuditEvent` model is frozen (immutable after creation). Every mutation must write an audit event.
+
+Guard: Any PR that removes `frozen=True` from `AuditEvent` or skips audit event creation for mutations must be rejected.
+
+## 28. Static scan gate (H4)
+
+Generated strategy artifacts must pass `scan_generated_artifact()` before promotion.
+
+Forbidden in generated code:
+- `submit_order(`, `TradeAction`, `eval(`, `exec(`, `subprocess`, `socket`, HTTP requests
+- `execution_authority = True`
+
+Required in generated code:
+- `execution_authority = False`
+
+Guard: Any PR that removes scan patterns or makes the scan non-blocking must be rejected.
+
+## 29. Health endpoint gate (H4)
+
+The API must expose:
+- `GET /health/live` — process liveness
+- `GET /health/ready` — readiness (DB, storage, migration state)
+- `GET /health/build` — build version and commit SHA
+
+Guard: Any PR that removes health endpoints must be rejected.
+
+## 30. Repository hygiene gate (H1)
+
+`scripts/check_repo_hygiene.sh` must pass in CI.
+
+Forbidden committed paths:
+- `node_modules/`, `.vite/`, `.vitest/`, `.next/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`, `.venv/`
+
+Guard: Any PR that disables the repo-hygiene CI job or removes the guard script must be rejected.

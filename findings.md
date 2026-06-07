@@ -92,3 +92,45 @@
 - `catalog_backed_replay_smoke` runs synthetic historical quote ticks through the full BacktestNode pipeline.
 - This is a wiring and data-flow check — not full trading-production readiness.
 - Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
+
+---
+
+## Hardening Sprint — 2026-06-07
+
+### New findings from Top 10 validation summary
+
+All 10 findings from the validation summary now have corresponding implementations:
+
+| # | Finding | Status | Segment |
+|---|---------|--------|---------|
+| 1 | Remove committed generated artifacts | **FIXED** | H1 |
+| 2 | Add hard CI verification gate | **FIXED** | H2 |
+| 3 | Production auth fail-closed | **EXPANDED** | H2 |
+| 4 | PostgreSQL persistence | **EXPANDED** | H3 |
+| 5 | Upgrade replay validation | **FIXED** | H4 |
+| 6 | Expand StrategySpec semantics | **EXPANDED** | H4 |
+| 7 | Harden API surface | **PARTIAL** | H2+H3 |
+| 8 | Immutable evidence ledger | **FIXED** | H3 |
+| 9 | Dependency/supply-chain hygiene | **PARTIAL** | H1 |
+| 10 | Release/deployment posture | **FIXED** | H4 |
+
+### Remaining work for full production-readiness
+
+- **API hardening**: Request body size limits, OpenAPI contract export/test, distributed rate limiting (Redis-backed).
+- **Supply chain**: SBOM generation script, dependency lock verification in CI.
+- **Persistence**: S3-compatible object storage abstraction for artifacts.
+- **Replay**: Real fixture data packs (Parquet files with realistic market data).
+- **StrategySpec**: Indicator-specific param validation beyond Pydantic type checks.
+
+### Test evidence
+
+645 pytest tests passing, 0 compilation errors.
+
+- `tests/hygiene/` — 10 repo hygiene tests
+- `tests/api/test_security_hardening.py` — 20 security tests
+- `tests/postgres/test_migration_v2.py` — 9 migration tests
+- `tests/promotions/test_promotion_modes.py` — 10 promotion mode tests
+- `tests/api/test_audit_events.py` — 5 audit event tests
+- `tests/replay/test_replay_fixtures.py` — 8 replay fixture tests
+- `tests/strategy_compiler/test_static_scan.py` — 8 static scan tests
+- `tests/api/test_health_endpoints.py` — 4 health endpoint tests

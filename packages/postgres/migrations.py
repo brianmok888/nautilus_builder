@@ -119,3 +119,88 @@ def rollback(conn: Any, schema: str = "builder", steps: int = 1) -> list[str]:
             conn.execute(migration.down.format(schema=schema))
             rolled_back.append(f"v{migration.version}: {migration.name}")
     return rolled_back
+
+MIGRATIONS.append(
+    Migration(
+        version=2,
+        name="promotion_ledger_and_audit",
+        up="""
+        CREATE TABLE IF NOT EXISTS {schema}.compiler_runs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            strategy_id TEXT NOT NULL,
+            spec_version_id TEXT NOT NULL,
+            compiler_version TEXT NOT NULL,
+            compiler_hash TEXT NOT NULL,
+            policy_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            output_artifact_hash TEXT,
+            output_artifact_uri TEXT,
+            error_code TEXT,
+            error_message TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            completed_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS {schema}.replay_runs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            strategy_id TEXT NOT NULL,
+            compiler_run_id UUID NOT NULL REFERENCES {schema}.compiler_runs(id),
+            dataset_hash TEXT NOT NULL,
+            dataset_uri TEXT NOT NULL,
+            replay_policy_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            report_hash TEXT,
+            report_uri TEXT,
+            deterministic_output_hash TEXT,
+            error_code TEXT,
+            error_message TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            completed_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS {schema}.promotion_ledger (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            strategy_id TEXT NOT NULL,
+            spec_version_id TEXT NOT NULL,
+            compiler_run_id UUID NOT NULL REFERENCES {schema}.compiler_runs(id),
+            replay_run_id UUID NOT NULL REFERENCES {schema}.replay_runs(id),
+            promotion_mode TEXT NOT NULL,
+            strategy_spec_hash TEXT NOT NULL,
+            compiler_hash TEXT NOT NULL,
+            policy_hash TEXT NOT NULL,
+            dataset_hash TEXT NOT NULL,
+            replay_report_hash TEXT NOT NULL,
+            artifact_hash TEXT NOT NULL,
+            artifact_uri TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            requested_by TEXT NOT NULL,
+            approved_by TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            approved_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS {schema}.audit_events (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            request_id TEXT NOT NULL,
+            actor_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            resource_type TEXT NOT NULL,
+            resource_id TEXT,
+            before_hash TEXT,
+            after_hash TEXT,
+            status TEXT NOT NULL,
+            error_code TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        ALTER TABLE {schema}.schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT;
+        """,
+        down="""
+        DROP TABLE IF EXISTS {schema}.audit_events;
+        DROP TABLE IF EXISTS {schema}.promotion_ledger;
+        DROP TABLE IF EXISTS {schema}.replay_runs;
+        DROP TABLE IF EXISTS {schema}.compiler_runs;
+        ALTER TABLE {schema}.schema_migrations DROP COLUMN IF EXISTS checksum;
+        """,
+    ),
+)

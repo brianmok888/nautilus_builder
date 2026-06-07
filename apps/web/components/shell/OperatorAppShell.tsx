@@ -12,6 +12,7 @@ import {
   RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
 import Link from "next/link";
@@ -28,6 +29,11 @@ const navigationItems = [
     key: "/?tab=backtest",
     icon: <ExperimentOutlined />,
     label: <Link href="/?tab=backtest">Backtest Center</Link>,
+  },
+  {
+    key: "/pipeline",
+    icon: <ThunderboltOutlined />,
+    label: <Link href="/pipeline">Pipeline</Link>,
   },
   {
     key: "/?tab=execution",
@@ -54,6 +60,7 @@ const navigationItems = [
 function selectedNavigationKey(pathname: string, tab: string | null) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
+  if (pathname.startsWith("/pipeline")) return "/pipeline";
   if (pathname === "/" && tab === "backtest") return "/?tab=backtest";
   if (pathname === "/" && tab === "execution") return "/?tab=execution";
   if (pathname.startsWith("/results")) return "/results";

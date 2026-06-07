@@ -301,3 +301,46 @@ All open findings (M4, L1-L4, L9, L10) resolved or documented.
 python3 -m compileall -q packages services tests  # Clean
 python3 -m pytest tests/ -q --tb=line             # 555 passed
 ```
+
+## Hardening Sprint — 2026-06-07
+
+### Segment H1: Repo Hygiene
+- Removed committed `node_modules/.vite/vitest/.../results.json`.
+- Expanded `.gitignore` with comprehensive entries (`__pycache__/`, `node_modules/`, `.vite/`, `.vitest/`, `.next/`, `.ruff_cache/`, `.mypy_cache/`, `.venv/`).
+- Created `scripts/check_repo_hygiene.sh` — scans git-tracked files for forbidden artifacts.
+- Created `scripts/check_forbidden_authority.sh` — scans for authority-granting patterns.
+- 10 new tests in `tests/hygiene/`.
+
+### Segment H2: CI + Security
+- Expanded `infra/ci/github-actions-test.yml` with `repo-hygiene` job, branch gating.
+- `BUILDER_ENV` validation: `local|staging|production` with `BuilderEnvironment` enum.
+- Production token enforcement: rejects missing, dev, short (<32), and NEXT_PUBLIC tokens.
+- CORS validation: rejects wildcard and empty origins in staging/production.
+- Structured error codes: `ErrorCode` enum (12 codes), `StructuredError` exception, `error_response()` helper.
+- 20 new tests in `tests/api/test_security_hardening.py`.
+
+### Segment H3: Persistence & Evidence
+- Migration v2: `compiler_runs`, `replay_runs`, `promotion_ledger`, `audit_events` tables.
+- `AllowedPromotionMode` enum: `shadow_only`, `signal_preview_only`, `paper_replay_candidate`.
+- `ForbiddenPromotionMode` exception for live authority modes.
+- Immutable `PromotionLedgerEntry` with `execution_authority=False` via `Literal[False]`.
+- Immutable `AuditEvent` model with `frozen=True`.
+- 19 new tests across `tests/postgres/`, `tests/promotions/`, `tests/api/`.
+
+### Segment H4: Replay + Spec + Release
+- `ReplayFixtureType` enum: bars, trades, quotes, order_book_snapshots, funding_rates, liquidations.
+- `FailureModeFixture` and `ReplayFixtureConfig` for failure-mode fixtures.
+- `scan_generated_artifact()` static scan for forbidden references in generated code.
+- Health endpoints: `/health/live`, `/health/ready`, `/health/build`.
+- `CHANGELOG.md` with v0.4.0 entry.
+- `docs/deployment_guide.md` with environment profiles, rollback, backup/restore.
+- 12 new tests in `tests/replay/`, `tests/strategy_compiler/`, `tests/api/`.
+
+## Verification gate (current)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 645 passed
+bash scripts/check_repo_hygiene.sh                # PASSED
+bash scripts/check_forbidden_authority.sh         # PASSED
+```

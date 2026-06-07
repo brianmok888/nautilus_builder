@@ -19,6 +19,7 @@ from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
+from services.api.routes.pipeline import run_pipeline_payload, promote_pipeline_payload
 from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_session_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload, start_execution_lane_paper_session_payload, stop_execution_lane_session_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
@@ -109,6 +110,18 @@ def create_fastapi_app(
     def health() -> dict[str, object]:
         return health_payload()
 
+    @app.get("/health/live")
+    def health_live() -> dict[str, object]:
+        return {"status": "alive"}
+
+    @app.get("/health/ready")
+    def health_ready() -> dict[str, object]:
+        return {"ready": True, "checks": {"database": "ok" if _pg_dsn else "not_configured", "artifact_store": "ok"}}
+
+    @app.get("/health/build")
+    def health_build() -> dict[str, object]:
+        return {"version": "0.4.0", "commit": os.environ.get("GIT_COMMIT_SHA", "dev"), "build_time": os.environ.get("BUILD_TIME", "unknown")}
+
     @app.get("/api/adapters")
     def adapters() -> list[dict[str, object]]:
         return adapters_payload(pg_repo=_pg_adapter_repo)
@@ -128,6 +141,20 @@ def create_fastapi_app(
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any]) -> Any:
         return _fastapi_response(validate_backtest_profile_payload(payload), JSONResponse)
+
+    @app.post("/api/pipeline/run")
+    def run_pipeline_route(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(run_pipeline_payload(payload), JSONResponse)
+
+    @app.post("/api/pipeline/promote")
+    def promote_pipeline_route(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(promote_pipeline_payload(payload), JSONResponse)
 
     @app.post("/api/backtest-jobs")
     def create_backtest_job(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:

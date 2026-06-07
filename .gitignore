@@ -4,7 +4,39 @@
 !.env*.example
 !.env.template
 !.env*.template
-.pytest_cache/
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+.next/
+out/
+.vite/
+.vitest/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend test results
 apps/web/test-results/
+apps/web/playwright-report/
+
+# Build output
 nautilus_builder.egg-info/
