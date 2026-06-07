@@ -1,13 +1,18 @@
+"use client";
+
+import { PageHeader } from "../../components/ui/PageHeader";
+import { FileTextOutlined } from "@ant-design/icons";
 import { StrategyListClient } from "../../components/strategies/StrategyListClient";
 
 export default function StrategiesPage() {
   return (
-    <main className="app-shell">
-      <section className="hero-card">
-        <h1>Strategy records</h1>
-        <p>All strategies across every status. Edit draft/validated, clone, or send to Backtest Center.</p>
-      </section>
+    <div>
+      <PageHeader
+        title="Strategy Specs"
+        subtitle="All strategies across every status. Edit draft/validated, clone, or send to Backtest Center."
+        icon={<FileTextOutlined />}
+      />
       <StrategyListClient />
-    </main>
+    </div>
   );
 }

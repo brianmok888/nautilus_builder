@@ -35,7 +35,7 @@ def test_strategy_pages_expose_list_detail_and_builder_entrypoints() -> None:
 
     assert "StrategyListClient" in list_page
     assert "fetchStrategies" in list_client
-    assert "Strategy records" in list_page
+    assert "Strategy" in list_page
     assert "StrategyDetailClient" in detail_page
     assert "Version history" in detail_client
     assert "Edit in Builder" in detail_client

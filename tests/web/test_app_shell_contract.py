@@ -44,15 +44,15 @@ def test_next_app_shell_imports_global_operator_styles() -> None:
     assert 'import "./globals.css"' in layout
     assert css.exists()
     css_text = css.read_text()
-    for token in ("--builder-bg", ".app-shell", ".operator-shell", ".operator-sider", ".builder-dashboard", ".terminal-line"):
-        assert token in css_text
+    for token in ("--nb-bg", ".nb-sidebar", ".operator-shell", ".operator-sider", ".builder-dashboard", ".terminal-line"):
+        assert token in css_text, f"Expected CSS token {token!r} not found in globals.css"
 
 
 def test_home_page_uses_visual_shell_without_live_authority() -> None:
     page = (ROOT / "apps" / "web" / "app" / "page.tsx").read_text()
     dashboard = (ROOT / "apps" / "web" / "components" / "dashboard" / "BuilderDashboard.tsx").read_text()
 
-    assert "app-shell" in page
-    assert "Card" in dashboard
+    assert "BuilderDashboard" in page
+    assert "DashboardCard" in dashboard
     assert "submit_order" not in page
     assert "TradeAction" not in page

@@ -9,12 +9,11 @@ import {
   ExperimentOutlined,
   FileTextOutlined,
   PlayCircleOutlined,
-  RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
-import { Badge, ConfigProvider, Layout, Menu, Space, Tag, theme, Typography } from "antd";
+import { Badge, ConfigProvider, Layout, Menu, Space, Tag, Typography, theme } from "antd";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
@@ -22,8 +21,13 @@ import { Suspense, type ReactNode } from "react";
 const navigationItems = [
   {
     key: "/",
-    icon: <RobotOutlined />,
-    label: <Link href="/">Strategy Builder</Link>,
+    icon: <PlayCircleOutlined />,
+    label: <Link href="/">Overview</Link>,
+  },
+  {
+    key: "/?tab=strategy",
+    icon: <ExperimentOutlined />,
+    label: <Link href="/?tab=strategy">Strategy Builder</Link>,
   },
   {
     key: "/?tab=backtest",
@@ -31,29 +35,29 @@ const navigationItems = [
     label: <Link href="/?tab=backtest">Backtest Center</Link>,
   },
   {
-    key: "/pipeline",
-    icon: <ThunderboltOutlined />,
-    label: <Link href="/pipeline">Pipeline</Link>,
-  },
-  {
     key: "/?tab=execution",
     icon: <PlayCircleOutlined />,
     label: <Link href="/?tab=execution">Execution Lane</Link>,
   },
   {
-    key: "/config",
-    icon: <SettingOutlined />,
-    label: <Link href="/config">Config</Link>,
-  },
-  {
     key: "/strategies",
     icon: <FileTextOutlined />,
-    label: <Link href="/strategies">Strategy records</Link>,
+    label: <Link href="/strategies">Strategy Specs</Link>,
+  },
+  {
+    key: "/pipeline",
+    icon: <ThunderboltOutlined />,
+    label: <Link href="/pipeline">Pipeline</Link>,
   },
   {
     key: "/results",
     icon: <BarChartOutlined />,
-    label: <Link href="/results">Results / Reports</Link>,
+    label: <Link href="/results">Results</Link>,
+  },
+  {
+    key: "/config",
+    icon: <SettingOutlined />,
+    label: <Link href="/config">Settings</Link>,
   },
 ];
 
@@ -61,17 +65,34 @@ function selectedNavigationKey(pathname: string, tab: string | null) {
   if (pathname.startsWith("/strategies")) return "/strategies";
   if (pathname.startsWith("/config")) return "/config";
   if (pathname.startsWith("/pipeline")) return "/pipeline";
+  if (pathname.startsWith("/results")) return "/results";
   if (pathname === "/" && tab === "backtest") return "/?tab=backtest";
   if (pathname === "/" && tab === "execution") return "/?tab=execution";
-  if (pathname.startsWith("/results")) return "/results";
-  return "/";
+  if (pathname === "/" && tab === "strategy") return "/?tab=strategy";
+  if (pathname === "/") return "/";
+  return pathname;
 }
 
 function HealthIndicator() {
   const health = useHealthCheck();
-  const color = health.status === "healthy" ? "success" : health.status === "degraded" ? "warning" : "error";
-  const label = health.status === "healthy" ? "API healthy" : health.status === "degraded" ? "API degraded" : "API down";
-  return <Tag color={color}>{label}{health.latencyMs != null ? ` (${health.latencyMs}ms)` : ""}</Tag>;
+  const color =
+    health.status === "healthy"
+      ? "success"
+      : health.status === "degraded"
+        ? "warning"
+        : "error";
+  const label =
+    health.status === "healthy"
+      ? "API healthy"
+      : health.status === "degraded"
+        ? "API degraded"
+        : "API down";
+  return (
+    <Tag color={color}>
+      {label}
+      {health.latencyMs != null ? ` (${health.latencyMs}ms)` : ""}
+    </Tag>
+  );
 }
 
 function ShellContent({ children }: { children: ReactNode }) {
@@ -84,20 +105,34 @@ function ShellContent({ children }: { children: ReactNode }) {
     <ConfigProvider
       componentSize="small"
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: theme.defaultAlgorithm,
         token: {
-          colorPrimary: "#38bdf8",
-          colorSuccess: "#34d399",
-          colorWarning: "#fbbf24",
-          colorBgBase: "#07111f",
-          colorBgContainer: "#101827",
-          colorBorder: "rgba(148, 163, 184, 0.24)",
-          borderRadius: 10,
-          controlHeight: 30,
+          colorPrimary: "#1d9bf0",
+          colorSuccess: "#22c55e",
+          colorWarning: "#f59e0b",
+          colorBgBase: "#f5f7fb",
+          colorBgContainer: "#ffffff",
+          colorBorder: "#edf0f5",
+          borderRadius: 14,
+          controlHeight: 34,
           fontSize: 13,
           lineHeight: 1.35,
           fontFamily:
             "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+        },
+        components: {
+          Menu: {
+            itemBorderRadius: 12,
+            itemSelectedBg: "#eaf7ff",
+            itemSelectedColor: "#1d9bf0",
+            itemHoverBg: "#f4f8fc",
+          },
+          Card: {
+            borderRadiusLG: 18,
+          },
+          Button: {
+            borderRadius: 12,
+          },
         },
       }}
     >
@@ -112,7 +147,9 @@ function ShellContent({ children }: { children: ReactNode }) {
             <div className="operator-brand-mark">NB</div>
             <div>
               <div className="operator-brand-title">Nautilus Builder</div>
-              <Typography.Text type="secondary">AI → Backtest → Execution</Typography.Text>
+              <Typography.Text type="secondary">
+                AI → Backtest → Execution
+              </Typography.Text>
             </div>
           </div>
           <nav aria-label="Operator workflow" className="operator-nav-menu">
@@ -124,7 +161,7 @@ function ShellContent({ children }: { children: ReactNode }) {
             />
           </nav>
           <div className="operator-safety-card">
-            <Space orientation="vertical" size={8}>
+            <Space direction="vertical" size={8}>
               <Tag color="success" icon={<SafetyCertificateOutlined />}>
                 Builder-only
               </Tag>
@@ -148,7 +185,9 @@ function ShellContent({ children }: { children: ReactNode }) {
               <HealthIndicator />
             </Space>
           </Layout.Header>
-          <Layout.Content className="operator-content"><ErrorBoundary>{children}</ErrorBoundary></Layout.Content>
+          <Layout.Content className="operator-content">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </Layout.Content>
         </Layout>
       </Layout>
     </ConfigProvider>

@@ -451,3 +451,55 @@ python3 -m pytest tests/ -q --tb=line             # 852 passed
 bash scripts/check_repo_hygiene.sh                # PASSED
 bash scripts/check_forbidden_authority.sh         # PASSED
 ```
+
+## UI Beautification + Workflow Optimization Sprint — 2026-06-07
+
+### New frontend design system
+
+Created the **Nautilus Builder light SaaS quant dashboard design system**:
+
+**CSS design tokens (`apps/web/app/globals.css`)**:
+- Light theme base: `--nb-bg: #f5f7fb`, `--nb-card-bg: #ffffff`
+- Brand accent: `--nb-active: #1d9bf0` (sky blue)
+- Semantic colors: `--nb-green`, `--nb-purple`, `--nb-warning`, `--nb-danger`
+- Radius scale: `--nb-radius-sm: 10px`, `--nb-radius: 18px`, `--nb-radius-lg: 24px`
+- Shadow system: `--nb-shadow` (heavy), `--nb-shadow-sm` (cards)
+- Legacy compatibility aliases: `--builder-*` tokens map to new `--nb-*` values
+
+**New design system components**:
+- `apps/web/components/theme/BuilderThemeProvider.tsx` — AntD ConfigProvider with light theme tokens, colorPrimary #1d9bf0, borderRadius 14, component-level overrides for Button/Card/Table/Menu/Input/Select
+- `apps/web/components/shell/BuilderShell.tsx` — Application shell with sidebar + safety banner + error boundary
+- `apps/web/components/shell/BuilderSidebar.tsx` — Fixed white sidebar (252px), 8 nav items, active highlight, brand logo, footer safety indicator
+- `apps/web/components/shell/BuilderSafetyBanner.tsx` — Builder-only mode banner, displayed above main content
+- `apps/web/components/ui/PageHeader.tsx` — Page title + subtitle + icon + actions
+- `apps/web/components/ui/DashboardCard.tsx` — Rounded white card with title/subtitle/actions header
+- `apps/web/components/ui/MetricCard.tsx` — Metric display card with tone variants (blue/green/purple/warning/danger/neutral)
+- `apps/web/components/ui/WorkflowSteps.tsx` — 1-2-3 workflow navigation, replaces inline button row
+
+**Restyled components** (no code changes needed — inherited from global theme):
+- `OperatorAppShell` — switched from `theme.darkAlgorithm` to `theme.defaultAlgorithm`
+- All AntD components (Table, Card, Descriptions, Tag, Button, Input, Select, Menu) — inherited light theme from CSS overrides + BuilderThemeProvider
+- All pages: `/`, `/strategies`, `/backtests`, `/config`, `/execution`, `/pipeline`, `/results`, `/builder/[strategyId]`, `/backtests/[jobId]`, `/results/[resultId]`
+
+**Page updates**:
+- Every page now uses `PageHeader` component with title, subtitle, and icon
+- Removed redundant `<main className="app-shell">` wrappers (shell provided by `OperatorAppShell`)
+- `BuilderDashboard` refactored to use `DashboardCard` and `WorkflowSteps` components
+
+### Test evidence
+
+- 852 Python tests passing (49 web contract tests)
+- 44 frontend vitest tests passing (4 skipped)
+- TypeScript typecheck clean
+- `npm run build` succeeds (10 routes, 0 errors)
+
+### Safety confirmation
+
+- No backend behavior changed
+- No new trading strategies, execution paths, or authority boundaries
+- All handguard constraints preserved:
+  - `execution_authority=False` everywhere
+  - `may_submit_order=False` everywhere
+  - Builder-only mode banner visible on every page
+  - No `submit_order` or `TradeAction` references in frontend
+  - No credential collection in browser UI

@@ -401,3 +401,42 @@ Guard: Any PR that removes audit event writing for mutations must be rejected.
 - Production compose fails fast on missing required env vars (`${VAR:?message}`).
 
 Guard: Any PR that removes health checks, restart policies, or password requirements from production compose must be rejected.
+
+## 38. Light theme design system gate (UI-1)
+
+The Nautilus Builder frontend must use a light SaaS quant dashboard design system.
+
+Enforcement:
+- CSS custom properties under `:root` use `--nb-*` prefix for light theme tokens.
+- `BuilderThemeProvider` uses `theme.defaultAlgorithm` (light), not `theme.darkAlgorithm`.
+- All AntD component overrides in globals.css target the light color scheme.
+- Legacy `--builder-*` CSS aliases remain for backwards compatibility but map to light values.
+
+Guard: Any PR that reverts to dark theme or removes `--nb-*` light tokens must be rejected unless explicitly approved for a dark-mode toggle feature.
+
+## 39. Builder-only banner gate (UI-9)
+
+Every page in the Nautilus Builder UI must display a Builder-only safety banner.
+
+Enforcement:
+- `BuilderSafetyBanner` is rendered in the shell above main content.
+- Banner states: "This UI creates and reviews strategy drafts, validation results, compiler artifacts, replay evidence, and promotion requests. It does not submit live orders."
+- Banner is always visible, not dismissible.
+
+Guard: Any PR that removes the safety banner or makes it dismissible must be rejected.
+
+## 40. Frontend design system component gate
+
+New frontend pages and components must use the design system primitives.
+
+Required for new pages:
+- Use `PageHeader` component with title, subtitle, and icon.
+- Use `DashboardCard` instead of raw AntD `Card` for content sections.
+- Use `MetricCard` for numeric summary displays.
+
+Required for new reusable components:
+- Follow the `nb-*` CSS class naming convention.
+- Use CSS custom properties from globals.css, not hardcoded color values.
+- Support light theme by default.
+
+Guard: Any PR that introduces new pages without using design system components must be flagged for review.

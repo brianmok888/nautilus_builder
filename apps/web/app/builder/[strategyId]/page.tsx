@@ -7,7 +7,7 @@ export default async function BuilderStrategyPage({
 }) {
   const { strategyId } = await params;
   return (
-    <main className="app-shell">
+    <div>
       <section className="hero-card" aria-label="strategy scoped builder">
         <span className="hero-kicker">StrategySpec Editor</span>
         <h1>Builder workspace for {strategyId}</h1>
@@ -17,6 +17,6 @@ export default async function BuilderStrategyPage({
         </p>
       </section>
       <BuilderDashboard />
-    </main>
+    </div>
   );
 }

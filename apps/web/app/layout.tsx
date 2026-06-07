@@ -1,5 +1,6 @@
 import "antd/dist/reset.css";
 import "./globals.css";
+import { BuilderThemeProvider } from "../components/theme/BuilderThemeProvider";
 import { OperatorAppShell } from "../components/shell/OperatorAppShell";
 
 export const metadata = {
@@ -52,7 +53,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <script dangerouslySetInnerHTML={{ __html: assetFailureReloadGuard }} />
-        <OperatorAppShell>{children}</OperatorAppShell>
+        <BuilderThemeProvider>
+          <OperatorAppShell>{children}</OperatorAppShell>
+        </BuilderThemeProvider>
       </body>
     </html>
   );

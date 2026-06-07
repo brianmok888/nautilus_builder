@@ -7,7 +7,7 @@ import {
   PlayCircleOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { Button, Card, Row, Col, Space, Tag, Typography } from "antd";
+import { Row, Col, Space, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
 import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
@@ -15,11 +15,13 @@ import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { LaneStrategyTable } from "../strategy-builder/LaneStrategyTable";
 import { StrategySpecEditor } from "../strategy-builder/StrategySpecEditor";
 import { JobTerminal } from "../terminal/JobTerminal";
+import { DashboardCard } from "../ui/DashboardCard";
+import { WorkflowSteps, type WorkflowStep } from "../ui/WorkflowSteps";
 import type { StrategySummary } from "../../lib/types";
 
 const { Text, Paragraph } = Typography;
 
-const steps = [
+const steps: WorkflowStep[] = [
   {
     key: "strategy",
     num: 1,
@@ -41,11 +43,16 @@ const steps = [
     title: "Execution Lane",
     subtitle: "Paper / live TradingNode gate",
   },
-] as const;
+];
 
-export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: string }) {
+export function BuilderDashboard({
+  initialTab = "strategy",
+}: {
+  initialTab?: string;
+}) {
   const [activeSection, setActiveSection] = useState(initialTab);
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategySummary | null>(null);
+  const [selectedStrategy, setSelectedStrategy] =
+    useState<StrategySummary | null>(null);
 
   const router = useRouter();
 
@@ -62,102 +69,46 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
 
   return (
     <div className="builder-dashboard">
-      {/* 1-2-3 flow buttons */}
-      <div style={{ display: "flex", gap: 12, padding: "12px 0" }}>
-        {steps.map((step) => {
-          const active = activeSection === step.key;
-          return (
-            <Button
-              key={step.key}
-              type={active ? "primary" : "default"}
-              size="large"
-              onClick={() => switchTab(step.key)}
-              style={{
-                flex: 1,
-                height: "auto",
-                padding: "12px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                textAlign: "left",
-                borderColor: active ? undefined : "var(--ant-color-border)",
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  flexShrink: 0,
-                  background: active
-                    ? "rgba(255,255,255,0.2)"
-                    : "var(--ant-color-bg-container)",
-                  color: active ? "#fff" : "var(--ant-color-primary)",
-                }}
-              >
-                {step.num}
-              </span>
-              <span>
-                <div style={{ fontWeight: 600, fontSize: 14, lineHeight: "20px" }}>
-                  {step.icon} {step.title}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.75, lineHeight: "16px" }}>
-                  {step.subtitle}
-                </div>
-              </span>
-            </Button>
-          );
-        })}
-      </div>
+      {/* 1-2-3 workflow step buttons */}
+      <WorkflowSteps steps={steps} activeKey={activeSection} onSelect={switchTab} />
 
       {/* Content panels */}
       <div style={{ marginTop: 8 }}>
-        {/* TAB 1: Strategy Builder — draft/validated only */}
+        {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
-          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-            <Card
-              size="small"
-              title="Strategies"
-              extra={<Tag color="blue">All statuses</Tag>}
-            >
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <DashboardCard title="Strategies" actions={<Tag color="blue">All statuses</Tag>}>
               <LaneStrategyTable
                 lane="builder"
                 onSelect={(s) => {
                   setSelectedStrategy(s);
-                  console.log("Edit strategy:", s.strategy_id);
                 }}
               />
-            </Card>
-            <Card size="small" title="Strategy Editor">
+            </DashboardCard>
+            <DashboardCard title="Strategy Editor">
               <AiStrategyCopilot />
-            </Card>
+            </DashboardCard>
           </Space>
         )}
 
-        {/* TAB 2: Backtest Center — all statuses, can approve to execution_ready */}
+        {/* TAB 2: Backtest Center */}
         {activeSection === "backtest" && (
           <Row gutter={[16, 16]}>
             <Col xs={24} xl={10}>
-              <Card
-                size="small"
+              <DashboardCard
                 title="Strategies"
-                extra={<Tag color="purple">Validated onward</Tag>}
+                actions={<Tag color="purple">Validated onward</Tag>}
               >
                 <LaneStrategyTable
                   lane="backtest"
                   onSelect={(s) => setSelectedStrategy(s)}
                 />
-              </Card>
+              </DashboardCard>
               {selectedStrategy && (
-                <Card
-                  size="small"
+                <DashboardCard
                   title={`Spec: ${selectedStrategy.strategy_id}`}
-                  extra={<Tag color="purple">AI review before backtest</Tag>}
+                  actions={<Tag color="purple">AI review before backtest</Tag>}
+                  
                   style={{ marginTop: 12 }}
                 >
                   <Paragraph type="secondary">
@@ -165,66 +116,62 @@ export function BuilderDashboard({ initialTab = "strategy" }: { initialTab?: str
                     correctness, parameter validity, and adapter compatibility.
                   </Paragraph>
                   <StrategySpecEditor spec={selectedStrategy.latest_spec} />
-                </Card>
+                </DashboardCard>
               )}
             </Col>
             <Col xs={24} xl={14}>
-              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-                <Card
-                  size="small"
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <DashboardCard
                   title="BacktestNode Replay"
-                  extra={<Tag color="purple">Historical evidence-only</Tag>}
+                  actions={<Tag color="purple">Historical evidence-only</Tag>}
                 >
                   <BacktestLaunchPanel strategy={selectedStrategy} />
                   <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
                     {JobTerminal()}
                   </Text>
-                </Card>
-                <Card
-                  size="small"
+                </DashboardCard>
+                <DashboardCard
                   title="Manual Promotion Review"
-                  extra={<Tag color="blue">Human gate</Tag>}
+                  actions={<Tag color="blue">Human gate</Tag>}
                 >
                   <PromotionRequestPanel strategy={selectedStrategy} />
-                </Card>
+                </DashboardCard>
               </Space>
             </Col>
           </Row>
         )}
 
-        {/* TAB 3: Execution Lane — approved/execution_ready only */}
+        {/* TAB 3: Execution Lane */}
         {activeSection === "execution" && (
-          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-            <Card
-              size="small"
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <DashboardCard
               title="Approved Strategies"
-              extra={<Tag color="gold">Execution Ready</Tag>}
+              actions={<Tag color="gold">Execution Ready</Tag>}
             >
               <LaneStrategyTable
                 lane="execution"
                 onSelect={(s) => setSelectedStrategy(s)}
               />
-            </Card>
+            </DashboardCard>
             {selectedStrategy && (
-              <Card
-                size="small"
+              <DashboardCard
                 title={`Execution: ${selectedStrategy.strategy_id}`}
-                extra={<Tag color="red">Backend-owned credentials</Tag>}
+                actions={<Tag color="red">Backend-owned credentials</Tag>}
               >
                 <ExecutionLaneFeaturePanel strategy={selectedStrategy} />
-              </Card>
+              </DashboardCard>
             )}
             {!selectedStrategy && (
-              <Card
-                size="small"
+              <DashboardCard
                 title="Paper / Live TradingNode"
-                extra={<Tag color="red">Backend-owned credentials</Tag>}
+                actions={<Tag color="red">Backend-owned credentials</Tag>}
               >
                 <Paragraph type="secondary">
-                  Select an approved or execution-ready strategy above to configure execution lane.
+                  Select an approved or execution-ready strategy above to
+                  configure execution lane.
                 </Paragraph>
                 <ExecutionLaneFeaturePanel strategy={selectedStrategy} />
-              </Card>
+              </DashboardCard>
             )}
           </Space>
         )}
