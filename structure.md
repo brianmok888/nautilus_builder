@@ -344,3 +344,48 @@ python3 -m pytest tests/ -q --tb=line             # 645 passed
 bash scripts/check_repo_hygiene.sh                # PASSED
 bash scripts/check_forbidden_authority.sh         # PASSED
 ```
+
+## P1 Segments — 2026-06-07
+
+### P1-1: Wire Promotion Ledger Service into Postgres
+
+**Status: DONE**
+
+Created `packages/postgres/promotion_ledger_repository.py`:
+- `record_compiler_run()` — writes to `compiler_runs` table with required evidence fields
+- `record_replay_run()` — writes to `replay_runs` table, linked to compiler run
+- `record_promotion()` — evidence-gated transaction: validate → write ledger → write audit event → return
+  - Fails closed on missing compiler evidence, replay evidence, artifact hash
+  - Fails on forbidden promotion modes (live_trade_authority, etc.)
+  - Requires approved_by for paper_replay_candidate mode
+  - All results enforce `execution_authority=False`
+- `get_promotion()` — read by promotion ID
+- `list_promotions()` — list all promotions
+
+20 new tests in `tests/postgres/test_promotion_ledger_repository.py`.
+
+### P1-2: Add S3/MinIO Artifact Backend
+
+**Status: DONE**
+
+Created:
+- `packages/artifact_store/interface.py` — `ArtifactStoreProtocol` with `put()` and `get()` methods
+- `packages/artifact_store/s3_store.py` — S3-compatible backend:
+  - Content-addressed immutable keys: `artifacts/{type}/{sha256}/{filename}`
+  - Checksum verification after write and before read
+  - `execution_authority=false` in all artifact metadata
+  - Never exposes S3 secrets to frontend
+- `packages/artifact_store/factory.py` — creates correct backend from env:
+  - `BUILDER_ARTIFACT_BACKEND=local` (default) → LocalJsonArtifactStore
+  - `BUILDER_ARTIFACT_BACKEND=s3` → S3ArtifactStore
+  - Env vars: BUILDER_S3_BUCKET, BUILDER_S3_REGION, BUILDER_S3_ENDPOINT_URL, BUILDER_S3_ACCESS_KEY_ID, BUILDER_S3_SECRET_ACCESS_KEY
+- Updated `packages/artifact_store/__init__.py` exports
+
+13 new tests in `tests/artifact_store/test_s3_artifact_store.py`.
+
+### Verification gate (current)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 743 passed
+```

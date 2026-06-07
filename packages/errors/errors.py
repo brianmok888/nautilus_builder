@@ -1,6 +1,9 @@
 """Typed error hierarchy for Nautilus Builder services."""
 from __future__ import annotations
 
+from enum import Enum as _Enum
+from typing import Any as _Any
+
 
 class BuilderError(Exception):
     """Base error for all Builder service failures."""
@@ -40,9 +43,6 @@ class AiBuilderError(BuilderError):
 
 # --- Structured API error model ---
 
-
-from enum import Enum as _Enum
-from typing import Any as _Any
 
 
 class ErrorCode(str, _Enum):

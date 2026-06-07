@@ -1,6 +1,6 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: E402
 
-from packages.errors import (
+from packages.errors import (  # noqa: E402
     AiBuilderError,
     BuilderConflictError,
     BuilderError,
@@ -34,4 +34,4 @@ def test_credential_slot_error_is_catchable_as_validation() -> None:
         raise CredentialSlotError("bad slot")
 
 
-import pytest
+import pytest  # noqa: E402

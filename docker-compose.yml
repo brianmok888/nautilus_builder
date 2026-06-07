@@ -24,9 +24,10 @@ services:
       dockerfile: Dockerfile.api
     container_name: nautilus-builder-api
     environment:
+      BUILDER_ENV: ${BUILDER_ENV:-local}
       BUILDER_DATABASE_URL: postgresql://builder:${POSTGRES_PASSWORD:-builder_dev}@postgres:5432/nautilus_builder
       BUILDER_SEED_DEMO_STRATEGIES: "1"
-      BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}
+      BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}
     ports:
       - "8000:8000"
     depends_on:
@@ -47,7 +48,6 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: ""
       BUILDER_API_BASE_URL: http://api:8000
-      NEXT_PUBLIC_BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:-dev-token}
     ports:
       - "3000:3000"
     depends_on:

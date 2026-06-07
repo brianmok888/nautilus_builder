@@ -1,7 +1,6 @@
 """Tests for migration v2: promotion ledger, audit events, compiler/replay runs."""
 from __future__ import annotations
 
-import pytest
 
 from packages.postgres.migrations import MIGRATIONS
 

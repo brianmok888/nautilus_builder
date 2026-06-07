@@ -1,8 +1,6 @@
 """Tests for M9: Dockerfile should not fail on missing .env.execution.local."""
 from __future__ import annotations
 
-import os
-import tempfile
 
 
 def test_dockerfile_handles_missing_env_file():

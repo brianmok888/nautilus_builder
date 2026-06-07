@@ -12,16 +12,6 @@ from packages.workflow_spine.models import (
 from packages.workflow_spine.repository import InMemoryWorkflowRepository
 from packages.workflow_spine.projections import WorkflowReadModel
 from packages.workflow_spine.postgres_repository import SqliteWorkflowRepository, workflow_schema_statements
-
-
-# DEPRECATED: PostgresWorkflowRepository alias. Use SqliteWorkflowRepository.
-# Will be removed after 2026-07-01.
-def __getattr__(name: str) -> type:
-    import warnings
-    import packages.workflow_spine.postgres_repository as _pr
-    if name == "PostgresWorkflowRepository":
-        return _pr.PostgresWorkflowRepository
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 from packages.workflow_spine.postgres_runtime import connect_builder_postgres
 from packages.workflow_spine.service import StrategyTestWorkflowService
 from packages.workflow_spine.storage_config import BuilderPostgresConfig, BuilderRedisConfig
@@ -33,6 +23,15 @@ from packages.workflow_spine.storage_interfaces import (
     assert_postgres_repository_contract,
     assert_redis_stream_contract,
 )
+
+
+# DEPRECATED: PostgresWorkflowRepository alias. Use SqliteWorkflowRepository.
+# Will be removed after 2026-07-01.
+def __getattr__(name: str) -> type:
+    import packages.workflow_spine.postgres_repository as _pr
+    if name == "PostgresWorkflowRepository":
+        return _pr.PostgresWorkflowRepository
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "StrategyIdentity",

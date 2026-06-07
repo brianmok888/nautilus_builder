@@ -5,8 +5,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from packages.backtest_jobs.service import BacktestJobService
-from packages.backtest_runner.contracts import BacktestRunManifest
-from packages.backtest_runner.result_normalizer import normalize_backtest_result
 from packages.backtest_runner.runner import run_backtest_fixture
 from packages.strategy_compiler.compiler import compile_strategy_spec
 from packages.strategy_compiler.artifacts import CompileArtifact

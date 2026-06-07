@@ -1,7 +1,6 @@
 """Tests for production security hardening: BUILDER_ENV, token validation, CORS, structured errors, request IDs."""
 from __future__ import annotations
 
-import os
 import pytest
 
 from packages.auth.policy import (
@@ -12,7 +11,6 @@ from packages.auth.policy import (
 )
 from packages.errors.errors import (
     ErrorCode,
-    StructuredError,
     error_response,
 )
 

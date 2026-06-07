@@ -1,6 +1,6 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: E402
 
-from services.api.app import create_app
+from services.api.app import create_app  # noqa: E402
 
 
 def test_backtest_job_can_be_created_read_and_cancelled() -> None:
@@ -95,10 +95,10 @@ def test_backtest_job_routes_enforce_user_project_scope_when_supplied(monkeypatc
     assert cancel_cross_scope.status_code == 403
     assert cancel_cross_scope.json()["error"] == "forbidden"
 
-from packages.auth import UserProjectContext
-from packages.backtest_jobs.service import BacktestJobService
-from packages.catalog_datasets import CatalogDataset, CatalogDatasetRegistryService
-from services.api.routes.backtest_jobs import backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
+from packages.auth import UserProjectContext  # noqa: E402
+from packages.backtest_jobs.service import BacktestJobService  # noqa: E402
+from packages.catalog_datasets import CatalogDataset, CatalogDatasetRegistryService  # noqa: E402
+from services.api.routes.backtest_jobs import backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload  # noqa: E402
 
 
 def _strict_context() -> UserProjectContext:

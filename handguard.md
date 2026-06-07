@@ -328,3 +328,35 @@ Forbidden committed paths:
 - `node_modules/`, `.vite/`, `.vitest/`, `.next/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`, `.venv/`
 
 Guard: Any PR that disables the repo-hygiene CI job or removes the guard script must be rejected.
+
+---
+
+## 31. Promotion ledger authority gate (P1-1)
+
+`PromotionLedgerRepository.record_promotion()` enforces:
+- All promotions have `execution_authority=False`.
+- Forbidden promotion modes (`live_trade_authority`, `direct_trade_action_authority`, `direct_submit_order_authority`) are rejected.
+- `paper_replay_candidate` requires `approved_by`.
+- Missing evidence fields (compiler_hash, dataset_hash, replay_report_hash, artifact_hash) fail closed.
+- Transaction boundary: validate → write ledger → write audit event → return.
+
+Guard: Any PR that changes `execution_authority` to `True` or removes evidence validation must be rejected.
+
+## 32. Artifact store immutability gate (P1-2)
+
+`S3ArtifactStore` enforces:
+- Content-addressed keys: `artifacts/{type}/{sha256}/{filename}` — immutable by key.
+- Checksum verified after write and before read.
+- `execution_authority=false` in all artifact metadata.
+- S3 secrets are never exposed in artifact records or API responses.
+
+Guard: Any PR that removes checksum verification or exposes S3 secrets to frontend must be rejected.
+
+## 33. Artifact backend factory gate (P1-2)
+
+`create_artifact_store()` enforces:
+- `BUILDER_ARTIFACT_BACKEND=local` (default) for development.
+- `BUILDER_ARTIFACT_BACKEND=s3` for production requires `BUILDER_S3_BUCKET`.
+- Unknown backend values raise `ValueError` at startup.
+
+Guard: Any PR that adds a new backend without implementing `ArtifactStoreProtocol` must be rejected.

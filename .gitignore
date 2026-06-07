@@ -40,3 +40,10 @@ apps/web/playwright-report/
 
 # Build output
 nautilus_builder.egg-info/
+
+# Additional hygiene guards
+.coverage
+coverage/
+test-results/
+playwright-report/
+*.pyc

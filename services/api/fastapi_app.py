@@ -5,16 +5,17 @@ import sqlite3
 from typing import Any
 
 from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
-from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import AuthTokenService, InvalidAuthTokenError, UserProjectContext
+from packages.auth.audit_middleware import AuditMiddleware, RequestIdMiddleware
+from packages.auth.rate_limit import InMemoryRateLimiter
+from packages.auth.redis_rate_limit import RedisRateLimiter
 from packages.backtest_jobs.service import BacktestJobService
 from packages.catalog_datasets import CatalogDatasetRegistryService
 from packages.execution_lane import ExecutionLaneService
 from packages.llm_config import LlmConfigService
 from packages.strategy_spec.repository import InMemoryStrategyRepository
-from packages.strategy_spec.demo_seed import seed_demo_strategies
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
@@ -83,6 +84,30 @@ def create_fastapi_app(
     runtime_event_service = runtime_event_service or RuntimeEventService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
+    # --- Middleware (added in reverse execution order: last added = first executed) ---
+
+    # Request ID middleware: adds X-Request-ID to every response
+    app.add_middleware(RequestIdMiddleware)
+
+    # Audit middleware: logs mutations to audit_events
+    _audit_writer = _build_audit_writer(_pg_conn)
+    app.add_middleware(AuditMiddleware, audit_writer=_audit_writer)
+
+    # --- Rate limiter backend selection ---
+    _rate_backend = (os.environ.get("BUILDER_RATE_LIMIT_BACKEND") or "memory").strip().lower()
+    if _rate_backend == "redis":
+        _redis_url = os.environ.get("BUILDER_REDIS_URL", "redis://localhost:6379/0").strip()
+        _rate_limiter = RedisRateLimiter(
+            max_requests=int(os.environ.get("BUILDER_RATE_LIMIT", "100")),
+            window_seconds=60,
+            redis_url=_redis_url,
+        )
+    else:
+        _rate_limiter = InMemoryRateLimiter(
+            max_requests=int(os.environ.get("BUILDER_RATE_LIMIT", "100")),
+            window_seconds=60,
+        )
+
     # L8: CORS middleware — configurable via env vars
     try:
         from starlette.middleware.cors import CORSMiddleware
@@ -123,23 +148,23 @@ def create_fastapi_app(
         return {"version": "0.4.0", "commit": os.environ.get("GIT_COMMIT_SHA", "dev"), "build_time": os.environ.get("BUILD_TIME", "unknown")}
 
     @app.get("/api/adapters")
-    def adapters() -> list[dict[str, object]]:
+    def adapters(authorization: str | None = Header(default=None)) -> list[dict[str, object]]:
         return adapters_payload(pg_repo=_pg_adapter_repo)
 
     @app.get("/api/instruments/{adapter_id}/{query}")
-    def instruments(adapter_id: str, query: str) -> Any:
+    def instruments(adapter_id: str, query: str, authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/instruments")
-    def instruments_query(adapter_id: str, query: str) -> Any:
+    def instruments_query(adapter_id: str, query: str, authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
-    def data_availability(adapter_id: str, instrument_id: str) -> Any:
+    def data_availability(adapter_id: str, instrument_id: str, authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(data_availability_payload(adapter_id, instrument_id, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.post("/api/backtest-profiles/validate")
-    def validate_backtest_profile(payload: dict[str, Any]) -> Any:
+    def validate_backtest_profile(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(validate_backtest_profile_payload(payload), JSONResponse)
 
     @app.post("/api/pipeline/run")
@@ -175,9 +200,9 @@ def create_fastapi_app(
     @app.get("/api/backtest-jobs/{job_id}")
     def backtest_job(
         job_id: str,
+        authorization: str | None = Header(default=None),
         user_id: str | None = None,
         project_id: str | None = None,
-        authorization: str | None = Header(default=None),
     ) -> Any:
         context, auth_error = require_context(authorization)
         if auth_error is not None:
@@ -387,7 +412,7 @@ def create_fastapi_app(
         return _fastapi_response(ApiResponse(replay_runtime_events_payload(job_id=job_id)), JSONResponse)
 
     @app.get("/api/strategy-registry/external")
-    def strategy_registry_external() -> list[dict[str, object]]:
+    def strategy_registry_external(authorization: str | None = Header(default=None)) -> list[dict[str, object]]:
         return list_external_strategy_payloads()
 
     @app.post("/api/strategies")
@@ -398,7 +423,7 @@ def create_fastapi_app(
         return _fastapi_response(create_strategy_payload(strategy_repository, payload, context=context), JSONResponse)
 
     @app.get("/api/strategies")
-    def list_strategies() -> Any:
+    def list_strategies(authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(list_strategies_payload(strategy_repository), JSONResponse)
 
     @app.get("/api/strategies/{strategy_id}")
@@ -590,3 +615,49 @@ def _default_ai_audit_store(ai_audit_store: DraftAuditStoreProtocol | None) -> D
     if environment in {"prod", "production"}:
         raise ValueError("durable AI audit store is required in production")
     return RecordedAiDraftStore()
+
+
+def _build_audit_writer(pg_conn: Any) -> Any:
+    """Build an audit writer function.
+
+    When Postgres is configured, writes audit events to the audit_events table.
+    Otherwise, logs to stdout.
+    """
+    import logging
+    import json
+
+    _log = logging.getLogger(__name__)
+
+    if pg_conn is not None:
+        def _pg_audit_writer(event: dict) -> None:
+            try:
+                pg_conn.execute(
+                    """INSERT INTO builder.audit_events
+                       (request_id, actor_id, action, resource_type, resource_id, status, created_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        event.get("request_id"),
+                        event.get("actor_id"),
+                        event.get("action", event.get("method", "unknown")),
+                        event.get("resource_type", "unknown"),
+                        event.get("resource_id"),
+                        "success" if 200 <= event.get("status_code", 500) < 400 else "failed",
+                        event.get("created_at"),
+                    ),
+                )
+            except Exception as exc:
+                _log.error("audit_pg_write_failed error=%s event=%s", exc, event.get("request_id"))
+
+        return _pg_audit_writer
+
+    def _log_audit_writer(event: dict) -> None:
+        _log.info(
+            "audit_event request_id=%s method=%s route=%s status=%s actor=%s",
+            event.get("request_id"),
+            event.get("method"),
+            event.get("route"),
+            event.get("status_code"),
+            event.get("actor_id"),
+        )
+
+    return _log_audit_writer

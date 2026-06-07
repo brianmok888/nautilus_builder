@@ -1,6 +1,6 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: E402
 
-from packages.instrument_registry.service import InstrumentRegistryService
+from packages.instrument_registry.service import InstrumentRegistryService  # noqa: E402
 
 
 def test_supported_instrument_lookup_passes() -> None:
@@ -59,7 +59,7 @@ def test_unsupported_timeframe_fails() -> None:
     assert error is not None
     assert "unsupported" in error.lower() or "unavailable" in error.lower()
 
-from packages.backtest_runner import STRATEGY_SPEC_REPLAY_DATA_TYPE
+from packages.backtest_runner import STRATEGY_SPEC_REPLAY_DATA_TYPE  # noqa: E402
 
 
 def test_strategy_spec_replay_data_type_is_visible_and_valid_for_btcusdt_perp() -> None:

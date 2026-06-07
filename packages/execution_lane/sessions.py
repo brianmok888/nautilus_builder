@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import threading
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -154,7 +155,7 @@ class NativeTradingNodeSessionRunner:
     def _assert_not_in_async_loop() -> None:
         try:
             import asyncio
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()  # noqa: F841
         except RuntimeError:
             return
         raise RuntimeError(
@@ -377,8 +378,6 @@ def session_report_payload(session: ExecutionLaneSession) -> dict[str, Any]:
     payload["browser_secret_echo"] = False
     return payload
 
-
-import logging
 
 
 def _client_configs(

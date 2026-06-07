@@ -1,5 +1,4 @@
 """Tests for open findings fixes (S19): M4, L1, L2, L3, L9, L10."""
-import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

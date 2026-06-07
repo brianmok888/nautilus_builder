@@ -1,11 +1,9 @@
 """Tests for generated artifact static forbidden-reference scan."""
 from __future__ import annotations
 
-import pytest
 
 from packages.strategy_compiler.static_scan import (
     scan_generated_artifact,
-    StaticScanResult,
 )
 
 

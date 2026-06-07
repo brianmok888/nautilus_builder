@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from packages.adapter_registry.models import AdapterProfile
 from packages.adapter_registry.service import AdapterRegistryService
 from packages.instrument_registry.service import InstrumentRegistryService
 from services.api.router import ApiResponse

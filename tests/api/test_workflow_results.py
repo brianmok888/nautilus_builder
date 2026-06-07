@@ -116,7 +116,6 @@ def test_result_dashboard_fixture_fallback_is_explicitly_labeled_dev_only(monkey
 
 def test_result_fixture_fallback_returns_404_when_env_flag_is_not_set(monkeypatch) -> None:
     """H2: fixture fallback for res_001 must be gated behind env flag."""
-    import os
     monkeypatch.delenv("BUILDER_ALLOW_FIXTURE_FALLBACK", raising=False)
     app = create_app()
 

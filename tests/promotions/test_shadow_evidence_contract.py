@@ -1,9 +1,9 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: E402
 
-import pytest
+import pytest  # noqa: E402
 
-from packages.promotions.service import PromotionService
-from services.api.app import create_app
+from packages.promotions.service import PromotionService  # noqa: E402
+from services.api.app import create_app  # noqa: E402
 
 
 REQUIRED_EVIDENCE = {
@@ -142,11 +142,11 @@ def test_shadow_route_rejects_missing_strategy_version_or_compile_hash() -> None
     assert response.status_code == 422
     assert response.json()["error"] == "promotion_evidence_missing"
 
-from packages.artifact_store import LocalJsonArtifactStore
-from packages.auth import ProjectScopeError, UserProjectContext
-from services.api.routes.promotions import create_shadow_payload
+from packages.artifact_store import LocalJsonArtifactStore  # noqa: E402
+from packages.auth import ProjectScopeError, UserProjectContext  # noqa: E402
+from services.api.routes.promotions import create_shadow_payload  # noqa: E402
 
-import warnings
+import warnings  # noqa: E402
 
 warnings.filterwarnings("ignore", message="allow_legacy_fixture_refs=True is deprecated", category=DeprecationWarning)
 
@@ -227,7 +227,7 @@ def test_strict_shadow_request_rejects_wrong_artifact_type(tmp_path) -> None:
 
 
 def test_strict_shadow_request_rejects_checksum_mismatch(tmp_path) -> None:
-    import json
+    import json  # noqa: E402
 
     context = UserProjectContext(user_id="user_123", project_id="project_alpha")
     store, refs = _strict_artifact_refs(tmp_path, context)

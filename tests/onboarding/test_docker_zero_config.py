@@ -1,5 +1,4 @@
 """Tests for zero-config docker compose experience (S18)."""
-import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

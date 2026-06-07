@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
 
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import ProjectScopeError, UserProjectContext

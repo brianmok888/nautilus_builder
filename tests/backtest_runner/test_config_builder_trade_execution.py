@@ -31,7 +31,6 @@ def test_config_builder_includes_pinned_nautilus_version() -> None:
 
 
 def test_config_builder_rejects_empty_credentials() -> None:
-    import pytest
 
     config = build_backtest_config(
         strategy_spec_version="0.1.0-draft.1",

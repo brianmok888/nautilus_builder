@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.5.0 - 2026-06-07
+
+### Added
+- Redis-backed rate limiting (`RedisRateLimiter`) with configurable backend selection (`BUILDER_RATE_LIMIT_BACKEND=memory|redis`).
+- In-memory rate limiter retained as default for local development.
+- Audit middleware (`AuditMiddleware`) that logs every mutation request (POST, PUT, DELETE, PATCH) with actor_id, project_id, request_id, route, method, status_code.
+- Request ID middleware: every response includes `X-Request-ID` header (UUID).
+- Audit middleware writes to Postgres `audit_events` table when Postgres is configured.
+- Redis rate limiter fails open (allows request, logs warning) when Redis is unavailable.
+- Expanded deployment guide with required env vars table, forbidden production defaults, Postgres/S3/MinIO setup steps, health checks, migration commands, backup/restore commands, release checklist, and rollback checklist.
+- New operations guide (`docs/operations.md`) covering monitoring, incident response, backup/restore, environment profiles, rate limiting architecture, and audit trail queries.
+- Production environment example (`.env.production.example`) updated with rate limiting and audit configuration vars.
+- `audit_events` migration v3 adds `project_id` column and index for project-scoped audit queries.
+
+### Changed
+- FastAPI app selects rate limiter backend based on `BUILDER_RATE_LIMIT_BACKEND` env var.
+- `packages/auth/__init__.py` exports `InMemoryRateLimiter` and `RedisRateLimiter`.
+
+### Fixed
+- Production mode no longer relies solely on in-memory rate limiting.
+
+### Security
+- Audit trail now covers all mutation routes in production.
+- Request IDs enable end-to-end trace correlation.
+
+### Verification
+- All existing tests passing.
+- New tests for Redis rate limiter, audit middleware, request ID middleware, and backend selection.
+
 ## v0.4.0 - 2026-06-07
 
 ### Added

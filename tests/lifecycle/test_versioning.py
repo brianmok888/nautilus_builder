@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pytest
 
 from packages.lifecycle.models import LifecycleStage, StrategyVersionRecord
 from packages.lifecycle.versioning import bump_stage_version, freeze_after_backtest_start

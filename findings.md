@@ -134,3 +134,26 @@ All 10 findings from the validation summary now have corresponding implementatio
 - `tests/replay/test_replay_fixtures.py` — 8 replay fixture tests
 - `tests/strategy_compiler/test_static_scan.py` — 8 static scan tests
 - `tests/api/test_health_endpoints.py` — 4 health endpoint tests
+
+---
+
+## P1 Segments — 2026-06-07
+
+### New findings resolved
+
+| ID | Finding | Status | Segment |
+|---|---------|--------|---------|
+| P1-1 | Postgres promotion ledger not wired into service layer | **FIXED** | P1-1 |
+| P1-1 | No repository for compiler_runs / replay_runs | **FIXED** | P1-1 |
+| P1-1 | No evidence-gated transaction boundary | **FIXED** | P1-1 |
+| P1-2 | Artifact store abstraction missing (protocol/interface) | **FIXED** | P1-2 |
+| P1-2 | No S3/MinIO backend for production artifacts | **FIXED** | P1-2 |
+| P1-2 | No content-addressed immutable artifact keys | **FIXED** | P1-2 |
+| P1-2 | No factory for backend selection | **FIXED** | P1-2 |
+
+### Test evidence
+
+743 pytest tests passing, 0 compilation errors.
+
+- `tests/postgres/test_promotion_ledger_repository.py` — 20 promotion ledger tests
+- `tests/artifact_store/test_s3_artifact_store.py` — 13 S3 artifact store tests

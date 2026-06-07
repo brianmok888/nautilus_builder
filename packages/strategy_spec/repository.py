@@ -147,7 +147,7 @@ class InMemoryStrategyRepository:
         if not versions:
             return None
         spec = versions[-1]
-        from packages.strategy_spec.models import StrategyStatus, StrategyStage
+        from packages.strategy_spec.models import StrategyStatus
         new_spec = spec.model_copy(update={"status": StrategyStatus(new_status)})
         versions[-1] = new_spec
         return self._record(strategy_id, new_spec, len(versions))
@@ -167,7 +167,7 @@ class InMemoryStrategyRepository:
         if not versions:
             return None
         spec = versions[-1]
-        from packages.strategy_spec.models import StrategyStatus, StrategyStage, CreatedFrom
+        from packages.strategy_spec.models import Provenance, StrategyStatus, StrategyStage, CreatedFrom
         cloned = spec.model_copy(update={
             "status": StrategyStatus.DRAFT,
             "stage": StrategyStage.DRAFT,

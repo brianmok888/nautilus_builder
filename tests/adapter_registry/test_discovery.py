@@ -1,5 +1,4 @@
 """Tests for adapter auto-discovery factory pattern (S16)."""
-import pytest
 from packages.adapter_registry.discovery import (
     AdapterFactory,
     adapter_factory,

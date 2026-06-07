@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from packages.auth import ProjectScopeError, UserProjectContext
+from packages.auth import UserProjectContext
 from packages.strategy_spec.models import StrategySpec
 
 

@@ -1,7 +1,6 @@
 """Tests for M6: adapter registry fallback should log warning, not silently pass."""
 from __future__ import annotations
 
-import logging
 
 from packages.adapter_registry.service import AdapterRegistryService
 

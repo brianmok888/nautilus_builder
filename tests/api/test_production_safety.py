@@ -59,7 +59,6 @@ def test_docker_compose_postgres_password_uses_env_var():
 
 def test_docker_compose_postgres_localhost_binding():
     """M10: Postgres port should bind to localhost only."""
-    import re
 
     content = open("docker-compose.yml").read()
     # Check postgres port binding is localhost-only

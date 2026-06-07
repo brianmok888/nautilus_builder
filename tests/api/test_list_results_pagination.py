@@ -1,7 +1,6 @@
 """Tests for M5: list_results API route pagination support."""
 from __future__ import annotations
 
-import pytest
 
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.workflow_spine.models import WorkflowResultRecord

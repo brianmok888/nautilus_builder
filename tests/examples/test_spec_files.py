@@ -1,7 +1,7 @@
 """Tests for example JSON spec files in docs/examples/specs/ (Issue 1 & 4)."""
-import json
-import sys
-from pathlib import Path
+import json  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SPECS_DIR = REPO_ROOT / "docs" / "examples" / "specs"
@@ -9,7 +9,7 @@ EXAMPLES_DIR = REPO_ROOT / "docs" / "examples"
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from packages.strategy_spec.models import StrategySpec
+from packages.strategy_spec.models import StrategySpec  # noqa: E402
 
 
 class TestExampleSpecFiles:

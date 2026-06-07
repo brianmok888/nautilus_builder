@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 from .credentials import ExecutionCredentialSlot, ExecutionCredentialSlotRequest, LocalEnvCredentialSlotStore
 from .models import ExecutionCommandStatus, ExecutionLaneCommand, ExecutionLaneProfile, ExecutionLaneReport

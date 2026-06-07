@@ -79,8 +79,8 @@ class RuleGraphEvaluator:
     def update_price(self, price: float) -> dict[str, object]:
         self._observations += 1
         self._previous_values = dict(self._current_values)
-        for field in _PRICE_FIELDS:
-            self._current_values[field] = price
+        for _pf in _PRICE_FIELDS:
+            self._current_values[_pf] = price
         for name, state in self._states.items():
             self._current_values[name] = state.update(price)
 
