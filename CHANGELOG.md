@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.6.0 - 2026-06-07
+
+### Added
+- Deterministic replay fixture generator (`packages/backtest_runner/replay_loader.py`): generates reproducible fixtures from seed for all 10 dataset types.
+- Dataset report with determinism proof: same spec always produces same hash.
+- OHLC consistency validation for bar fixtures.
+- `StrategySpecMicrostructureV1` schema with 26 microstructure feature references (OBI, CVD, spread_bps, VPIN, etc.).
+- Source health semantics: `FeatureSourceHealth` with stale/missing/true_zero/synthetic_fallback tracking.
+- Fail-closed source health validation: missing or stale required features block spec compilation.
+- `StrategySpecClassicV1` alias for backward compatibility.
+- `RELEASE.md` with version scheme, release checklist, rollback procedure, hotfix process.
+- `docker-compose.staging.yml` with Postgres, Redis, MinIO, CORS locked.
+- `docker-compose.production.yml` with all guards, password-required env vars, restart policies.
+- CI workflow updated with per-suite runs (strategy_spec, workflow_spine, artifact_store, catalog_datasets).
+- Updated `handguard.md` with microstructure spec gate (Section 34), replay loader gate (Section 35).
+
+### Changed
+- Classic `StrategySpec` unchanged — all existing tests continue to pass.
+- CI workflow now runs individual test suites for better failure isolation.
+
+### Security
+- Microstructure spec enforces `output_mode=signal_preview_only` and `execution_authority=False`.
+- No execution authority introduced in any new code.
+
+### Verification
+- 811 tests passing, 0 compilation errors.
+- Repo hygiene scan passes.
+- Forbidden authority scan passes.
+
 ## v0.5.0 - 2026-06-07
 
 ### Added
@@ -24,10 +53,6 @@
 ### Security
 - Audit trail now covers all mutation routes in production.
 - Request IDs enable end-to-end trace correlation.
-
-### Verification
-- All existing tests passing.
-- New tests for Redis rate limiter, audit middleware, request ID middleware, and backend selection.
 
 ## v0.4.0 - 2026-06-07
 
@@ -58,5 +83,3 @@
 
 ### Verification
 - 641 tests passing, 0 compilation errors.
-- Repo hygiene scan passes.
-- Forbidden authority scan passes.

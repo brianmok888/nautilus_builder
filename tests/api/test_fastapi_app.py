@@ -24,6 +24,9 @@ class _FakeFastAPI:
 
         return decorator
 
+    def add_middleware(self, middleware_cls, **kwargs):
+        pass  # no-op for tests
+
 
 class _FakeJSONResponse:
     def __init__(self, *, content, status_code: int) -> None:

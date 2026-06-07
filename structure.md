@@ -389,3 +389,65 @@ Created:
 python3 -m compileall -q packages services tests  # Clean
 python3 -m pytest tests/ -q --tb=line             # 743 passed
 ```
+
+### Segment P1-3: Replay Deterministic Loader (v0.6.0)
+
+**Status: DONE**
+
+Created `packages/backtest_runner/replay_loader.py`:
+- `FixtureSpec` — specification for generating deterministic fixtures from seed
+- `generate_fixture()` — deterministic fixture generation for all 10 dataset types (bars, trades, quotes, order_book_snapshots, funding_rates, liquidations, bad_data, stale_data, etc.)
+- `generate_dataset_report()` — full dataset report with determinism proof (generates twice, compares hashes)
+- `validate_ohlc_consistency()` — OHLC cross-validation for bar fixtures (low ≤ open/close ≤ high)
+- `ReplayDatasetReport` — safety contract with `credentials_used=False`, `live_trading_enabled=False`, `execution_authority=False`
+
+27 new tests in `tests/replay/test_replay_loader.py`.
+
+### Segment P1-4: StrategySpecMicrostructureV1 (v0.6.0)
+
+**Status: DONE**
+
+Created `packages/strategy_spec/microstructure.py`:
+- `MicrostructureFeature` enum: 26 features (OBI, spread_bps, top_depth_usd, CVD, CVD_divergence, absorption, aggressive_buy/sell_volume, heatmap_liquidity, liquidity_walls, SVP POC/VAH/VAL, HVN/LVN, funding_rate, funding_z_score, liquidation_imbalance, liquidation_clusters, VWAP_session, anchored_VWAP, VPIN_toxicity, book_resilience, liquidity_replenishment)
+- `FeatureSourceHealth` — source health tracking per feature (source_available, stale, missing, true_zero, synthetic_fallback_used)
+- `MicrostructureFeatureRef` — feature reference with required/optional, max_staleness_ms, fail_closed_on_missing
+- `MicrostructureSignalRule` — signal rule combining feature references
+- `StrategySpecMicrostructureV1` — full spec with `output_mode=signal_preview_only`, `execution_authority=Literal[False]`
+- Source health validation: `validate_source_health()` checks required features for stale/missing/synthetic
+
+30 new tests in `tests/strategy_spec/test_microstructure_spec.py`.
+
+### Segment P2-1: Release/Deployment Posture (v0.6.0)
+
+**Status: DONE**
+
+Created:
+- `RELEASE.md` — version scheme, release checklist, rollback procedure, hotfix process
+- `docker-compose.staging.yml` — Postgres + Redis + MinIO, CORS locked, strong tokens required
+- `docker-compose.production.yml` — all guards, password-required env vars, restart policies, network isolation
+
+Updated:
+- `CHANGELOG.md` — v0.6.0 entry
+
+25 new tests in `tests/integration/test_docker_compose_profiles.py`.
+
+### Segment P2-2: Postgres Audit Event Writer (v0.6.0)
+
+**Status: DONE**
+
+Created `packages/postgres/audit_event_repository.py`:
+- `PostgresAuditEventRepository` — async write/query to `builder.audit_events` table
+- `make_audit_writer_from_pool()` — factory creating a sync callable compatible with `AuditMiddleware`
+- Fire-and-forget scheduling for non-blocking middleware writes
+- Graceful handling of missing pool (dev mode) and missing event loop
+
+14 new tests in `tests/postgres/test_audit_event_repository.py`.
+
+### Verification gate (v0.6.0)
+
+```bash
+python3 -m compileall -q packages services tests  # Clean
+python3 -m pytest tests/ -q --tb=line             # 852 passed
+bash scripts/check_repo_hygiene.sh                # PASSED
+bash scripts/check_forbidden_authority.sh         # PASSED
+```

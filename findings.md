@@ -157,3 +157,40 @@ All 10 findings from the validation summary now have corresponding implementatio
 
 - `tests/postgres/test_promotion_ledger_repository.py` — 20 promotion ledger tests
 - `tests/artifact_store/test_s3_artifact_store.py` — 13 S3 artifact store tests
+
+## v0.6.0 Hardening Sprint — 2026-06-07
+
+### New findings resolved
+
+| ID | Finding | Status | Segment |
+|---|---------|--------|---------|
+| FIX-1 | 2 integration tests failing (CI workflow references) | **FIXED** | S1 |
+| P1-3 | No deterministic replay fixture generator | **FIXED** | P1-3 |
+| P1-3 | No hash determinism proof for replay | **FIXED** | P1-3 |
+| P1-3 | No OHLC consistency validation | **FIXED** | P1-3 |
+| P1-4 | No microstructure StrategySpec variant | **FIXED** | P1-4 |
+| P1-4 | No source health semantics for features | **FIXED** | P1-4 |
+| P1-4 | No fail-closed behavior for stale/missing features | **FIXED** | P1-4 |
+| P2-1 | No RELEASE.md or release process doc | **FIXED** | P2-1 |
+| P2-1 | No docker-compose staging/production profiles | **FIXED** | P2-1 |
+| P2-2 | No Postgres audit event writer | **FIXED** | P2-2 |
+| P2-2 | No audit-to-Postgres wiring for middleware | **FIXED** | P2-2 |
+
+### Test evidence
+
+852 pytest tests passing, 0 compilation errors.
+
+- `tests/integration/test_operability_baseline.py` — 5 integration tests (was 3/5, now 5/5)
+- `tests/replay/test_replay_loader.py` — 27 deterministic loader tests
+- `tests/strategy_spec/test_microstructure_spec.py` — 30 microstructure spec tests
+- `tests/integration/test_docker_compose_profiles.py` — 25 compose/release tests
+- `tests/postgres/test_audit_event_repository.py` — 14 audit event repository tests
+
+### Safety confirmation
+
+- Builder still does not call `submit_order`
+- Builder still does not create authoritative `TradeAction`
+- Replay/backtest still uses `credentials_used=False`
+- Generated artifacts still have `execution_authority=False`
+- Microstructure spec enforces `output_mode=signal_preview_only`
+- All new code passes forbidden authority scan

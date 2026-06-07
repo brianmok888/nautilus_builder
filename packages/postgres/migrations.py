@@ -204,3 +204,23 @@ MIGRATIONS.append(
         """,
     ),
 )
+
+
+MIGRATIONS.append(
+    Migration(
+        version=3,
+        name="audit_events_project_id",
+        up="""
+        ALTER TABLE {schema}.audit_events ADD COLUMN IF NOT EXISTS project_id TEXT;
+        CREATE INDEX IF NOT EXISTS idx_audit_events_project_id ON {schema}.audit_events (project_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_events_actor_id ON {schema}.audit_events (actor_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON {schema}.audit_events (created_at);
+        """,
+        down="""
+        DROP INDEX IF EXISTS {schema}.idx_audit_events_created_at;
+        DROP INDEX IF EXISTS {schema}.idx_audit_events_actor_id;
+        DROP INDEX IF EXISTS {schema}.idx_audit_events_project_id;
+        ALTER TABLE {schema}.audit_events DROP COLUMN IF EXISTS project_id;
+        """,
+    ),
+)

@@ -360,3 +360,44 @@ Guard: Any PR that removes checksum verification or exposes S3 secrets to fronte
 - Unknown backend values raise `ValueError` at startup.
 
 Guard: Any PR that adds a new backend without implementing `ArtifactStoreProtocol` must be rejected.
+
+## 34. Microstructure spec authority gate (P1-4)
+
+`StrategySpecMicrostructureV1` enforces:
+- `output_mode: Literal["signal_preview_only"]` — cannot be changed to any other value.
+- `execution_authority: Literal[False]` — always False, Pydantic rejects True.
+- `schema_version: Literal["microstructure_v1"]` — cannot be confused with classic specs.
+- Source health validation: `validate_source_health()` fails closed for missing/stale required features.
+- No executable orders are generated from microstructure specs.
+
+Guard: Any PR that changes `output_mode` or `execution_authority` away from locked values must be rejected.
+
+## 35. Replay determinism gate (P1-3)
+
+`generate_fixture()` and `generate_dataset_report()` enforce:
+- Same `FixtureSpec` (same seed, same config) always produces the same fixture hash.
+- `determinism_verified=True` in `ReplayDatasetReport` proves hash equality.
+- `credentials_used=False`, `live_trading_enabled=False`, `execution_authority=False` locked.
+- OHLC consistency validated for bar fixtures.
+- Timestamps must be strictly monotonically increasing.
+
+Guard: Any PR that introduces non-determinism into fixture generation must be rejected.
+
+## 36. Postgres audit event gate (P2-2)
+
+`PostgresAuditEventRepository` enforces:
+- Every mutation creates an audit event in `builder.audit_events`.
+- `make_audit_writer_from_pool()` creates a middleware-compatible writer.
+- Writer fails gracefully when Postgres is unavailable (dev mode).
+- Query interface supports actor_id, project_id, resource_type filters.
+
+Guard: Any PR that removes audit event writing for mutations must be rejected.
+
+## 37. Docker compose profile gate (P2-1)
+
+- `docker-compose.yml` is for local development only.
+- `docker-compose.staging.yml` requires: strong tokens, Postgres, Redis, MinIO, no wildcard CORS.
+- `docker-compose.production.yml` requires: all of staging plus password-protected Redis, restart policies, network isolation, no NEXT_PUBLIC tokens.
+- Production compose fails fast on missing required env vars (`${VAR:?message}`).
+
+Guard: Any PR that removes health checks, restart policies, or password requirements from production compose must be rejected.

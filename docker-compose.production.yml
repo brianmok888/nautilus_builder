@@ -1,0 +1,117 @@
+version: "3.9"
+
+# Production profile — all guards active
+# Usage: docker compose -f docker-compose.production.yml up -d
+#
+# REQUIRED environment variables (no defaults):
+#   POSTGRES_PASSWORD, BUILDER_API_TOKEN, BUILDER_S3_ACCESS_KEY_ID,
+#   BUILDER_S3_SECRET_ACCESS_KEY, BUILDER_CORS_ORIGINS, GIT_COMMIT_SHA
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nautilus-builder-postgres
+    environment:
+      POSTGRES_USER: builder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: nautilus_builder
+    volumes:
+      - pgdata_production:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U builder -d nautilus_builder"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - production
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: nautilus-builder-redis
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - production
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: nautilus-builder-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${BUILDER_S3_ACCESS_KEY_ID:?Set BUILDER_S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${BUILDER_S3_SECRET_ACCESS_KEY:?Set BUILDER_S3_SECRET_ACCESS_KEY}
+    volumes:
+      - minio_data_production:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - production
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: nautilus-builder-api
+    environment:
+      BUILDER_ENV: production
+      BUILDER_DATABASE_URL: postgresql://builder:${POSTGRES_PASSWORD}@postgres:5432/nautilus_builder
+      BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN (>= 32 chars, not dev-token)}
+      BUILDER_RATE_LIMIT_BACKEND: redis
+      BUILDER_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      BUILDER_ARTIFACT_BACKEND: s3
+      BUILDER_S3_ENDPOINT_URL: http://minio:9000
+      BUILDER_S3_BUCKET: ${BUILDER_S3_BUCKET:-nautilus-builder-artifacts}
+      BUILDER_S3_ACCESS_KEY_ID: ${BUILDER_S3_ACCESS_KEY_ID}
+      BUILDER_S3_SECRET_ACCESS_KEY: ${BUILDER_S3_SECRET_ACCESS_KEY}
+      BUILDER_S3_REGION: ${BUILDER_S3_REGION:-us-east-1}
+      BUILDER_CORS_ORIGINS: ${BUILDER_CORS_ORIGINS:?Set BUILDER_CORS_ORIGINS (no wildcard)}
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:?Set GIT_COMMIT_SHA}
+      BUILD_TIME: ${BUILD_TIME:-unknown}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks:
+      - production
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: nautilus-builder-web
+    environment:
+      BUILDER_API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - production
+    restart: unless-stopped
+
+volumes:
+  pgdata_production:
+  minio_data_production:
+
+networks:
+  production:
+    driver: bridge
