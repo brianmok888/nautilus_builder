@@ -440,3 +440,14 @@ Required for new reusable components:
 - Support light theme by default.
 
 Guard: Any PR that introduces new pages without using design system components must be flagged for review.
+
+## 41. Root shell must be BuilderShell (light) gate
+
+The root layout must use `BuilderShell` (light sidebar, nb-* CSS) as the primary app shell.
+
+Enforcement:
+- `apps/web/app/layout.tsx` must import and render `BuilderShell`.
+- `OperatorAppShell` is deprecated and delegates to `BuilderShell`.
+- The app must not render a dark-themed AntD `Layout.Sider` as the root shell.
+
+Guard: Any PR that reverts layout.tsx to use OperatorAppShell as the primary shell must be rejected.

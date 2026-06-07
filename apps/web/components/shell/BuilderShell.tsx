@@ -3,6 +3,7 @@
 import { Suspense, type ReactNode } from "react";
 import { BuilderSidebar } from "./BuilderSidebar";
 import { BuilderSafetyBanner } from "./BuilderSafetyBanner";
+import { BuilderTopBar } from "./BuilderTopBar";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 type BuilderShellProps = {
@@ -15,10 +16,13 @@ export function BuilderShell({ children }: BuilderShellProps) {
       <Suspense>
         <BuilderSidebar />
       </Suspense>
-      <main className="nb-main">
-        <BuilderSafetyBanner />
-        <ErrorBoundary>{children}</ErrorBoundary>
-      </main>
+      <div className="nb-main-wrapper">
+        <BuilderTopBar />
+        <main className="nb-main">
+          <BuilderSafetyBanner />
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
+      </div>
     </div>
   );
 }

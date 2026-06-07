@@ -1,7 +1,7 @@
 import "antd/dist/reset.css";
 import "./globals.css";
 import { BuilderThemeProvider } from "../components/theme/BuilderThemeProvider";
-import { OperatorAppShell } from "../components/shell/OperatorAppShell";
+import { BuilderShell } from "../components/shell/BuilderShell";
 
 export const metadata = {
   title: "Nautilus Builder",
@@ -54,7 +54,7 @@ export default function RootLayout({
       <body>
         <script dangerouslySetInnerHTML={{ __html: assetFailureReloadGuard }} />
         <BuilderThemeProvider>
-          <OperatorAppShell>{children}</OperatorAppShell>
+          <BuilderShell>{children}</BuilderShell>
         </BuilderThemeProvider>
       </body>
     </html>

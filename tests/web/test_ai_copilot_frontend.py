@@ -36,5 +36,5 @@ def test_operator_dashboard_uses_compact_prompt_first_workflow() -> None:
     assert "AiStrategyCopilot" in dashboard
     assert "BacktestLaunchPanel" in dashboard
     assert "ExecutionLaneFeaturePanel" in dashboard
-    assert 'componentSize="small"' in (ROOT / "apps" / "web" / "components" / "shell" / "OperatorAppShell.tsx").read_text()
+    assert "BuilderShell" in (ROOT / "apps" / "web" / "app" / "layout.tsx").read_text()
     assert ".builder-dashboard" in css

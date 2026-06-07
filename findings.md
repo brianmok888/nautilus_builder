@@ -224,3 +224,21 @@ All 10 findings from the validation summary now have corresponding implementatio
 - **code-reviewer recommendation:** APPROVE
 - **architect status:** CLEAR
 - **final recommendation:** APPROVE
+
+## UI Reskin Completion Sprint — 2026-06-07
+
+### New findings resolved
+
+| ID | Finding | Status | Description |
+|---|---------|--------|-------------|
+| UI-10 | OperatorAppShell still root shell in layout.tsx | **FIXED** | Switched to BuilderShell as root; OperatorAppShell deprecated to re-export |
+| UI-11 | BuilderShell never used | **FIXED** | Now the primary shell in layout.tsx |
+| UI-12 | Health indicator lost in transition | **FIXED** | BuilderTopBar preserves API health indicator + status badge |
+| UI-13 | operator-* CSS classes fighting nb-* shell | **FIXED** | Neutered operator-* to non-overriding; added nb-top-bar/nb-main-wrapper |
+| UI-14 | No tests for new UI components | **FIXED** | 13 new tests: BuilderShell, BuilderSidebar, BuilderSafetyBanner, safety contract |
+
+### Review verdict
+
+- **code-reviewer recommendation:** APPROVE
+- **architect status:** CLEAR
+- **final recommendation:** APPROVE

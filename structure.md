@@ -503,3 +503,27 @@ Created the **Nautilus Builder light SaaS quant dashboard design system**:
   - Builder-only mode banner visible on every page
   - No `submit_order` or `TradeAction` references in frontend
   - No credential collection in browser UI
+
+## UI Reskin Completion Sprint — 2026-06-07
+
+### Completion: wire BuilderShell as root shell
+
+The initial UI beautification sprint created new components but left `OperatorAppShell` as the root shell in `layout.tsx`. This sprint completes the wiring:
+
+1. **layout.tsx** now uses `BuilderShell` (light sidebar + safety banner) instead of `OperatorAppShell` (dark AntD Layout.Sider)
+2. **OperatorAppShell** deprecated to a thin re-export of `BuilderShell` for backwards compatibility
+3. **BuilderTopBar** added — preserves health indicator and API status from old header
+4. **globals.css** — added `nb-top-bar` and `nb-main-wrapper` CSS; neutered `operator-*` classes to not override `nb-*` shell
+5. **13 new frontend tests** added:
+   - `BuilderShell.test.tsx` — renders light shell, safety banner, health indicator, top bar
+   - `BuilderSidebar.test.tsx` — renders brand, all nav items, active route highlight, footer safety text
+   - `BuilderSafetyBanner.test.tsx` — Builder-only mode text, mentions drafts/validation/replay
+   - `safety-contract.test.tsx` — no submit_order calls, no TradeAction creation, no forbidden wording
+6. **5 Python contract tests updated** to reference `BuilderShell`/`BuilderSidebar` instead of `OperatorAppShell` internals
+
+### Test evidence
+
+- 851 Python tests passing (1 skipped: CI workflow)
+- 57 frontend vitest tests passing (4 skipped)
+- TypeScript typecheck clean
+- `npm run build` succeeds (10 routes)

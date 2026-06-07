@@ -1314,3 +1314,64 @@ pre {
     margin-bottom: 8px;
   }
 }
+
+/* ========== nb-* Top Bar ========== */
+.nb-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 44px;
+  background: var(--nb-sidebar-bg);
+  border-bottom: 1px solid var(--nb-border);
+  font-size: 12px;
+}
+
+.nb-top-bar .ant-badge-status-text {
+  color: var(--nb-muted);
+  font-size: 12px;
+}
+
+.nb-main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ========== Operator shell — neutered to not override nb-* shell ========== */
+/* OperatorAppShell now delegates to BuilderShell, but operator-* CSS is kept
+   so that any stale references or E2E tests that check operator-shell DOM
+   still find valid (though unused) styling. These rules are intentionally
+   low-specificity and won't override nb-* classes. */
+
+.operator-shell {
+  min-height: 100vh;
+}
+
+.operator-sider {
+  background: var(--nb-sidebar-bg);
+  border-right: 1px solid var(--nb-border);
+}
+
+.operator-main-layout {
+  background: var(--nb-bg);
+}
+
+.operator-content {
+  padding: 28px 34px 42px;
+  background: var(--nb-bg);
+  overflow-y: auto;
+}
+
+.operator-header {
+  background: var(--nb-sidebar-bg);
+  border-bottom: 1px solid var(--nb-border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  line-height: 44px;
+}

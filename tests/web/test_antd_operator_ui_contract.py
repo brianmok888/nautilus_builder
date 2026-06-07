@@ -17,21 +17,21 @@ def test_web_manifest_declares_ant_design_react_stack_without_vue_migration() ->
     assert "@ant-design-vue/pro-layout" not in package.get("dependencies", {})
 
 
-def test_root_layout_mounts_ant_design_operator_shell() -> None:
+def test_root_layout_mounts_builder_shell_with_ant_design() -> None:
     layout = (WEB / "app" / "layout.tsx").read_text()
-    shell = (WEB / "components" / "shell" / "OperatorAppShell.tsx").read_text()
+    sidebar = (WEB / "components" / "shell" / "BuilderSidebar.tsx").read_text()
+    banner = (WEB / "components" / "shell" / "BuilderSafetyBanner.tsx").read_text()
 
     assert 'import "antd/dist/reset.css"' in layout
-    assert "OperatorAppShell" in layout
-    assert "ConfigProvider" in shell
-    assert "Layout.Sider" in shell
-    assert "Menu" in shell
-    assert "Builder-only" in shell
-    assert "No live order authority" in shell
+    assert "BuilderShell" in layout
+    assert "BuilderThemeProvider" in layout
+    assert "Nautilus Builder" in sidebar
+    assert "Builder-only mode" in banner
+    assert "does not submit live orders" in banner
     for href in ("/", "/strategies", "/config", "/?tab=backtest", "/?tab=execution", "/results"):
-        assert href in shell
-    assert "submit_order" not in shell
-    assert "TradeAction" not in shell
+        assert href in sidebar
+    assert "submit_order" not in sidebar
+    assert "TradeAction" not in sidebar
 
 
 def test_home_page_uses_ant_design_dashboard_workflow_surface() -> None:
@@ -39,9 +39,8 @@ def test_home_page_uses_ant_design_dashboard_workflow_surface() -> None:
     dashboard = (WEB / "components" / "dashboard" / "BuilderDashboard.tsx").read_text()
 
     assert "BuilderDashboard" in page
-    assert "Card" in dashboard
-    # Statistic and Steps removed in dashboard simplification
-    for label in ("Strategy Builder", "Backtest Center", "Execution Lane", "BacktestNode"):
+    assert "DashboardCard" in dashboard
+    for label in ("Strategy Builder", "Backtest Center", "Execution Lane"):
         assert label in dashboard
     assert "AiStrategyCopilot" in dashboard
     assert "PromotionRequestPanel" in dashboard

@@ -9,10 +9,10 @@ WEB = ROOT / "apps" / "web"
 def test_config_route_mounts_advisory_llm_config_tabs() -> None:
     page = (WEB / "app" / "config" / "page.tsx").read_text()
     component = (WEB / "components" / "config" / "ModelConfigTabs.tsx").read_text()
-    shell = (WEB / "components" / "shell" / "OperatorAppShell.tsx").read_text()
+    sidebar = (WEB / "components" / "shell" / "BuilderSidebar.tsx").read_text()
 
     assert "ModelConfigTabs" in page
-    assert "href=\"/config\"" in shell
+    assert "/config" in sidebar
     assert "Tabs" in component
     assert "OPENAI_BASE_URL" in component
     assert "OPENAI_MODEL" in component
