@@ -191,9 +191,14 @@ class TestArtifactStoreFactory:
 
     def test_factory_returns_s3_when_env_is_s3(self):
         """Factory creates S3ArtifactStore when BUILDER_ARTIFACT_BACKEND=s3."""
+        import sys
         from packages.artifact_store.factory import create_artifact_store
 
-        with patch.dict(os.environ, {
+        # boto3 is an optional dependency — inject a mock so the factory can import it
+        mock_boto3 = MagicMock()
+        mock_boto3.client.return_value = MagicMock()
+        with patch.dict(sys.modules, {"boto3": mock_boto3}), \
+             patch.dict(os.environ, {
             "BUILDER_ARTIFACT_BACKEND": "s3",
             "BUILDER_S3_BUCKET": "test-bucket",
             "BUILDER_S3_REGION": "us-east-1",

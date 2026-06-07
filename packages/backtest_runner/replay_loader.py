@@ -20,10 +20,7 @@ from .replay_fixtures import (
     OrderBookSnapshotFixture,
     QuoteFixture,
     ReplayFixtureType,
-    ReplayReportEvidence,
-    SourceHealthStatus,
     StaleDataFixture,
-    StateBundleExportFixture,
     TradeFixture,
     compute_fixture_hash,
 )
@@ -274,15 +271,15 @@ def validate_ohlc_consistency(fixture: BarFixture) -> list[str]:
     """
     violations: list[str] = []
     for i in range(len(fixture.timestamp_ns)):
-        o, h, l, c = fixture.open[i], fixture.high[i], fixture.low[i], fixture.close[i]
-        if l > o:
-            violations.append(f"row {i}: low({l}) > open({o})")
-        if l > c:
-            violations.append(f"row {i}: low({l}) > close({c})")
-        if o > h:
-            violations.append(f"row {i}: open({o}) > high({h})")
-        if c > h:
-            violations.append(f"row {i}: close({c}) > high({h})")
+        op, hi, lo, cl = fixture.open[i], fixture.high[i], fixture.low[i], fixture.close[i]
+        if lo > op:
+            violations.append(f"row {i}: low({lo}) > open({op})")
+        if lo > cl:
+            violations.append(f"row {i}: low({lo}) > close({cl})")
+        if op > hi:
+            violations.append(f"row {i}: open({op}) > high({hi})")
+        if cl > hi:
+            violations.append(f"row {i}: close({cl}) > high({hi})")
     return violations
 
 

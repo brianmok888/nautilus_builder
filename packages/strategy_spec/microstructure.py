@@ -234,7 +234,7 @@ class StrategySpecMicrostructureV1(StrictModel):
 # Type alias for backward compat: existing StrategySpec is "classic"
 # ---------------------------------------------------------------------------
 
-from .models import StrategySpec as StrategySpecClassicV1
+from .models import StrategySpec as StrategySpecClassicV1  # noqa: E402
 
 __all__ = [
     "FeatureSourceHealth",

@@ -21,11 +21,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from packages.strategy_spec.models import StrategySpec
-from packages.strategy_compiler.compiler import compile_strategy_spec
-from packages.strategy_validation.validators import validate_strategy_spec
-from packages.backtest_runner.runner import run_backtest_fixture
-from packages.backtest_runner.engine_contract import NAUTILUS_TRADER_VERSION
+from packages.strategy_spec.models import StrategySpec  # noqa: E402
+from packages.strategy_compiler.compiler import compile_strategy_spec  # noqa: E402
+from packages.strategy_validation.validators import validate_strategy_spec  # noqa: E402
+from packages.backtest_runner.runner import run_backtest_fixture  # noqa: E402
+from packages.backtest_runner.engine_contract import NAUTILUS_TRADER_VERSION  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -109,9 +109,8 @@ def run_pipeline(args: argparse.Namespace) -> dict:
     elapsed_total = time.monotonic() - t0
 
     # ── Extract result data ─────────────────────────────────────
-    summary = backtest_result.report_summary
     metrics = backtest_result.summary_metrics
-    equity_curve = metrics.get("equity_points", 0)
+    metrics.get("equity_points", 0)
     total_trades = metrics.get("trade_count", 0)
     total_pnl = metrics.get("total_return", 0.0)
 
@@ -178,7 +177,7 @@ def print_human_report(result: dict) -> None:
     print(f"  Hash:        {result.get('compile_hash', 'N/A')[:16]}...")
     print()
     metrics = result.get("summary_metrics", {})
-    print(f"  Backtest:")
+    print("  Backtest:")
     print(f"    Trades:    {result.get('total_trades', 0)}")
     print(f"    Return:    {result.get('total_return', 0):.4f}")
     for key, val in metrics.items():

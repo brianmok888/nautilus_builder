@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class PostgresAuditEventRepository:
         return [dict(row) for row in rows]
 
 
-def make_audit_writer_from_pool(pool: Any) -> "AuditWriter":
+def make_audit_writer_from_pool(pool: Any) -> Callable[[dict], None]:
     """Create an audit writer function backed by a Postgres pool.
 
     Returns a callable that matches the AuditMiddleware writer signature.

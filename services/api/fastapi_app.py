@@ -624,7 +624,6 @@ def _build_audit_writer(pg_conn: Any) -> Any:
     Otherwise, logs to stdout.
     """
     import logging
-    import json
 
     _log = logging.getLogger(__name__)
 

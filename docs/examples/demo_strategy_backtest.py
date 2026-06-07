@@ -7,7 +7,6 @@ Run from repo root: python3 docs/examples/demo_strategy_backtest.py
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -108,7 +107,7 @@ def main() -> None:
         validation_report_id="demo-val-001",
         worker_image="nautilus-builder-worker:latest",
     )
-    print(f"\n4. Backtest config:")
+    print("\n4. Backtest config:")
     print(f"   NT version: {backtest_config['nautilus_trader_version']}")
     print(f"   Engine mode: {backtest_config['engine_mode']}")
     print(f"   Live trading: {backtest_config['live_trading_enabled']}")

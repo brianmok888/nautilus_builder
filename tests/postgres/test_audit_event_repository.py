@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from packages.postgres.audit_event_repository import (
     PostgresAuditEventRepository,

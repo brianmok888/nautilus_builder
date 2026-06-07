@@ -60,7 +60,7 @@ def main() -> None:
 
     # ── 5. Summary ──────────────────────────────────────────────
     print(f"\n{'=' * 60}")
-    print(f"Adapter registry summary:")
+    print("Adapter registry summary:")
     print(f"  Enabled adapters: {len(profiles)}")
     print(f"  Adapter IDs: {[p.adapter_id for p in profiles]}")
     print("=" * 60)
