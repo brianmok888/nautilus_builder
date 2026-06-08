@@ -298,3 +298,31 @@ All 10 findings from the validation summary now have corresponding implementatio
 - **code-reviewer recommendation:** APPROVE
 - **architect status:** CLEAR
 - **final recommendation:** APPROVE
+
+## Final UI Micro-Fix — Backtest Center DOM Order Test — 2026-06-08
+
+### Findings
+
+| ID | Finding | Status | Description |
+|---|---------|--------|-------------|
+| MIC-1 | DOM order test does not verify Selected Validated Strategy step | **FIXED** | Added BuilderDashboard.backtest-layout.test.tsx verifying full 4-step text order |
+| MIC-2 | hash-field confirmed on compile hash input | **CONFIRMED** | className="hash-field" applied at line 215 of BacktestLaunchPanel.tsx |
+| MIC-3 | CSS hash-field/backtest-hash-value rule confirmed | **CONFIRMED** | Present in globals.css at line 1438 |
+
+### Test evidence
+
+- **Frontend tests:** 115 passed, 4 skipped (+1 new backtest-layout test)
+- **TypeScript typecheck:** clean
+- **Frontend build:** succeeds
+- **Safety search:** clean
+
+### New test
+
+- `apps/web/components/dashboard/BuilderDashboard.backtest-layout.test.tsx` — 1 test verifying full 4-step top-down DOM order with strategy selection
+
+### Safety confirmation
+
+- No backend changes
+- No API contract changes
+- No safety copy removed
+- No forbidden wording introduced
