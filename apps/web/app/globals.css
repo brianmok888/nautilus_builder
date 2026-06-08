@@ -1464,3 +1464,29 @@ pre {
     gap: 12px;
   }
 }
+
+/* Manifest section blocks */
+.manifest-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.manifest-section + .manifest-section {
+  padding-top: 18px;
+  border-top: 1px solid var(--nb-border);
+}
+
+.manifest-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.manifest-section-header h3 {
+  margin: 0;
+  color: var(--nb-text);
+  font-size: 15px;
+  font-weight: 750;
+}

@@ -451,3 +451,14 @@ Enforcement:
 - The app must not render a dark-themed AntD `Layout.Sider` as the root shell.
 
 Guard: Any PR that reverts layout.tsx to use OperatorAppShell as the primary shell must be rejected.
+
+## 21. Manifest grid layout boundary (UIP fix)
+
+- `BacktestLaunchPanel.tsx` must use `manifest-form-grid` and `manifest-form-field` CSS classes for run manifest fields.
+- Manifest preview must use `manifest-preview` CSS class.
+- Compile hash field must use `hash-field` CSS class.
+- Layout blocks must use `manifest-section` CSS class, not nested Card/Row/Col.
+- No regression to AntD Card/Row/Col layout for manifest form.
+- Evidence-only safety copy (`may_submit_order: false`, `browser_credentials: false`, authority block) must remain visible.
+
+Guard: Any PR that removes manifest-form-grid, manifest-preview, or hash-field classes from BacktestLaunchPanel must be rejected.

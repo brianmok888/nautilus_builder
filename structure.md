@@ -527,3 +527,30 @@ The initial UI beautification sprint created new components but left `OperatorAp
 - 57 frontend vitest tests passing (4 skipped)
 - TypeScript typecheck clean
 - `npm run build` succeeds (10 routes)
+
+## UI Polish Sprint — Backtest Center Manifest Grid — 2026-06-08
+
+### Changes to repo structure
+
+- `apps/web/components/backtests/BacktestLaunchPanel.tsx` — rewritten:
+  - Replaced `<Card title="Run manifest">` with `<section className="manifest-section">` + `<div className="manifest-form-grid">` + `<div className="manifest-form-field">` per field
+  - Replaced `<Card title="Manifest preview">` with `<section className="manifest-section">` + `<div className="manifest-preview">`
+  - Replaced job/result Card with `<section className="manifest-section">` using Descriptions in responsive column layout
+  - Removed AntD `Row`, `Col`, `Card`, `Form` imports; uses `Input`, `Button`, `Alert`, `Tag`, `Descriptions`, `Typography`, `Space` directly
+  - Applied `className="hash-field"` to compile hash input
+  - Fixed `direction="vertical"` → `orientation="vertical"` on Space components
+- `apps/web/app/globals.css` — added `.manifest-section`, `.manifest-section-header`, `.manifest-section-header h3` classes
+- `apps/web/components/backtests/BacktestLaunchPanel.layout.test.tsx` — new (6 tests)
+
+### Verification gate (current)
+
+```bash
+cd apps/web && npx tsc --noEmit     # Clean
+cd apps/web && npx vitest run        # 114 passed, 4 skipped
+cd apps/web && npm run build         # Succeeds
+```
+
+### Master reconciliation — catalog-backed Nautilus replay
+
+- `catalog_backed_replay_smoke` still runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
+- No backend changes in this sprint.

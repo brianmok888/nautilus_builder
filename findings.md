@@ -242,3 +242,59 @@ All 10 findings from the validation summary now have corresponding implementatio
 - **code-reviewer recommendation:** APPROVE
 - **architect status:** CLEAR
 - **final recommendation:** APPROVE
+
+## UI Polish Sprint — Backtest Center Manifest Grid — 2026-06-08
+
+### New findings resolved
+
+| ID | Finding | Status | Description |
+|---|---------|--------|-------------|
+| UIP-1 | BacktestLaunchPanel uses AntD Row/Col/Card for manifest form | **FIXED** | Replaced with semantic `<section className="manifest-section">` + `manifest-form-grid` + `manifest-form-field` divs |
+| UIP-2 | Manifest form fields not aligned in 3-column grid | **FIXED** | All 10 manifest fields now use consistent grid layout via CSS |
+| UIP-3 | Manifest preview nested in heavy Card | **FIXED** | Replaced Card with `<section className="manifest-section">` + `<div className="manifest-preview">` |
+| UIP-4 | Compile hash field does not truncate long values | **FIXED** | Applied `className="hash-field"` to compile hash Input |
+| UIP-5 | AntD `Space direction` deprecation warnings | **FIXED** | Migrated BacktestLaunchPanel from `direction="vertical"` → `orientation="vertical"` |
+| UIP-6 | Missing CSS classes for manifest-section / manifest-section-header | **FIXED** | Added to globals.css |
+| UIP-7 | No explicit layout test for manifest grid usage | **FIXED** | Added BacktestLaunchPanel.layout.test.tsx with 6 layout/safety tests |
+| UIP-8 | DOM order test only covers strategies → replay → promotion | **MITIGATED** | Existing BuilderDashboard.test.tsx DOM order test continues to pass; layout test adds manifest-section coverage |
+
+### Test evidence
+
+- **Frontend tests:** 114 passed, 4 skipped (was 113 passed before; +6 new layout tests, +1 from existing suite resolving)
+- **TypeScript typecheck:** clean
+- **Frontend build:** succeeds
+- **Safety search:** clean — no forbidden wording introduced
+
+### New tests added
+
+- `apps/web/components/backtests/BacktestLaunchPanel.layout.test.tsx` — 6 tests:
+  - uses the manifest grid layout for run manifest fields
+  - applies hash-field class on compile hash input
+  - renders manifest preview with manifest-preview class
+  - uses manifest-section blocks for run manifest and preview
+  - preserves evidence-only safety copy with authority metadata
+  - does not contain forbidden live trading wording
+
+### Safety confirmation
+
+- Builder still does not call `submit_order`
+- Builder still does not create authoritative `TradeAction`
+- Manifest preview still includes `authority: { mode: "backtest_only", may_submit_order: false, browser_credentials: false }`
+- No new forbidden wording introduced (verified via grep)
+- No backend behavior changed
+- No API contract changed
+- No replay behavior changed
+- No promotion behavior changed
+- No execution authority introduced
+
+### Files changed
+
+- `apps/web/components/backtests/BacktestLaunchPanel.tsx` — rewritten with grid classes
+- `apps/web/app/globals.css` — added `.manifest-section`, `.manifest-section-header` classes
+- `apps/web/components/backtests/BacktestLaunchPanel.layout.test.tsx` — new test file (6 tests)
+
+### Review verdict
+
+- **code-reviewer recommendation:** APPROVE
+- **architect status:** CLEAR
+- **final recommendation:** APPROVE

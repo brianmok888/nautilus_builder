@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Col, Descriptions, Form, Input, Row, Space, Tag, Typography } from "antd";
+import { Alert, Button, Descriptions, Input, Space, Tag, Typography } from "antd";
 import { createBacktestJob, runBacktestJob } from "../../lib/api";
 import type { BacktestJobStatus, BacktestRunResponse, RuntimeEvent } from "../../lib/types";
 
@@ -65,6 +65,12 @@ function isTerminalJob(job: BacktestJobStatus | null): boolean {
 
 export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: string; latest_spec: Record<string, unknown> } | null }) {
   const [manifest, setManifest] = useState<RunManifestDraft>(defaultManifest);
+  const [job, setJob] = useState<BacktestJobStatus | null>(null);
+  const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   // Auto-fill manifest from selected strategy
   useEffect(() => {
@@ -75,18 +81,12 @@ export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: st
       strategy_version_id: strategy.strategy_id,
       adapter_profile_id: String(spec.adapter_id ?? prev.adapter_profile_id),
       instrument_id: String(spec.instrument_id ?? prev.instrument_id),
-      market_type: String((spec as any).venue === "BINANCE" ? "crypto_perp" : prev.market_type),
+      market_type: String((spec as Record<string, unknown>).venue === "BINANCE" ? "crypto_perp" : prev.market_type),
     }));
     setJob(null);
     setRunResult(null);
     setRunError(null);
   }, [strategy]);
-  const [job, setJob] = useState<BacktestJobStatus | null>(null);
-  const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
 
   const missingFields = useMemo(
     () => Object.entries(manifest).filter(([, value]) => !value.trim()).map(([key]) => key),
@@ -180,83 +180,121 @@ export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: st
           description="The browser submits a run manifest to the backend job queue and can request the backend-owned BacktestNode replay trigger. It does not hold shell, worker, credential, or order authority."
         />
 
-        <Card title="Run manifest" size="small">
-          <Form layout="vertical" className="form-grid">
-            <Form.Item label="Strategy version">
+        {/* Run manifest — uses manifest-section + manifest-form-grid layout */}
+        <section className="manifest-section">
+          <div className="manifest-section-header">
+            <h3>Run manifest</h3>
+          </div>
+
+          <div className="manifest-form-grid">
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-strategy-version">Strategy version</label>
               <Input
+                id="manifest-strategy-version"
                 aria-label="Strategy version"
                 value={manifest.strategy_version_id}
                 onChange={(event) => updateField("strategy_version_id", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Validation report">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-validation-report">Validation report</label>
               <Input
+                id="manifest-validation-report"
                 aria-label="Validation report"
                 value={manifest.validation_report_id}
                 onChange={(event) => updateField("validation_report_id", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item
-              label="Compile hash"
-              validateStatus={compileHashValid ? undefined : "error"}
-              help={compileHashValid ? undefined : "compile_hash must be a 64-character sha256 digest"}
-            >
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-compile-hash">Compile hash</label>
               <Input
+                id="manifest-compile-hash"
                 aria-label="Compile hash"
+                className="hash-field"
                 value={manifest.compile_hash}
+                status={compileHashValid ? undefined : "error"}
                 onChange={(event) => updateField("compile_hash", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Adapter profile">
+              {!compileHashValid ? (
+                <Typography.Text type="danger" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+                  compile_hash must be a 64-character sha256 digest
+                </Typography.Text>
+              ) : null}
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-adapter-profile">Adapter profile</label>
               <Input
+                id="manifest-adapter-profile"
                 aria-label="Adapter profile"
                 value={manifest.adapter_profile_id}
                 onChange={(event) => updateField("adapter_profile_id", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Instrument">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-instrument">Instrument</label>
               <Input
+                id="manifest-instrument"
                 aria-label="Instrument"
                 value={manifest.instrument_id}
                 onChange={(event) => updateField("instrument_id", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Dataset ID">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-dataset-id">Dataset ID</label>
               <Input
+                id="manifest-dataset-id"
                 aria-label="Dataset ID"
                 value={manifest.dataset_id}
                 onChange={(event) => updateField("dataset_id", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Data range">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-data-range">Data range</label>
               <Input
+                id="manifest-data-range"
                 aria-label="Data range"
                 value={manifest.data_range}
                 onChange={(event) => updateField("data_range", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Data type">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-data-type">Data type</label>
               <Input
+                id="manifest-data-type"
                 aria-label="Data type"
                 value={manifest.data_type}
                 onChange={(event) => updateField("data_type", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Timeframe">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-timeframe">Timeframe</label>
               <Input
+                id="manifest-timeframe"
                 aria-label="Timeframe"
                 value={manifest.timeframe}
                 onChange={(event) => updateField("timeframe", event.target.value)}
               />
-            </Form.Item>
-            <Form.Item label="Market type">
+            </div>
+
+            <div className="manifest-form-field">
+              <label htmlFor="manifest-market-type">Market type</label>
               <Input
+                id="manifest-market-type"
                 aria-label="Market type"
                 value={manifest.market_type}
                 onChange={(event) => updateField("market_type", event.target.value)}
               />
-            </Form.Item>
-          </Form>
+            </div>
+          </div>
+
           {missingFields.length ? (
             <Alert
               showIcon
@@ -264,47 +302,50 @@ export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: st
               title={`Missing fields: ${missingFields.join(", ")}`}
             />
           ) : null}
-          <Button type="primary" disabled={!ready} loading={isCreating} onClick={onCreateJob}>
-            Create backtest job
-          </Button>
-        </Card>
+
+          <div>
+            <Button type="primary" disabled={!ready} loading={isCreating} onClick={onCreateJob}>
+              Create backtest job
+            </Button>
+          </div>
+        </section>
 
         {error ? <Alert showIcon type="error" title="Backtest job creation failed" description={error} /> : null}
 
         {job ? (
-          <Card title={jobCardTitle} size="small" aria-label="created backtest job">
-            <Row gutter={[12, 12]}>
-              <Col xs={24} lg={14}>
-                <Descriptions column={1} size="small" bordered>
-                  <Descriptions.Item label="Status">{job.status}</Descriptions.Item>
-                  <Descriptions.Item label="Strategy version">{job.strategy_spec_version_id}</Descriptions.Item>
-                  <Descriptions.Item label="Dataset">{job.dataset_id ?? manifest.dataset_id}</Descriptions.Item>
-                  <Descriptions.Item label="Event stream">{job.event_stream_id ?? "pending"}</Descriptions.Item>
-                  <Descriptions.Item label="Worker">{job.worker_id ?? "unassigned"}</Descriptions.Item>
-                </Descriptions>
-              </Col>
-              <Col xs={24} lg={10}>
-                <Space orientation="vertical" size="small">
-                  <Typography.Text>Job state is backend-owned; review artifacts before manual promotion.</Typography.Text>
-                  <Button onClick={onRunBacktestNode} loading={isRunning} disabled={isRunning || jobTerminal}>
-                    Run BacktestNode
-                  </Button>
-                  <Typography.Text type="secondary">
-                    Runs POST /api/backtest-jobs/{job.job_id}/run without StrategySpec payloads, catalog paths, worker commands, shell, or credentials from the browser.
-                  </Typography.Text>
-                  <Link href={`/backtests/${job.job_id}`}>Open job console</Link>
-                </Space>
-              </Col>
-            </Row>
-          </Card>
+          <section className="manifest-section" aria-label="created backtest job">
+            <div className="manifest-section-header">
+              <h3>{jobCardTitle}</h3>
+            </div>
+            <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} size="small" bordered>
+              <Descriptions.Item label="Status">{job.status}</Descriptions.Item>
+              <Descriptions.Item label="Strategy version">{job.strategy_spec_version_id}</Descriptions.Item>
+              <Descriptions.Item label="Dataset">{job.dataset_id ?? manifest.dataset_id}</Descriptions.Item>
+              <Descriptions.Item label="Event stream">{job.event_stream_id ?? "pending"}</Descriptions.Item>
+              <Descriptions.Item label="Worker">{job.worker_id ?? "unassigned"}</Descriptions.Item>
+            </Descriptions>
+            <Space orientation="vertical" size="small">
+              <Typography.Text>Job state is backend-owned; review artifacts before manual promotion.</Typography.Text>
+              <Button onClick={onRunBacktestNode} loading={isRunning} disabled={isRunning || jobTerminal}>
+                Run BacktestNode
+              </Button>
+              <Typography.Text type="secondary">
+                Runs POST /api/backtest-jobs/{job.job_id}/run without StrategySpec payloads, catalog paths, worker commands, shell, or credentials from the browser.
+              </Typography.Text>
+              <Link href={`/backtests/${job.job_id}`}>Open job console</Link>
+            </Space>
+          </section>
         ) : null}
 
         {runError ? <Alert showIcon type="error" title="BacktestNode run failed" description={runError} /> : null}
 
         {runResult ? (
-          <Card title={runTitle(runResult)} size="small" aria-label="backtestnode run result">
+          <section className="manifest-section" aria-label="backtestnode run result">
+            <div className="manifest-section-header">
+              <h3>{runTitle(runResult)}</h3>
+            </div>
             <Space orientation="vertical" size="small" className="config-stack">
-              <Descriptions column={1} size="small" bordered>
+              <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} size="small" bordered>
                 <Descriptions.Item label="Mode">{runResult.mode}</Descriptions.Item>
                 <Descriptions.Item label="Engine mode">{textValue(resultPayload.engine_mode)}</Descriptions.Item>
                 <Descriptions.Item label="Dataset source">{textValue(resultPayload.dataset_source)}</Descriptions.Item>
@@ -350,12 +391,18 @@ export function BacktestLaunchPanel({ strategy }: { strategy?: { strategy_id: st
                 )}
               </div>
             </Space>
-          </Card>
+          </section>
         ) : null}
 
-        <Card title="Manifest preview" size="small" className="config-preview">
-          <pre>{JSON.stringify(preview, null, 2)}</pre>
-        </Card>
+        {/* Manifest preview — uses manifest-section + manifest-preview */}
+        <section className="manifest-section">
+          <div className="manifest-section-header">
+            <h3>Manifest preview</h3>
+          </div>
+          <div className="manifest-preview">
+            <pre>{JSON.stringify(preview, null, 2)}</pre>
+          </div>
+        </section>
       </Space>
     </section>
   );
