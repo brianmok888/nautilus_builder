@@ -3,8 +3,34 @@ from __future__ import annotations
 
 import os
 from unittest.mock import patch
+import sys
+import types
 
 import pytest
+
+
+def _install_fake_fastapi(monkeypatch) -> None:
+    from tests.api.test_fastapi_app import _FakeFastAPI, _FakeJSONResponse
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+
+def _clear_policy_env(monkeypatch) -> None:
+    for key in (
+        "APP_ENV",
+        "BUILDER_ENV",
+        "BUILDER_API_TOKEN",
+        "BUILDER_DEV_AUTH_TOKEN",
+        "BUILDER_DEV_USER_ID",
+        "BUILDER_DEV_PROJECT_ID",
+        "BUILDER_DEV_ROLE",
+        "NEXT_PUBLIC_BUILDER_API_TOKEN",
+        "BUILDER_CORS_ORIGINS",
+        "BUILDER_AI_AUDIT_SQLITE_PATH",
+    ):
+        monkeypatch.delenv(key, raising=False)
 
 
 def test_dev_token_rejected_in_production_env():
@@ -26,9 +52,9 @@ def test_custom_token_accepted_in_production_env():
     from packages.auth import AuthTokenService
 
     svc = AuthTokenService()
-    with patch.dict(os.environ, {"APP_ENV": "production", "BUILDER_API_TOKEN": "my-secret-prod-key-2026", "BUILDER_DEV_USER_ID": "u", "BUILDER_DEV_PROJECT_ID": "p", "BUILDER_DEV_ROLE": "builder"}):
+    with patch.dict(os.environ, {"APP_ENV": "production", "BUILDER_API_TOKEN": "prod-token-1234567890-1234567890", "BUILDER_DEV_USER_ID": "u", "BUILDER_DEV_PROJECT_ID": "p", "BUILDER_DEV_ROLE": "builder"}):
         _register_env_dev_token(svc)
-    ctx = svc.verify_token("my-secret-prod-key-2026")
+    ctx = svc.verify_token("prod-token-1234567890-1234567890")
     assert ctx.user_id == "u"
 
 
@@ -72,3 +98,108 @@ def test_docker_compose_postgres_localhost_binding():
                 "Postgres port should bind to 127.0.0.1:5432:5432 for local-only access"
             )
             break
+
+def test_fastapi_startup_rejects_short_production_token(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "short-production-token")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="BUILDER_API_TOKEN is too short"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_public_production_token(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("NEXT_PUBLIC_BUILDER_API_TOKEN", "browser-visible-token")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="NEXT_PUBLIC_BUILDER_API_TOKEN is forbidden"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_wildcard_production_cors(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "*")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="Wildcard CORS"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_treats_app_env_production_as_strictest_policy(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("BUILDER_ENV", "local")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "short-production-token")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "*")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="BUILDER_API_TOKEN is too short"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_dev_auth_token_with_conflicting_production_env(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("APP_ENV", "local")
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_DEV_AUTH_TOKEN", "dev-token")
+    monkeypatch.setenv("BUILDER_DEV_USER_ID", "u")
+    monkeypatch.setenv("BUILDER_DEV_PROJECT_ID", "p")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="dev-token.*production"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_treats_app_env_production_as_strictest_audit_store_policy(monkeypatch) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("BUILDER_ENV", "local")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="durable AI audit store is required"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_accepts_strong_production_policy(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    app = create_fastapi_app()
+
+    assert app.title == "Nautilus Builder API"

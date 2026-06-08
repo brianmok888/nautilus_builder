@@ -9,9 +9,10 @@ def execution_lane_status_payload(
     *,
     service: ExecutionLaneService | None = None,
     runtime_profile_id: str | None = None,
+    project_id: str | None = None,
 ) -> dict[str, object]:
     service = service or default_execution_lane_service()
-    return service.snapshot(runtime_profile_id=runtime_profile_id)
+    return service.snapshot(runtime_profile_id=runtime_profile_id, project_id=project_id)
 
 
 def create_execution_lane_credential_slot_payload(

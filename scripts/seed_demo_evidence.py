@@ -26,6 +26,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from packages.backtest_jobs.service import BacktestJobService  # noqa: E402
+from packages.auth import UserProjectContext  # noqa: E402
 from packages.strategy_spec.demo_seed import seed_demo_strategies  # noqa: E402
 from packages.strategy_spec.repository import InMemoryStrategyRepository  # noqa: E402
 
@@ -39,13 +40,16 @@ _DEMO_REPORT_HASH = "sha256:demo_replay_report_001"
 def seed_demo_evidence(
     repository: InMemoryStrategyRepository,
     backtest_service: BacktestJobService,
+    *,
+    context: UserProjectContext | None = None,
 ) -> dict[str, str]:
     """Seed demo backtest evidence for the demo strategies.
 
     Returns a mapping of strategy_id -> job_id (or "" if no job created).
     Idempotent: re-running returns existing jobs.
     """
-    seed_demo_strategies(repository)
+    seed_demo_strategies(repository, context=context)
+    scope_payload = _scope_payload(context)
     detail = repository.detail("demo_compiled")
     compiled_version_id = ""
     if detail is not None:
@@ -65,6 +69,7 @@ def seed_demo_evidence(
             "compile_artifact_id": "art_demo_compiled_001",
             "validation_report_id": "vr_demo_compiled_001",
             "data_range": "2025-01-01:2025-06-01",
+            **scope_payload,
         })
         # Leave it in CREATED stage — compile evidence present, replay missing
         result["demo_compiled"] = job_compiled.job_id
@@ -84,6 +89,7 @@ def seed_demo_evidence(
                     "compile_artifact_id": "art_demo_failed_001",
                     "validation_report_id": "vr_demo_failed_001",
                     "data_range": "2025-01-01:2025-06-01",
+                    **scope_payload,
                 })
                 backtest_service.transition_job(
                     job_failed.job_id,
@@ -106,6 +112,7 @@ def seed_demo_evidence(
                     "compile_artifact_id": "art_demo_passed_001",
                     "validation_report_id": "vr_demo_passed_001",
                     "data_range": "2025-01-01:2025-06-01",
+                    **scope_payload,
                 })
                 backtest_service.transition_job(
                     job_passed.job_id,
@@ -133,6 +140,7 @@ def seed_demo_evidence(
                     "compile_artifact_id": "art_demo_promo_req_001",
                     "validation_report_id": "vr_demo_promo_req_001",
                     "data_range": "2025-01-01:2025-06-01",
+                    **scope_payload,
                 })
                 backtest_service.transition_job(
                     job_promo.job_id,
@@ -160,6 +168,7 @@ def seed_demo_evidence(
                     "compile_artifact_id": "art_demo_promo_ready_001",
                     "validation_report_id": "vr_demo_promo_ready_001",
                     "data_range": "2025-01-01:2025-06-01",
+                    **scope_payload,
                 })
                 backtest_service.transition_job(
                     job_ready.job_id,
@@ -173,6 +182,12 @@ def seed_demo_evidence(
                 result["demo_promotion_ready"] = job_ready.job_id
 
     return result
+
+
+def _scope_payload(context: UserProjectContext | None) -> dict[str, str]:
+    if context is None:
+        return {}
+    return {"user_id": context.user_id, "project_id": context.project_id}
 
 
 def main() -> int:

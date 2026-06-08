@@ -48,8 +48,9 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: ""
       BUILDER_API_BASE_URL: http://api:8000
+      BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_healthy

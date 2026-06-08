@@ -9,7 +9,9 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from packages.auth import UserProjectContext
 from packages.backtest_jobs.models import BacktestJob
+from packages.postgres.identifiers import postgres_table, safe_postgres_identifier
 
 
 def _now_iso() -> str:
@@ -34,10 +36,10 @@ class PostgresBacktestJobRepository:
 
     def __init__(self, conn: Any, schema: str = "builder") -> None:
         self._conn = conn
-        self._schema = schema
+        self._schema = safe_postgres_identifier(schema)
 
     def _table(self) -> str:
-        return f"{self._schema}.backtest_jobs"
+        return postgres_table(self._schema, "backtest_jobs")
 
     @staticmethod
     def _row_to_job(row: tuple) -> BacktestJob:
@@ -180,12 +182,22 @@ class PostgresBacktestJobRepository:
             return None
         return self._row_to_job(row)
 
-    def list_by_strategy_version(self, strategy_spec_version_id: str) -> list[BacktestJob]:
+    def list_by_strategy_version(
+        self,
+        strategy_spec_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[BacktestJob]:
         """Return all jobs for a given strategy version, ordered by creation time."""
+        params: list[Any] = [strategy_spec_version_id]
+        scope_clause = ""
+        if context is not None:
+            scope_clause = " AND user_id = %s AND project_id = %s"
+            params.extend([context.user_id, context.project_id])
         rows = self._conn.execute(
             f"SELECT {_COLUMNS} FROM {self._table()} "
-            f"WHERE strategy_spec_version_id = %s ORDER BY created_at",
-            (strategy_spec_version_id,),
+            f"WHERE strategy_spec_version_id = %s{scope_clause} ORDER BY created_at",
+            tuple(params),
         ).fetchall()
         return [self._row_to_job(r) for r in rows]
 

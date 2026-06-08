@@ -7,7 +7,8 @@ from typing import Any
 from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
-from packages.auth import AuthTokenService, InvalidAuthTokenError, UserProjectContext
+from packages.auth import AuthTokenService, InvalidAuthTokenError, ProjectScopeError, UserProjectContext
+from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token
 from packages.auth.audit_middleware import AuditMiddleware, RequestIdMiddleware
 from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.auth.redis_rate_limit import RedisRateLimiter
@@ -21,7 +22,7 @@ from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_d
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
 from services.api.routes.pipeline import run_pipeline_payload, promote_pipeline_payload
-from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_session_payload, execution_lane_status_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload, start_execution_lane_paper_session_payload, stop_execution_lane_session_payload
+from services.api.routes.execution_lane import create_execution_lane_credential_slot_payload, enqueue_execution_lane_command_payload, execution_lane_runtime_plan_payload, execution_lane_session_payload, register_execution_lane_profile_payload, run_execution_lane_worker_once_payload, start_execution_lane_paper_session_payload, stop_execution_lane_session_payload
 from services.api.router import ApiResponse
 from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
@@ -64,8 +65,8 @@ class _PgWorkflowAdapter:
         rec = self._pg.result_for_job(test_job_id)
         return rec if rec is not None else self._fallback.result_for_job(test_job_id)
 
-    def list_results(self, *, limit=None, offset=0):
-        return self._pg.list_results(limit=limit, offset=offset)
+    def list_results(self, *, limit=None, offset=0, context=None):
+        return self._pg.list_results(limit=limit, offset=offset, context=context)
 
     def results_for_lineage(self, strategy_lineage_id):
         return self._pg.results_for_lineage(strategy_lineage_id)
@@ -109,6 +110,7 @@ def create_fastapi_app(
     from fastapi import FastAPI, Header
     from fastapi.responses import JSONResponse
 
+    _validate_startup_policy()
     workflow_repository = workflow_repository or InMemoryWorkflowRepository()
     strategy_repository = strategy_repository or InMemoryStrategyRepository()
 
@@ -149,11 +151,11 @@ def create_fastapi_app(
                 llm_config_service = LlmConfigService()
         if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
             from scripts.seed_demo_evidence import seed_demo_evidence
-            seed_demo_evidence(strategy_repository, backtest_job_service)
+            seed_demo_evidence(strategy_repository, backtest_job_service, context=_env_user_project_context())
     elif os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
         backtest_job_service = backtest_job_service or BacktestJobService()
         from scripts.seed_demo_evidence import seed_demo_evidence
-        seed_demo_evidence(strategy_repository, backtest_job_service)
+        seed_demo_evidence(strategy_repository, backtest_job_service, context=_env_user_project_context())
         _log.warning("Running with in-memory Builder repositories. State will not survive restart.")
     else:
         backtest_job_service = backtest_job_service or BacktestJobService()
@@ -198,11 +200,7 @@ def create_fastapi_app(
     except ImportError:
         CORSMiddleware = None
     if CORSMiddleware is not None:
-        cors_origins = [
-            o.strip()
-            for o in os.environ.get("BUILDER_CORS_ORIGINS", "").split(",")
-            if o.strip()
-        ]
+        cors_origins = _cors_origins_from_env()
         if cors_origins:
             app.add_middleware(
                 CORSMiddleware,
@@ -232,23 +230,38 @@ def create_fastapi_app(
         return {"version": "0.4.0", "commit": os.environ.get("GIT_COMMIT_SHA", "dev"), "build_time": os.environ.get("BUILD_TIME", "unknown")}
 
     @app.get("/api/adapters")
-    def adapters(authorization: str | None = Header(default=None)) -> list[dict[str, object]]:
-        return adapters_payload(pg_repo=_pg_adapter_repo)
+    def adapters(authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(ApiResponse(adapters_payload(pg_repo=_pg_adapter_repo)), JSONResponse)
 
     @app.get("/api/instruments/{adapter_id}/{query}")
     def instruments(adapter_id: str, query: str, authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/instruments")
     def instruments_query(adapter_id: str, query: str, authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(instruments_payload(adapter_id, query, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.get("/api/data-availability/{adapter_id}/{instrument_id}")
     def data_availability(adapter_id: str, instrument_id: str, authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(data_availability_payload(adapter_id, instrument_id, pg_repo=_pg_adapter_repo), JSONResponse)
 
     @app.post("/api/backtest-profiles/validate")
     def validate_backtest_profile(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(validate_backtest_profile_payload(payload), JSONResponse)
 
     @app.post("/api/pipeline/run")
@@ -371,10 +384,10 @@ def create_fastapi_app(
 
     @app.get("/api/execution-lane/status")
     def execution_lane_status(runtime_profile_id: str | None = None, authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        return execution_lane_status_payload(service=execution_lane_service, runtime_profile_id=runtime_profile_id)
+        return execution_lane_service.snapshot(runtime_profile_id=runtime_profile_id, project_id=context.project_id)
 
     @app.get("/api/execution-lane/runtime-plan")
     def execution_lane_runtime_plan(
@@ -382,9 +395,16 @@ def create_fastapi_app(
         command_id: str | None = None,
         authorization: str | None = Header(default=None),
     ) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
+        scope_error = _execution_lane_profile_scope_error(execution_lane_service, runtime_profile_id, context)
+        if scope_error is not None:
+            return _fastapi_response(scope_error, JSONResponse)
+        if command_id is not None:
+            command_scope_error = _execution_lane_command_scope_error(execution_lane_service, command_id, context)
+            if command_scope_error is not None:
+                return _fastapi_response(command_scope_error, JSONResponse)
         return _fastapi_response(
             execution_lane_runtime_plan_payload(
                 service=execution_lane_service,
@@ -425,23 +445,37 @@ def create_fastapi_app(
 
     @app.post("/api/execution-lane/profiles")
     def register_execution_lane_profile(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
+        scope_error = _payload_project_scope_error(payload, context, "runtime profile")
+        if scope_error is not None:
+            return _fastapi_response(scope_error, JSONResponse)
         return _fastapi_response(register_execution_lane_profile_payload(payload, service=execution_lane_service), JSONResponse)
 
     @app.post("/api/execution-lane/commands")
     def enqueue_execution_lane_command(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
+        scope_error = _payload_project_scope_error(payload, context, "execution command")
+        if scope_error is not None:
+            return _fastapi_response(scope_error, JSONResponse)
+        runtime_profile_id = str(payload.get("runtime_profile_id", "")).strip()
+        profile_scope_error = _execution_lane_profile_scope_error(execution_lane_service, runtime_profile_id, context)
+        if profile_scope_error is not None:
+            return _fastapi_response(profile_scope_error, JSONResponse)
         return _fastapi_response(enqueue_execution_lane_command_payload(payload, service=execution_lane_service), JSONResponse)
 
     @app.post("/api/execution-lane/worker/run-once")
     def execution_lane_worker_run_once(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
+        runtime_profile_id = str(payload.get("runtime_profile_id", "")).strip()
+        profile_scope_error = _execution_lane_profile_scope_error(execution_lane_service, runtime_profile_id, context)
+        if profile_scope_error is not None:
+            return _fastapi_response(profile_scope_error, JSONResponse)
         return _fastapi_response(run_execution_lane_worker_once_payload(payload, service=execution_lane_service), JSONResponse)
 
     @app.post("/api/execution-lane/sessions/start")
@@ -457,6 +491,11 @@ def create_fastapi_app(
             return _fastapi_response(start_execution_lane_paper_session_payload(payload, service=execution_lane_service), JSONResponse)
         if profile.project_id != context.project_id:
             return _fastapi_response(ApiResponse({"error": "project_scope_mismatch", "details": "session runtime profile project_id does not match bearer token scope"}, status_code=403), JSONResponse)
+        command_id = str(payload.get("command_id", "")).strip()
+        if command_id:
+            command_scope_error = _execution_lane_command_scope_error(execution_lane_service, command_id, context)
+            if command_scope_error is not None:
+                return _fastapi_response(command_scope_error, JSONResponse)
         return _fastapi_response(start_execution_lane_paper_session_payload(payload, service=execution_lane_service), JSONResponse)
 
     @app.get("/api/execution-lane/sessions/{session_id}")
@@ -496,8 +535,11 @@ def create_fastapi_app(
         return _fastapi_response(ApiResponse(replay_runtime_events_payload(job_id=job_id)), JSONResponse)
 
     @app.get("/api/strategy-registry/external")
-    def strategy_registry_external(authorization: str | None = Header(default=None)) -> list[dict[str, object]]:
-        return list_external_strategy_payloads()
+    def strategy_registry_external(authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(ApiResponse(list_external_strategy_payloads()), JSONResponse)
 
     @app.post("/api/strategies")
     def create_strategy(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:
@@ -508,7 +550,10 @@ def create_fastapi_app(
 
     @app.get("/api/strategies")
     def list_strategies(authorization: str | None = Header(default=None)) -> Any:
-        return _fastapi_response(list_strategies_payload(strategy_repository), JSONResponse)
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(list_strategies_payload(strategy_repository, context=context), JSONResponse)
 
     @app.get("/api/strategies/{strategy_id}/evidence-summary")
     def strategy_evidence_summary(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:
@@ -543,7 +588,10 @@ def create_fastapi_app(
         context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        result = strategy_repository.approve_strategy(strategy_id)
+        try:
+            result = strategy_repository.approve_strategy(strategy_id, context=context)
+        except ProjectScopeError as exc:
+            return _fastapi_response(ApiResponse({"error": "forbidden", "message": str(exc)}, status_code=403), JSONResponse)
         if result is None:
             return _fastapi_response(ApiResponse({"error": "strategy_not_found_or_not_promotable", "strategy_id": strategy_id}, status_code=422), JSONResponse)
         return _fastapi_response(ApiResponse(result), JSONResponse)
@@ -553,7 +601,10 @@ def create_fastapi_app(
         context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        result = strategy_repository.clone_strategy(strategy_id)
+        try:
+            result = strategy_repository.clone_strategy(strategy_id, context=context)
+        except ProjectScopeError as exc:
+            return _fastapi_response(ApiResponse({"error": "forbidden", "message": str(exc)}, status_code=403), JSONResponse)
         if result is None:
             return _fastapi_response(ApiResponse({"error": "strategy_not_found", "strategy_id": strategy_id}, status_code=404), JSONResponse)
         return _fastapi_response(ApiResponse(result, status_code=201), JSONResponse)
@@ -615,7 +666,7 @@ def create_fastapi_app(
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(
-            list_results_payload(workflow_repository, limit=limit, offset=offset),
+            list_results_payload(workflow_repository, limit=limit, offset=offset, context=context),
             JSONResponse,
         )
 
@@ -654,6 +705,67 @@ def create_fastapi_app(
     return app
 
 
+def _payload_project_scope_error(
+    payload: dict[str, Any],
+    context: UserProjectContext,
+    resource_name: str,
+) -> ApiResponse | None:
+    payload_project_id = str(payload.get("project_id", "")).strip()
+    if payload_project_id == context.project_id:
+        return None
+    return ApiResponse(
+        {
+            "error": "project_scope_mismatch",
+            "details": f"{resource_name} project_id does not match bearer token scope",
+        },
+        status_code=403,
+    )
+
+
+def _execution_lane_profile_scope_error(
+    service: ExecutionLaneService,
+    runtime_profile_id: str,
+    context: UserProjectContext,
+) -> ApiResponse | None:
+    if not runtime_profile_id:
+        return None
+    try:
+        service.get_profile(runtime_profile_id, project_id=context.project_id)
+    except ProjectScopeError:
+        return ApiResponse(
+            {
+                "error": "project_scope_mismatch",
+                "details": "runtime profile project_id does not match bearer token scope",
+            },
+            status_code=403,
+        )
+    except KeyError:
+        return None
+    return None
+
+
+def _execution_lane_command_scope_error(
+    service: ExecutionLaneService,
+    command_id: str,
+    context: UserProjectContext,
+) -> ApiResponse | None:
+    if not command_id:
+        return None
+    try:
+        service.get_command(command_id, project_id=context.project_id)
+    except ProjectScopeError:
+        return ApiResponse(
+            {
+                "error": "project_scope_mismatch",
+                "details": "execution command project_id does not match bearer token scope",
+            },
+            status_code=403,
+        )
+    except KeyError:
+        return None
+    return None
+
+
 def _fastapi_payload(response: ApiResponse) -> Any:
     return response.json()
 
@@ -679,14 +791,67 @@ def _context_from_authorization(
 
 _UNSAFE_DEV_TOKENS = {"dev-token", "test-token", "changeme"}
 
+
+def _cors_origins_from_env() -> list[str]:
+    return [
+        origin.strip()
+        for origin in os.environ.get("BUILDER_CORS_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+
+
+def _validate_startup_policy() -> None:
+    env = _strictest_configured_env()
+    validate_production_token(
+        env=env,
+        token=os.environ.get("BUILDER_API_TOKEN"),
+        public_token=os.environ.get("NEXT_PUBLIC_BUILDER_API_TOKEN"),
+    )
+    validate_cors_config(env=env, origins=_cors_origins_from_env())
+
+
+def _strictest_configured_env() -> BuilderEnvironment:
+    configured = [
+        validate_builder_env(raw)
+        for raw in (
+            os.environ.get("BUILDER_ENV", ""),
+            os.environ.get("APP_ENV", ""),
+        )
+        if raw.strip()
+    ]
+    if not configured:
+        return BuilderEnvironment.LOCAL
+    priority = {
+        BuilderEnvironment.LOCAL: 0,
+        BuilderEnvironment.STAGING: 1,
+        BuilderEnvironment.PRODUCTION: 2,
+    }
+    return max(configured, key=lambda env: priority[env])
+
+
+def _env_user_project_context() -> UserProjectContext:
+    return UserProjectContext(
+        user_id=os.environ.get("BUILDER_DEV_USER_ID", "local_user"),
+        project_id=os.environ.get("BUILDER_DEV_PROJECT_ID", "local_project"),
+        role=os.environ.get("BUILDER_DEV_ROLE", "builder"),
+    )
+
+
 def _register_env_dev_token(auth_token_service: AuthTokenService) -> None:
-    token = (os.environ.get("BUILDER_DEV_AUTH_TOKEN") or os.environ.get("BUILDER_API_TOKEN") or "").strip()
+    dev_auth_token = os.environ.get("BUILDER_DEV_AUTH_TOKEN")
+    token = (dev_auth_token or os.environ.get("BUILDER_API_TOKEN") or "").strip()
     if not token:
         return
-    environment = (os.environ.get("APP_ENV") or os.environ.get("BUILDER_ENV") or "").strip().lower()
-    if environment in {"prod", "production"} and token in _UNSAFE_DEV_TOKENS:
+    environment = _strictest_configured_env()
+    if environment != BuilderEnvironment.LOCAL and dev_auth_token is not None:
         raise ValueError(
-            f"Refusing to register known dev token '{token}' in production environment. "             f"Set BUILDER_API_TOKEN to a strong secret when APP_ENV=production."
+            f"Refusing BUILDER_DEV_AUTH_TOKEN '{token}' in {environment.value} environment. "
+            "Use BUILDER_API_TOKEN for staging/production server-side auth."
+        )
+    if environment != BuilderEnvironment.LOCAL and token in _UNSAFE_DEV_TOKENS:
+        raise ValueError(
+            f"Refusing to register known dev token '{token}' in {environment.value} environment. "
+            "Set BUILDER_API_TOKEN to a strong secret."
         )
     auth_token_service.register_token(
         token=token,
@@ -702,8 +867,8 @@ def _default_ai_audit_store(ai_audit_store: DraftAuditStoreProtocol | None) -> D
     sqlite_path = os.environ.get("BUILDER_AI_AUDIT_SQLITE_PATH", "").strip()
     if sqlite_path:
         return SqliteAiDraftAuditStore(connection=sqlite3.connect(sqlite_path))
-    environment = (os.environ.get("BUILDER_ENV") or os.environ.get("APP_ENV") or "").strip().lower()
-    if environment in {"prod", "production"}:
+    environment = _strictest_configured_env()
+    if environment == BuilderEnvironment.PRODUCTION:
         raise ValueError("durable AI audit store is required in production")
     return RecordedAiDraftStore()
 

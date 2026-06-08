@@ -61,8 +61,9 @@ def list_results_payload(
     *,
     limit: int | None = None,
     offset: int = 0,
+    context: UserProjectContext | None = None,
 ) -> ApiResponse:
-    results = repository.list_results(limit=limit, offset=offset)
+    results = repository.list_results(limit=limit, offset=offset, context=context)
     items = []
     for r in results:
         items.append({

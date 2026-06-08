@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from packages.auth import UserProjectContext
+from packages.postgres.identifiers import postgres_table, safe_postgres_identifier
 from packages.workflow_spine.models import WorkflowResultRecord
 
 
@@ -19,10 +21,10 @@ class PostgresWorkflowResultRepository:
 
     def __init__(self, conn: Any, schema: str = "builder") -> None:
         self._conn = conn
-        self._schema = schema
+        self._schema = safe_postgres_identifier(schema)
 
     def _table(self, name: str) -> str:
-        return f"{self._schema}.{name}"
+        return postgres_table(self._schema, name)
 
     def save_result(self, record: WorkflowResultRecord) -> None:
         """Persist a workflow result. INSERT ON CONFLICT DO UPDATE for idempotency.
@@ -86,13 +88,19 @@ class PostgresWorkflowResultRepository:
         *,
         limit: int | None = None,
         offset: int = 0,
+        context: UserProjectContext | None = None,
     ) -> list[WorkflowResultRecord]:
         """List workflow results newest-first, with optional limit/offset."""
         sql = f"""
             SELECT payload FROM {self._table("workflow_results")}
-            ORDER BY created_at DESC
         """
         params: list[Any] = []
+        if context is not None:
+            sql += " WHERE project_id = %s"
+            params.append(context.project_id)
+        sql += """
+            ORDER BY created_at DESC
+        """
         if limit is not None or offset:
             sql += " LIMIT %s OFFSET %s"
             params.append(limit if limit is not None else 2_147_483_647)

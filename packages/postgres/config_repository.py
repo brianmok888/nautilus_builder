@@ -8,16 +8,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from packages.postgres.identifiers import postgres_table, safe_postgres_identifier
+
 
 class PostgresConfigRepository:
     """Key-value config store backed by Postgres builder_config table."""
 
     def __init__(self, conn: Any, schema: str = "builder") -> None:
         self._conn = conn
-        self._schema = schema
+        self._schema = safe_postgres_identifier(schema)
 
     def _table(self, name: str) -> str:
-        return f"{self._schema}.{name}"
+        return postgres_table(self._schema, name)
 
     def get(self, key: str) -> dict[str, Any] | None:
         """Get a config value by key. Returns None if not found."""

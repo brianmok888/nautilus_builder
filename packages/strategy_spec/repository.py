@@ -141,31 +141,50 @@ class InMemoryStrategyRepository:
         "approved": "execution_ready",
     }
 
-    def update_status(self, strategy_id: str, new_status: str) -> dict[str, object] | None:
+    def update_status(
+        self,
+        strategy_id: str,
+        new_status: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> dict[str, object] | None:
         """Promote a strategy to a new status."""
         versions = self._records.get(strategy_id)
         if not versions:
             return None
+        self._assert_scope(strategy_id, context)
         spec = versions[-1]
         from packages.strategy_spec.models import StrategyStatus
         new_spec = spec.model_copy(update={"status": StrategyStatus(new_status)})
         versions[-1] = new_spec
         return self._record(strategy_id, new_spec, len(versions))
 
-    def approve_strategy(self, strategy_id: str) -> dict[str, object] | None:
+    def approve_strategy(
+        self,
+        strategy_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> dict[str, object] | None:
         versions = self._records.get(strategy_id)
         if not versions:
             return None
+        self._assert_scope(strategy_id, context)
         current_status = versions[-1].status.value
         new_status = self._PROMOTE_MAP.get(current_status)
         if not new_status:
             return None
-        return self.update_status(strategy_id, new_status)
+        return self.update_status(strategy_id, new_status, context=context)
 
-    def clone_strategy(self, strategy_id: str) -> dict[str, object] | None:
+    def clone_strategy(
+        self,
+        strategy_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> dict[str, object] | None:
         versions = self._records.get(strategy_id)
         if not versions:
             return None
+        self._assert_scope(strategy_id, context)
         spec = versions[-1]
         from packages.strategy_spec.models import Provenance, StrategyStatus, StrategyStage, CreatedFrom
         cloned = spec.model_copy(update={
@@ -174,4 +193,4 @@ class InMemoryStrategyRepository:
             "is_frozen": False,
             "provenance": Provenance(created_by=CreatedFrom.USER, parent_version_id=strategy_id),
         })
-        return self.save(cloned)
+        return self.save(cloned, context=context)

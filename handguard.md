@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** REQUEST CHANGES until the auth/project-scope gates below are implemented.
+**Current state:** VERIFIED BUILDER-ONLY DEV-DEMO CLOSEOUT. Production/live trading readiness remains out of scope.
 
 ## 1. Authority boundary — Builder never owns live order submission
 
@@ -30,7 +30,7 @@ Current enforcement surfaces:
 
 Guard: reject any PR that adds a Builder-side production `submit_order(` path or authoritative `TradeAction(` construction.
 
-## 2. API auth and project-scope gate — currently BLOCKING
+## 2. API auth and project-scope gate — Segment 4 closed
 
 Every `/api/*` FastAPI route except health/build liveness endpoints must do all of the following:
 
@@ -40,17 +40,11 @@ Every `/api/*` FastAPI route except health/build liveness endpoints must do all 
 4. Pass `UserProjectContext` into package/repository calls that read or mutate scoped data.
 5. Return `403` or an empty scoped list for wrong-project access.
 
-Known gaps as of 2026-06-08:
-
-- `GET /api/strategies` does not validate auth or pass context.
-- `POST /api/strategies/{strategy_id}/approve` authenticates but does not pass context into repository mutation.
-- `POST /api/strategies/{strategy_id}/clone` authenticates but does not pass context into repository clone.
-- Several read-only `/api` catalog/config routes have an auth parameter but do not validate it; explicitly allowlist them only if the product decision is public metadata.
-- Static auth tests are insufficient because they check for an `authorization` parameter rather than runtime behavior.
+Segment 1 closed strategy list/approve/clone scope leaks in focused tests. Segment 4 replaced static auth tests with runtime missing-auth checks for every registered FastAPI `/api/*` route. No `/api/*` route is public in FastAPI unless a future product decision adds an explicit allowlist with tests.
 
 Guard: no production-readiness claim until runtime tests prove missing-token and wrong-project requests fail for every protected `/api` route.
 
-## 3. Production environment policy gate — currently not fully wired
+## 3. Production environment policy gate — Segment 2 closed
 
 `packages/auth/policy.py` defines the required policy:
 
@@ -59,7 +53,7 @@ Guard: no production-readiness claim until runtime tests prove missing-token and
 - `NEXT_PUBLIC_BUILDER_API_TOKEN` is forbidden in staging/production.
 - CORS origins must not be empty or wildcard in staging/production.
 
-Guard: `services/api/fastapi_app.py` must call `validate_builder_env()`, `validate_production_token()`, and `validate_cors_config()` during startup. Do not rely only on `_register_env_dev_token()`.
+Guard: `services/api/fastapi_app.py` calls `validate_builder_env()`, `validate_production_token()`, and `validate_cors_config()` during startup. Do not remove that startup gate or rely only on `_register_env_dev_token()`.
 
 ## 4. Strategy repository scope gate
 
@@ -140,6 +134,8 @@ Every schema/table identifier interpolated into SQL must be validated with a str
 
 Guard: constructors and migrations must reject unsafe schema/table names. Do not interpolate operator-controlled identifiers raw.
 
+Segment 3 status: closed for current Postgres repositories, migration entrypoints, seed helpers, and demo seed paths through `packages.postgres.identifiers`.
+
 ## 11. Fixture/demo evidence gate
 
 Fixture and demo data are allowed only when explicitly labelled and disabled by default in production:
@@ -150,6 +146,8 @@ Fixture and demo data are allowed only when explicitly labelled and disabled by 
 - Seed scripts must not hide unexpected failures.
 
 Guard: reject any PR that silently converts demo/fixture evidence into production evidence.
+
+Segment 3 status: seed script save failures now propagate, and lifecycle-only compile evidence is represented as `passed_inferred` rather than artifact-backed `passed`.
 
 ## 12. Worker isolation gate
 
@@ -185,19 +183,136 @@ Runtime/live-readiness claims also require NT evidence refs (DataTester/ExecTest
 | Backtest legacy hash derivation | OPEN | 2026-07-01 | Keep disabled by default; remove env escape after cutoff. |
 | `allow_legacy_fixture_refs` | OPEN | 2026-07-01 | Strict evidence for non-dev promotions. |
 | `res_001` fixture fallback | WATCH | 2026-07-01 | Production flag must stay off. |
-| `NEXT_PUBLIC_BUILDER_API_TOKEN` local mode | WATCH | n/a | Forbid in staging/production startup. |
+| `NEXT_PUBLIC_BUILDER_API_TOKEN` local mode | CLOSED/WATCH | n/a | Browser-exposed Builder API tokens are forbidden; web proxy uses server-side `BUILDER_API_TOKEN`. |
 
-## 15. Current review blockers
+## 15. Current production-scope watches
 
-Do not claim merge-ready/production-ready until these are fixed:
-
-1. H-01: strategy list auth/project leak.
-2. H-02: approve/clone cross-project mutation.
-3. H-03: production auth/CORS policy not wired into FastAPI startup.
-4. H-04: route auth tests are static/insufficient.
+Do not claim production/live-trading readiness from this closeout. Merge-readiness is limited to the Builder-only dev-demo scope after final git/remote checks.
 
 See `findings.md` for file/line evidence and concrete fixes.
+
+
+## Segment 3 reconciliation — storage and evidence hardening
+
+**Completed:** 2026-06-08
+
+Implemented and verified Postgres identifier validation, indexed Postgres backtest evidence reads, lifecycle-only compile evidence status splitting, and demo seed failure propagation.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/api/test_evidence_summary.py::test_backtested_strategy_has_compile_evidence tests/api/test_evidence_summary.py::test_compile_status_inferred_from_lifecycle_does_not_create_compile_audit tests/scripts/test_seed_builder_demo_data.py -q
+# 15 passed
+
+python3 -m pytest tests/postgres tests/api/test_evidence_summary.py tests/backtest_jobs tests/scripts/test_seed_builder_demo_data.py -q
+# 101 passed
+
+python3 -m compileall -q packages/postgres packages/backtest_jobs/postgres_service.py services/api/routes/evidence_summary.py scripts/seed_builder_demo_data.py tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/scripts/test_seed_builder_demo_data.py tests/api/test_evidence_summary.py
+# pass
+```
+
+Remaining work: final git/remote checks.
+
+
+## Segment 4 reconciliation — runtime auth coverage
+
+**Completed:** 2026-06-08
+
+Implemented and verified runtime missing-auth coverage across the registered FastAPI `/api/*` route table. The route-auth test now fails on newly mounted untested API routes and on protected routes that do not return `401` without a bearer token. FastAPI catalog/profile/registry metadata routes now require auth.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_every_registered_api_route_is_auth_tested tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_protected_api_routes_reject_missing_auth_at_runtime -q
+# 2 passed
+
+python3 -m pytest tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 91 passed, 1 skipped, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_scope.py
+# pass
+```
+
+Remaining work: final git/remote checks.
 
 ## 16. Master reconciliation — catalog-backed Nautilus replay
 
 `CATALOG_BACKED_REPLAY_SMOKE_MODE` / `catalog_backed_replay_smoke` must remain a smoke-only gate. It writes synthetic historical quote ticks into a catalog and exercises NautilusTrader BacktestNode replay wiring. It is **not full trading-production readiness**, and it does not satisfy DataTester, ExecTester, adapter reconciliation, or live execution evidence requirements.
+
+
+## Segment 1 reconciliation — API auth and strategy scope
+
+**Completed:** 2026-06-08
+
+Implemented and verified the first closure segment for strategy API auth and project scope. `GET /api/strategies` now requires bearer auth and passes `UserProjectContext` to the strategy repository. Strategy approve/clone/status paths now accept scoped context and cannot mutate another project in the in-memory repository. The Postgres strategy repository now persists `user_id`/`project_id`, filters scoped list/detail/version reads, accepts context on approve/clone/status mutations, and includes an idempotent migration v5 for existing databases while v1 creates scoped columns for fresh databases.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project tests/api/test_fastapi_app.py::test_fastapi_strategy_approve_and_clone_are_project_scoped -q
+# 2 passed
+
+python3 -m pytest tests/api/test_fastapi_app.py tests/strategy_spec tests/postgres/test_strategy_repository.py tests/postgres/test_migration_v2.py -q
+# 75 passed
+
+python3 -m compileall -q packages/strategy_spec/repository.py packages/postgres/strategy_repository.py packages/postgres/migrations.py services/api/fastapi_app.py tests/api/test_fastapi_app.py tests/postgres/test_strategy_repository.py
+# pass
+```
+
+At Segment 1 completion time, remaining blockers were H-03 production startup policy wiring, H-04 runtime auth coverage, and medium storage/evidence findings.
+
+
+## Segment 2 reconciliation — production startup policy
+
+**Completed:** 2026-06-08
+
+Implemented and verified FastAPI startup enforcement for the existing `packages.auth.policy` checks. `create_fastapi_app()` now validates `BUILDER_ENV`/`APP_ENV`, rejects staging/production without a 32+ character `BUILDER_API_TOKEN`, rejects `NEXT_PUBLIC_BUILDER_API_TOKEN`, and rejects empty or wildcard CORS origins before registering tokens or accepting traffic. Local/dev token behavior remains covered by tests.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 67 passed, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m pytest tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 84 passed, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m compileall -q services/api/fastapi_app.py tests/api/test_production_safety.py
+# pass
+```
+
+At Segment 2 completion time, remaining blockers were H-04 runtime auth coverage plus medium storage/evidence and demo-hygiene findings.
+
+## Master reconciliation — findings closure implementation
+
+**Updated:** 2026-06-08
+
+Master reconciliation verifies the Segment 1-4 closure plus follow-up review fixes as Builder-only dev-demo hardening. It does not claim production/live-trading readiness. The latest follow-up fixes include strictest-env durable audit-store enforcement and a middleware regression preventing server-side Builder tokens from being proxied to `NEXT_PUBLIC_API_BASE_URL` destinations.
+
+Fresh verification evidence recorded in this closeout cycle:
+
+```bash
+python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
+# 944 passed, 1 skipped, 1 warning
+
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
+# 16 passed after strictest audit-store policy fix
+
+bash scripts/check_forbidden_authority.sh && git diff --check
+# passed in the prior master loop; rerun in final closeout before commit
+
+cd apps/web && rm -rf .next && npm run build
+# passed; route summary includes Middleware
+
+cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
+# 120 passed, 4 skipped
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
+# 6 passed after RED confirmed the public API base URL proxy risk
+```
+
+Current stop condition: rerun full closeout verification after documentation reconciliation, obtain fresh post-implementation review PASS, then run final git/remote safety checks before Lore commit and push.
+
+## Production/live-readiness warning
+
+This closeout is scoped to Builder findings hardening and dev-demo verification. Live trading remains outside Builder authority. Any future production/live-trading claim still requires NautilusTrader DataTester, ExecTester, adapter reconciliation evidence, Daedalus execution-boundary confirmation, and manual operator approval.

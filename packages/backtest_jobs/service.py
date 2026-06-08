@@ -134,16 +134,29 @@ class BacktestJobService:
 
     # ── Public query methods (used by evidence summary) ──────────
 
-    def list_jobs_for_strategy(self, strategy_version_id: str) -> list[BacktestJob]:
+    def list_jobs_for_strategy(
+        self,
+        strategy_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[BacktestJob]:
         """Return all backtest jobs for a strategy version, ordered by creation time."""
+        jobs = [j for j in self._jobs_by_id.values() if j.strategy_spec_version_id == strategy_version_id]
+        if context is not None:
+            jobs = [j for j in jobs if j.user_id == context.user_id and j.project_id == context.project_id]
         return sorted(
-            [j for j in self._jobs_by_id.values() if j.strategy_spec_version_id == strategy_version_id],
+            jobs,
             key=lambda j: j.created_at,
         )
 
-    def get_latest_job_for_strategy(self, strategy_version_id: str) -> BacktestJob | None:
+    def get_latest_job_for_strategy(
+        self,
+        strategy_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> BacktestJob | None:
         """Return the most recent backtest job for a strategy version, or None."""
-        jobs = self.list_jobs_for_strategy(strategy_version_id)
+        jobs = self.list_jobs_for_strategy(strategy_version_id, context=context)
         return jobs[-1] if jobs else None
 
     def _payload_from_job(self, job: BacktestJob) -> dict[str, str]:

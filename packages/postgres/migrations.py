@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any, NamedTuple
 
+from packages.postgres.identifiers import safe_postgres_identifier
+
 
 class Migration(NamedTuple):
     version: int
@@ -26,6 +28,8 @@ MIGRATIONS: list[Migration] = [
             strategy_lineage_id TEXT NOT NULL,
             status            TEXT NOT NULL DEFAULT 'draft',
             latest_spec       JSONB NOT NULL DEFAULT '{{}}',
+            user_id           TEXT NOT NULL DEFAULT 'system',
+            project_id        TEXT NOT NULL DEFAULT 'default',
             created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
             updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
         );
@@ -35,6 +39,8 @@ MIGRATIONS: list[Migration] = [
             strategy_id         TEXT NOT NULL REFERENCES {schema}.strategies(strategy_id) ON DELETE CASCADE,
             strategy_lineage_id TEXT NOT NULL,
             spec                JSONB NOT NULL,
+            user_id             TEXT NOT NULL DEFAULT 'system',
+            project_id          TEXT NOT NULL DEFAULT 'default',
             created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
         );
 
@@ -77,22 +83,32 @@ MIGRATIONS: list[Migration] = [
 
 def ensure_schema(conn: Any, schema: str = "builder") -> None:
     """Create the builder schema and schema_migrations table if they don't exist."""
+    schema = safe_postgres_identifier(schema)
     conn.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {schema}.schema_migrations (
+            version     INT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """
+    )
 
 
 def current_version(conn: Any, schema: str = "builder") -> int:
     """Return the highest applied migration version, or 0 if none."""
-    try:
-        row = conn.execute(
-            f"SELECT MAX(version) FROM {schema}.schema_migrations"
-        ).fetchone()
-        return row[0] if row and row[0] is not None else 0
-    except Exception:
-        return 0
+    schema = safe_postgres_identifier(schema)
+    ensure_schema(conn, schema)
+    row = conn.execute(
+        f"SELECT MAX(version) FROM {schema}.schema_migrations"
+    ).fetchone()
+    return row[0] if row and row[0] is not None else 0
 
 
 def apply_migrations(conn: Any, schema: str = "builder") -> list[str]:
     """Run all pending migrations. Returns list of applied migration names."""
+    schema = safe_postgres_identifier(schema)
     ensure_schema(conn, schema)
     applied: list[str] = []
     version = current_version(conn, schema)
@@ -109,6 +125,7 @@ def apply_migrations(conn: Any, schema: str = "builder") -> list[str]:
 
 def rollback(conn: Any, schema: str = "builder", steps: int = 1) -> list[str]:
     """Roll back the last N migrations. Returns list of rolled-back names."""
+    schema = safe_postgres_identifier(schema)
     ensure_schema(conn, schema)
     rolled_back: list[str] = []
     version = current_version(conn, schema)
@@ -204,6 +221,7 @@ MIGRATIONS.append(
         """,
     ),
 )
+
 
 
 MIGRATIONS.append(
@@ -316,4 +334,37 @@ MIGRATIONS.append(
         DROP TABLE IF EXISTS {schema}.backtest_jobs;
         """,
     ),
+)
+
+
+MIGRATIONS.append(
+    Migration(
+        version=5,
+        name="strategy_scope_columns",
+        up="""
+        ALTER TABLE {schema}.strategies
+            ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT 'system',
+            ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'default';
+
+        ALTER TABLE {schema}.strategy_versions
+            ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT 'system',
+            ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'default';
+
+        CREATE INDEX IF NOT EXISTS idx_strategies_scope
+            ON {schema}.strategies(user_id, project_id);
+
+        CREATE INDEX IF NOT EXISTS idx_strategy_versions_scope
+            ON {schema}.strategy_versions(user_id, project_id);
+        """,
+        down="""
+        DROP INDEX IF EXISTS {schema}.idx_strategy_versions_scope;
+        DROP INDEX IF EXISTS {schema}.idx_strategies_scope;
+        ALTER TABLE {schema}.strategy_versions
+            DROP COLUMN IF EXISTS project_id,
+            DROP COLUMN IF EXISTS user_id;
+        ALTER TABLE {schema}.strategies
+            DROP COLUMN IF EXISTS project_id,
+            DROP COLUMN IF EXISTS user_id;
+        """,
+    )
 )

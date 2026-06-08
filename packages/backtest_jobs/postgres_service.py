@@ -133,17 +133,26 @@ class PostgresBacktestJobService:
 
     # ── Public query methods (used by evidence summary) ──────────
 
-    def list_jobs_for_strategy(self, strategy_version_id: str) -> list[BacktestJob]:
+    def list_jobs_for_strategy(
+        self,
+        strategy_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> list[BacktestJob]:
         """Return all backtest jobs for a strategy version, ordered by creation time."""
-        self._refresh_cache()
-        return sorted(
-            [j for j in self._jobs_by_id.values() if j.strategy_spec_version_id == strategy_version_id],
-            key=lambda j: j.created_at,
-        )
+        jobs = self._repo.list_by_strategy_version(strategy_version_id, context=context)
+        for job in jobs:
+            self._jobs_by_id[job.job_id] = job
+        return jobs
 
-    def get_latest_job_for_strategy(self, strategy_version_id: str) -> BacktestJob | None:
+    def get_latest_job_for_strategy(
+        self,
+        strategy_version_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> BacktestJob | None:
         """Return the most recent backtest job for a strategy version, or None."""
-        jobs = self.list_jobs_for_strategy(strategy_version_id)
+        jobs = self.list_jobs_for_strategy(strategy_version_id, context=context)
         return jobs[-1] if jobs else None
 
     @staticmethod

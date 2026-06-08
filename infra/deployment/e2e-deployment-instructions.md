@@ -8,7 +8,7 @@
 
 - NautilusTrader install/support source: <https://nautilustrader.io/docs/latest/getting_started/installation/>
 - NautilusTrader upstream repo: <https://github.com/nautechsystems/nautilus_trader>
-- Builder pin: `nautilus_trader==1.223.0` from `pyproject.toml`
+- Builder pin: `nautilus_trader==1.227.0` from `pyproject.toml`
 - Builder web ports: API `8000`, Next.js web `3000`
 - Optional local infra: Postgres `5432`, Redis `6379`, MinIO `9000/9001`
 
@@ -71,7 +71,7 @@ rm -rf apps/web/.next
 
 ## 3. Python + NautilusTrader dependencies
 
-Install Builder and test extras. This installs the pinned NautilusTrader runtime (`nautilus_trader==1.223.0`) plus FastAPI, Redis, Psycopg, Uvicorn, Pydantic, pytest, and PyYAML.
+Install Builder and test extras. This installs the pinned NautilusTrader runtime (`nautilus_trader==1.227.0`) plus FastAPI, Redis, Psycopg, Uvicorn, Pydantic, pytest, and PyYAML.
 
 ```bash
 cd ~/projects/nautilus_builder
@@ -147,7 +147,6 @@ sudo mkdir -p /etc/nautilus-builder
 sudo tee /etc/nautilus-builder/api.env >/dev/null <<'EOF_API'
 BUILDER_ENV=staging
 BUILDER_API_TOKEN=replace-with-long-random-dev-token
-BUILDER_DEV_AUTH_TOKEN=replace-with-long-random-dev-token
 BUILDER_DEV_USER_ID=vm_operator
 BUILDER_DEV_PROJECT_ID=project_alpha
 BUILDER_DEV_ROLE=builder
@@ -173,13 +172,11 @@ BUILDER_API_BASE_URL=http://127.0.0.1:8000
 
 # Server-side token for Next SSR/API fetches.
 BUILDER_API_TOKEN=replace-with-long-random-dev-token
-
-# Private VM demo only: browser fetches through /api rewrites currently need a bearer token.
-# Do NOT use a production/live token here. Replace with real auth/proxy before public exposure.
-NEXT_PUBLIC_BUILDER_API_TOKEN=replace-with-long-random-dev-token
 EOF_WEB
 sudo chmod 600 /etc/nautilus-builder/web.env
 ```
+
+The web process injects this token server-side in the Next middleware proxy for `/api/*` requests. Do **not** set `NEXT_PUBLIC_BUILDER_API_TOKEN`; raw Builder API tokens must not be exposed to browser bundles.
 
 Credential slots for execution lanes are stored by the backend in `.env.execution.local` only after an operator explicitly saves venue-prefixed paper/sandbox credentials from the UI or API. This file must remain gitignored and server-side:
 
@@ -196,8 +193,9 @@ cd ~/projects/nautilus_builder/apps/web
 npm ci
 npx playwright install --with-deps chromium
 npm run typecheck
-npm test
+rm -rf .next
 npm run build
+npx vitest run --config vitest.config.mts --testTimeout=10000
 ```
 
 The build should show `ƒ Middleware` in the route summary. That middleware sends no-store headers for app HTML so stale VM pages do not reference removed `_next/static` chunks after redeploys.
@@ -218,8 +216,9 @@ uv run pytest \
 
 cd apps/web
 npm run typecheck
-npm test
+rm -rf .next
 npm run build
+npx vitest run --config vitest.config.mts --testTimeout=10000
 npm run test:e2e
 ```
 
@@ -229,7 +228,7 @@ If VM resources are limited, run the focused deployment gate first:
 cd ~/projects/nautilus_builder
 uv run python -m services.backend_runtime --require-nautilus
 uv run pytest tests/backtest_runner tests/execution_lane tests/api tests/integration -q
-cd apps/web && npm run typecheck && npm test && npm run build
+cd apps/web && npm run typecheck && rm -rf .next && npm run build && npx vitest run --config vitest.config.mts --testTimeout=10000
 ```
 
 ## 8. Start services manually for smoke testing
@@ -432,8 +431,8 @@ curl -v http://127.0.0.1:8000/health
 Check:
 
 - `uv sync --extra test` completed.
-- `nautilus_trader==1.223.0` imports.
-- `BUILDER_API_TOKEN` / `BUILDER_DEV_AUTH_TOKEN` match web token for VM demo mode.
+- `nautilus_trader==1.227.0` imports.
+- `BUILDER_API_TOKEN` matches the web server-side token for VM demo mode; do not set `BUILDER_DEV_AUTH_TOKEN` outside local development.
 - Firewall allows port `8000` only if you intentionally expose API; otherwise keep API local and web proxy-facing.
 
 ### Missing PyYAML during tests
@@ -469,7 +468,7 @@ sudo systemctl stop nautilus-builder-web nautilus-builder-api
 rm -rf apps/web/.next
 uv sync --extra test
 uv run python -m services.backend_runtime --require-nautilus
-cd apps/web && npm ci && npm run typecheck && npm test && npm run build
+cd apps/web && npm ci && npm run typecheck && rm -rf .next && npm run build && npx vitest run --config vitest.config.mts --testTimeout=10000
 cd ~/projects/nautilus_builder
 sudo systemctl restart nautilus-builder-api
 sudo systemctl restart nautilus-builder-web

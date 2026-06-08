@@ -95,7 +95,7 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
     app = create_fastapi_app(auth_token_service=auth)
 
     created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {token.token}")
-    listed = app.routes[("GET", "/api/strategies")]()
+    listed = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {token.token}")
     detail = app.routes[("GET", "/api/strategies/{strategy_id}")]("strategy_001", authorization=f"Bearer {token.token}")
 
     assert created.status_code == 201
@@ -263,21 +263,71 @@ def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch)
     beta = auth.issue_token(user_id="user_456", project_id="project_beta")
     app = create_fastapi_app(auth_token_service=auth)
 
-    missing = app.routes[("POST", "/api/strategies")](make_valid_spec())
+    missing_create = app.routes[("POST", "/api/strategies")](make_valid_spec())
     created = app.routes[("POST", "/api/strategies")](make_valid_spec(), authorization=f"Bearer {alpha.token}")
-    listed_public = app.routes[("GET", "/api/strategies")]()
+    missing_list = app.routes[("GET", "/api/strategies")]()
+    listed_beta = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {beta.token}")
+    listed_alpha = app.routes[("GET", "/api/strategies")](authorization=f"Bearer {alpha.token}")
     detail_beta = app.routes[("GET", "/api/strategies/{strategy_id}")](
         "strategy_001",
         authorization=f"Bearer {beta.token}",
     )
 
-    assert missing.status_code == 401
+    assert missing_create.status_code == 401
     assert created.status_code == 201
     assert created.json()["project_id"] == "project_alpha"
-    assert listed_public.status_code == 200
-    assert listed_public.json()[0]["strategy_id"] == "strategy_001"
+    assert missing_list.status_code == 401
+    assert listed_beta.status_code == 200
+    assert listed_beta.json() == []
+    assert listed_alpha.status_code == 200
+    assert listed_alpha.json()[0]["strategy_id"] == "strategy_001"
     assert detail_beta.status_code == 403
     assert detail_beta.json()["error"] == "forbidden"
+
+
+def test_fastapi_strategy_approve_and_clone_are_project_scoped(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+    from tests.strategy_spec.test_schema_valid import make_valid_spec
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_456", project_id="project_beta")
+    app = create_fastapi_app(auth_token_service=auth)
+    backtested_spec = {**make_valid_spec(), "status": "backtested"}
+    created = app.routes[("POST", "/api/strategies")](backtested_spec, authorization=f"Bearer {alpha.token}")
+    strategy_id = created.json()["strategy_id"]
+
+    beta_approve = app.routes[("POST", "/api/strategies/{strategy_id}/approve")](
+        strategy_id,
+        authorization=f"Bearer {beta.token}",
+    )
+    beta_clone = app.routes[("POST", "/api/strategies/{strategy_id}/clone")](
+        strategy_id,
+        authorization=f"Bearer {beta.token}",
+    )
+    alpha_approve = app.routes[("POST", "/api/strategies/{strategy_id}/approve")](
+        strategy_id,
+        authorization=f"Bearer {alpha.token}",
+    )
+    alpha_clone = app.routes[("POST", "/api/strategies/{strategy_id}/clone")](
+        strategy_id,
+        authorization=f"Bearer {alpha.token}",
+    )
+
+    assert beta_approve.status_code == 403
+    assert beta_approve.json()["error"] == "forbidden"
+    assert beta_clone.status_code == 403
+    assert beta_clone.json()["error"] == "forbidden"
+    assert alpha_approve.status_code == 200
+    assert alpha_approve.json()["status"] == "approved"
+    assert alpha_clone.status_code == 201
+    assert alpha_clone.json()["project_id"] == "project_alpha"
 
 
 def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch) -> None:
@@ -327,6 +377,7 @@ def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch
         "res_alpha",
         authorization=f"Bearer {beta.token}",
     )
+    beta_list = app.routes[("GET", "/api/results")](authorization=f"Bearer {beta.token}")
     beta_lineage = app.routes[("GET", "/api/workflow/lineages/{strategy_lineage_id}/status")](
         "lineage_alpha",
         authorization=f"Bearer {beta.token}",
@@ -336,8 +387,34 @@ def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch
     assert alpha_result.status_code == 200
     assert alpha_result.json()["project_id"] == "project_alpha"
     assert beta_result.status_code == 403
+    assert beta_list.status_code == 200
+    assert beta_list.json() == []
     assert beta_suggestions.status_code == 403
     assert beta_lineage.status_code == 403
+
+
+def test_fastapi_demo_seed_uses_default_dev_token_scope(monkeypatch) -> None:
+    from packages.auth import AuthTokenService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setenv("BUILDER_SEED_DEMO_STRATEGIES", "1")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "local-demo-token")
+    monkeypatch.delenv("BUILDER_DATABASE_URL", raising=False)
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    app = create_fastapi_app(auth_token_service=auth)
+
+    summary = app.routes[("GET", "/api/strategies/{strategy_id}/evidence-summary")](
+        "demo_replay_passed",
+        authorization="Bearer local-demo-token",
+    )
+
+    assert summary.status_code == 200
+    assert summary.json()["strategyId"] == "demo_replay_passed"
 
 
 def test_fastapi_runtime_ai_and_promotion_request_routes_require_auth(monkeypatch) -> None:
@@ -660,3 +737,106 @@ def test_fastapi_execution_lane_session_start_requires_auth_and_project_scope(mo
     assert same_scope.status_code == 202
     assert same_scope.json()["lifecycle_status"] == "RUNNING"
     assert "test-binance-secret" not in str(same_scope.json())
+
+
+def test_fastapi_execution_lane_routes_filter_runtime_state_by_project(monkeypatch, tmp_path) -> None:
+    from packages.auth import AuthTokenService
+    from packages.execution_lane import ExecutionLaneService
+
+    fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    auth = AuthTokenService()
+    alpha = auth.issue_token(user_id="user_alpha", project_id="project_alpha")
+    beta = auth.issue_token(user_id="user_beta", project_id="project_beta")
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    alpha_profile = {
+        "tenant_id": "tenant_a",
+        "project_id": "project_alpha",
+        "runtime_profile_id": "rp_alpha_paper",
+        "profile_name": "Alpha paper lane",
+        "lane_mode": "paper",
+        "enabled": True,
+        "paper_trading_enabled": True,
+        "adapter_id": "BINANCE_PERP",
+        "venue": "BINANCE",
+        "venue_account_id": "SIM-BINANCE-ALPHA",
+        "consumes_stream": "builder.execution.commands.paper.project_alpha.binance",
+    }
+    service.register_profile(alpha_profile)
+    service.enqueue_command(
+        {
+            "tenant_id": "tenant_a",
+            "project_id": "project_alpha",
+            "runtime_profile_id": "rp_alpha_paper",
+            "lane_mode": "paper",
+            "adapter_id": "BINANCE_PERP",
+            "venue": "BINANCE",
+            "venue_account_id": "SIM-BINANCE-ALPHA",
+            "trade_action_id": "ta_alpha_001",
+            "source_event_id": "gate_evt_alpha_001",
+            "idempotency_key": "gate_evt_alpha_001:ta_alpha_001",
+            "strategy_lineage_id": "lineage_alpha",
+            "strategy_version_id": "strategy_alpha_v001",
+            "order_intent": {"side": "BUY", "instrument_id": "BTCUSDT-PERP.BINANCE", "quantity": "0.01"},
+            "risk_decision": {"status": "approved", "risk_profile_id": "risk_paper_default"},
+        }
+    )
+    beta_profile_payload = {
+        **alpha_profile,
+        "project_id": "project_beta",
+        "runtime_profile_id": "rp_beta_paper",
+        "profile_name": "Beta paper lane",
+        "venue_account_id": "SIM-BINANCE-BETA",
+        "consumes_stream": "builder.execution.commands.paper.project_beta.binance",
+    }
+    beta_command_payload = {
+        "tenant_id": "tenant_a",
+        "project_id": "project_beta",
+        "runtime_profile_id": "rp_alpha_paper",
+        "lane_mode": "paper",
+        "adapter_id": "BINANCE_PERP",
+        "venue": "BINANCE",
+        "venue_account_id": "SIM-BINANCE-ALPHA",
+        "trade_action_id": "ta_beta_001",
+        "source_event_id": "gate_evt_beta_001",
+        "idempotency_key": "gate_evt_beta_001:ta_beta_001",
+        "strategy_lineage_id": "lineage_beta",
+        "strategy_version_id": "strategy_beta_v001",
+        "order_intent": {"side": "BUY", "instrument_id": "BTCUSDT-PERP.BINANCE", "quantity": "0.01"},
+        "risk_decision": {"status": "approved", "risk_profile_id": "risk_paper_default"},
+    }
+    app = create_fastapi_app(auth_token_service=auth, execution_lane_service=service)
+
+    beta_status = app.routes[("GET", "/api/execution-lane/status")](authorization=f"Bearer {beta.token}")
+    beta_plan = app.routes[("GET", "/api/execution-lane/runtime-plan")](
+        "rp_alpha_paper",
+        authorization=f"Bearer {beta.token}",
+    )
+    beta_worker = app.routes[("POST", "/api/execution-lane/worker/run-once")](
+        {"runtime_profile_id": "rp_alpha_paper"},
+        authorization=f"Bearer {beta.token}",
+    )
+    alpha_register_beta = app.routes[("POST", "/api/execution-lane/profiles")](
+        beta_profile_payload,
+        authorization=f"Bearer {alpha.token}",
+    )
+    alpha_enqueue_beta = app.routes[("POST", "/api/execution-lane/commands")](
+        beta_command_payload,
+        authorization=f"Bearer {alpha.token}",
+    )
+
+    assert beta_status["profiles"] == 0
+    assert beta_status["queued_commands"] == 0
+    assert beta_status["may_submit_order"] is False
+    assert beta_plan.status_code == 403
+    assert beta_plan.json()["error"] == "project_scope_mismatch"
+    assert beta_worker.status_code == 403
+    assert beta_worker.json()["error"] == "project_scope_mismatch"
+    assert alpha_register_beta.status_code == 403
+    assert alpha_register_beta.json()["error"] == "project_scope_mismatch"
+    assert alpha_enqueue_beta.status_code == 403
+    assert alpha_enqueue_beta.json()["error"] == "project_scope_mismatch"

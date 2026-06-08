@@ -56,8 +56,19 @@ class InMemoryWorkflowRepository:
                 return result
         return None
 
-    def list_results(self, *, limit: int | None = None, offset: int = 0) -> list[WorkflowResultRecord]:
-        all_results = sorted(self._results.values(), key=lambda r: r.created_at)
+    def list_results(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+        context: UserProjectContext | None = None,
+    ) -> list[WorkflowResultRecord]:
+        scoped_results = [
+            result
+            for result in self._results.values()
+            if context is None or result.project_id == context.project_id
+        ]
+        all_results = sorted(scoped_results, key=lambda r: r.created_at)
         start = min(offset, len(all_results))
         sliced = all_results[start:]
         if limit is not None:

@@ -36,6 +36,17 @@ class TestLocalCompose:
         for svc in ("postgres", "api"):
             assert "healthcheck" in compose["services"][svc], f"{svc} missing healthcheck"
 
+    def test_web_proxy_uses_server_side_api_token(self):
+        compose = _load_compose(ROOT / "docker-compose.yml")
+        env = compose["services"]["web"]["environment"]
+        assert env["BUILDER_API_TOKEN"] == "${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}"
+        assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
+
+    def test_web_port_bound_localhost_for_token_proxy(self):
+        compose = _load_compose(ROOT / "docker-compose.yml")
+        ports = compose["services"]["web"]["ports"]
+        assert any("127.0.0.1:3000:3000" in port for port in ports)
+
 
 class TestStagingCompose:
     def test_redis_present(self):
@@ -60,6 +71,12 @@ class TestStagingCompose:
         compose = _load_compose(ROOT / "docker-compose.staging.yml")
         env = compose["services"]["api"]["environment"]
         assert env["BUILDER_ARTIFACT_BACKEND"] == "s3"
+
+    def test_web_proxy_does_not_receive_server_side_api_token(self):
+        compose = _load_compose(ROOT / "docker-compose.staging.yml")
+        env = compose["services"]["web"]["environment"]
+        assert "BUILDER_API_TOKEN" not in env
+        assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
 
 
 class TestProductionCompose:
@@ -87,6 +104,12 @@ class TestProductionCompose:
         env = compose["services"]["api"]["environment"]
         for key in env:
             assert not key.startswith("NEXT_PUBLIC_"), f"NEXT_PUBLIC_ found in production: {key}"
+
+    def test_web_proxy_does_not_receive_server_side_api_token(self):
+        compose = _load_compose(ROOT / "docker-compose.production.yml")
+        env = compose["services"]["web"]["environment"]
+        assert "BUILDER_API_TOKEN" not in env
+        assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
 
     def test_redis_password_required(self):
         compose = _load_compose(ROOT / "docker-compose.production.yml")

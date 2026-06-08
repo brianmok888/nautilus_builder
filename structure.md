@@ -4,7 +4,7 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **REQUEST CHANGES** — architecture status **BLOCK** until auth/project-scope gaps are closed.
+**Current verdict:** **APPROVE FOR BUILDER-ONLY DEV-DEMO CLOSEOUT** — hash styling, DOM-order coverage, verification docs, scoped demo seed, local DB smoke, and safety checks are verified. Production/live trading readiness remains out of scope.
 
 ## Authoritative references checked
 
@@ -44,7 +44,7 @@
 | AI/EvoMap/LangChain/LangGraph | **Aligned** | Builder does not depend on EvoMap/LangChain/LangGraph in `packages/`, `services/`, or `pyproject.toml`; it uses an OpenAI-compatible advisory provider and validates outputs before acceptance. |
 | aiogram-dialog / Telegram | **Aligned** | Builder has no aiogram/aiogram-dialog dependency. Daedalus owns Telegram dialog/runtime paths; Builder docs may reference this only as an external downstream notification boundary. |
 | Frontend vs runtime authority | **Aligned with caveats** | UI carries API token handling for local VM mode and no direct order authority; browser must never collect exchange credentials or own worker/runtime handles. |
-| API project scoping | **BLOCK** | Strategy list and mutation routes do not consistently require context or pass context into repository methods; see `findings.md` H-01/H-02. |
+| API project scoping | **SEGMENTS 1 + 4 CLOSED** | Strategy list/mutation routes require scoped context, and runtime missing-auth tests now cover every registered FastAPI `/api/*` route. |
 
 ## High-level architecture map
 
@@ -74,60 +74,166 @@ nautilus_builder/
 
 ## Current changed-diff assessment
 
-The current uncommitted diff adds demo-evidence seeding and replaces private `_jobs_by_id` access in `services/api/routes/evidence_summary.py` with public `list_jobs_for_strategy()` methods.
+The current uncommitted diff is a findings-closure hardening set, not only a demo-evidence change. It closes the reviewed auth/scope/startup/storage/evidence issues while preserving Builder-only authority boundaries.
 
 | Diff area | Assessment |
 |---|---|
-| `services/api/routes/evidence_summary.py` | Directionally good: avoids private backtest service internals. Still inherits evidence-semantics risks: compile can be marked passed from status without a hash, and any non-empty `compile_hash` is accepted. |
-| `packages/backtest_jobs/service.py` | In-memory public query methods are small and coherent. |
-| `packages/backtest_jobs/postgres_service.py` | Works functionally but refreshes/scans all jobs instead of using `PostgresBacktestJobRepository.list_by_strategy_version()`. |
-| `scripts/seed_builder_demo_data.py` | Useful demo flow, but broad `except Exception: pass` can hide seed failures. Demo hashes are intentionally fake and must stay labelled demo-only. |
-| `tests/api/test_evidence_summary.py` | Good coverage for public methods/status mapping. Does not cover Postgres query-path efficiency or compile-hash validation. |
-| Demo/verification docs | Useful runbook updates. Need current review artifacts to state that demo evidence is not production evidence. |
+| FastAPI route/auth layer | Strategy, workflow result, evidence-summary, and execution-lane routes now require bearer context and enforce project scope where records or runtime state are project-owned. |
+| Startup policy | `create_fastapi_app()` validates production/staging token and CORS policy before app startup; strictest configured `BUILDER_ENV`/`APP_ENV` wins, and `BUILDER_DEV_AUTH_TOKEN` is rejected outside local mode. |
+| Evidence/storage | Postgres identifiers are validated before interpolation; evidence summary distinguishes `passed_inferred` from artifact-backed compile evidence and filters backtest jobs by `UserProjectContext`. |
+| Demo seeding | Demo strategies/evidence seed under the configured dev user/project scope and no longer swallow unexpected strategy save failures. |
+| Web proxy | Next middleware injects server-side API auth only in local mode and now ignores `NEXT_PUBLIC_API_BASE_URL` for token-proxy destinations. Staging/production compose files do not pass `BUILDER_API_TOKEN` to the web service. |
+| Docs/tests | Route matrix tests cover every registered FastAPI `/api/*` route, focused regression tests cover review blockers, and runbooks now use same-origin server-side web proxying instead of browser-held tokens. |
 
 No direct `submit_order(` or authoritative `TradeAction(` call was found in production Builder code during the review scan. `TradeAction`/`submit_order` references are expected in docs/tests/policy text and Daedalus boundary references.
 
-## Verification evidence collected during this review
+## Verification evidence collected during current closure
 
 ```bash
-python3 -m compileall -q packages services tests scripts
-# pass
+python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
+# 944 passed, 1 skipped, 1 warning
 
-python3 -m pytest tests/api/test_evidence_summary.py -q
-# 15 passed
+bash scripts/check_forbidden_authority.sh && git diff --check
+# passed
 
-python3 -m pytest tests/ -q --tb=line
-# 906 passed, 1 skipped, 1 warning
+cd apps/web && rm -rf .next && npm run build
+# passed; route summary includes Middleware
 
-cd apps/web && npm run typecheck
-# pass
+cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
+# 120 passed, 4 skipped
 
-cd apps/web && npm run build
-# pass
-
-cd apps/web && npm run test
-# failed: 1 dashboard layout test exceeded the default 5000 ms Vitest timeout under full-suite load
-
-cd apps/web && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 115 passed, 4 skipped
-
-python3 -m pytest \
-  tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project \
-  tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_all_api_routes_require_auth -q
-# 2 passed, but this is a false sense of safety: the tests currently encode/permit public list access.
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
+# 6 passed after RED confirmed public API base URL proxy risk
 ```
 
-Additional manual probes:
-
-- `GET /api/strategies` with **no token** returned `200` and included an alpha user's strategy.
-- `GET /api/strategies` with a **different beta token** returned `200` and included the alpha user's strategy.
-- `POST /api/strategies/{strategy_id}/approve` with a beta token successfully approved an alpha-owned strategy.
-- Production startup accepted a short token when `BUILDER_AI_AUDIT_SQLITE_PATH` was configured, because `validate_production_token()` is not wired into FastAPI startup.
+Former manual-probe failures for unauthenticated strategy list access, wrong-project strategy list access, wrong-project approve/clone, short production token startup, `/api/results` list leakage, evidence-summary cross-project job leakage, and execution-lane project-scope bypass are now represented by regression tests.
 
 ## Stop condition for this review
 
-This review is complete when `structure.md`, `findings.md`, and `handguard.md` reflect the current 2026-06-08 risk state and verification evidence. The repo is **not** merge-ready for production claims until the high-priority auth/scope findings in `findings.md` are fixed and covered by failing-then-passing regression tests.
+This review is complete for Builder-only dev-demo closeout when final git/remote checks pass. The repo is **not** production/live-trading ready; adapter/live readiness still requires DataTester/ExecTester/reconciliation evidence outside this sprint.
 
 ## Master reconciliation — catalog-backed Nautilus replay
 
 `catalog_backed_replay_smoke` writes synthetic historical quote ticks into a `ParquetDataCatalog` and runs NautilusTrader `BacktestNode` with the official no-order subscribe strategy. This is Builder evidence that the pinned Nautilus runtime can replay catalog data through the backtest data path; it is **not full trading-production readiness** and does not replace DataTester/ExecTester/reconciliation evidence for adapters or live execution.
+
+
+## Segment 1 reconciliation — API auth and strategy scope
+
+**Completed:** 2026-06-08
+
+Implemented and verified the first closure segment for strategy API auth and project scope. `GET /api/strategies` now requires bearer auth and passes `UserProjectContext` to the strategy repository. Strategy approve/clone/status paths now accept scoped context and cannot mutate another project in the in-memory repository. The Postgres strategy repository now persists `user_id`/`project_id`, filters scoped list/detail/version reads, accepts context on approve/clone/status mutations, and includes an idempotent migration v5 for existing databases while v1 creates scoped columns for fresh databases.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project tests/api/test_fastapi_app.py::test_fastapi_strategy_approve_and_clone_are_project_scoped -q
+# 2 passed
+
+python3 -m pytest tests/api/test_fastapi_app.py tests/strategy_spec tests/postgres/test_strategy_repository.py tests/postgres/test_migration_v2.py -q
+# 75 passed
+
+python3 -m compileall -q packages/strategy_spec/repository.py packages/postgres/strategy_repository.py packages/postgres/migrations.py services/api/fastapi_app.py tests/api/test_fastapi_app.py tests/postgres/test_strategy_repository.py
+# pass
+```
+
+At Segment 1 completion time, remaining blockers were H-03 production startup policy wiring, H-04 runtime auth coverage, and medium storage/evidence findings.
+
+
+## Segment 2 reconciliation — production startup policy
+
+**Completed:** 2026-06-08
+
+Implemented and verified FastAPI startup enforcement for the existing `packages.auth.policy` checks. `create_fastapi_app()` now validates `BUILDER_ENV`/`APP_ENV`, rejects staging/production without a 32+ character `BUILDER_API_TOKEN`, rejects `NEXT_PUBLIC_BUILDER_API_TOKEN`, and rejects empty or wildcard CORS origins before registering tokens or accepting traffic. Local/dev token behavior remains covered by tests.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 67 passed, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m pytest tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 84 passed, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m compileall -q services/api/fastapi_app.py tests/api/test_production_safety.py
+# pass
+```
+
+At Segment 2 completion time, remaining blockers were H-04 runtime auth coverage and storage/evidence reconciliation pending Segment 3.
+
+
+## Segment 3 reconciliation — storage and evidence hardening
+
+**Completed:** 2026-06-08
+
+Implemented and verified Postgres storage/evidence hardening. A central `packages.postgres.identifiers` helper now rejects unsafe schema/table identifiers for Postgres repositories, migration entrypoints, default seed helpers, and the demo seed script before SQL is built. `PostgresBacktestJobService.list_jobs_for_strategy()` now delegates to `PostgresBacktestJobRepository.list_by_strategy_version()` instead of refreshing/scanning all jobs. Evidence summary now reports lifecycle-only compile success as `passed_inferred` unless an artifact hash is present. The demo seed script now reuses the canonical demo `StrategySpec` factory and surfaces unexpected strategy upsert failures instead of swallowing them.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/api/test_evidence_summary.py::test_backtested_strategy_has_compile_evidence tests/api/test_evidence_summary.py::test_compile_status_inferred_from_lifecycle_does_not_create_compile_audit tests/scripts/test_seed_builder_demo_data.py -q
+# 15 passed
+
+python3 -m pytest tests/postgres tests/api/test_evidence_summary.py tests/backtest_jobs tests/scripts/test_seed_builder_demo_data.py -q
+# 101 passed
+
+python3 -m compileall -q packages/postgres packages/backtest_jobs/postgres_service.py services/api/routes/evidence_summary.py scripts/seed_builder_demo_data.py tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/scripts/test_seed_builder_demo_data.py tests/api/test_evidence_summary.py
+# pass
+```
+
+At final closeout time, Segment 3 is reconciled; production compile-hash strictness remains WATCH only for future non-demo promotion evidence.
+
+
+## Segment 4 reconciliation — runtime auth coverage
+
+**Completed:** 2026-06-08
+
+Implemented and verified runtime missing-auth coverage for every registered FastAPI `/api/*` route. The old static source-scan test was replaced with a route matrix that fails if a new `/api/*` route is mounted without an explicit runtime auth assertion. The six previously public FastAPI catalog/profile/registry routes now call `require_context()` before returning data.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_every_registered_api_route_is_auth_tested tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_protected_api_routes_reject_missing_auth_at_runtime -q
+# 2 passed
+
+python3 -m pytest tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
+# 91 passed, 1 skipped, 1 warning (Starlette/httpx deprecation from testclient)
+
+python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_scope.py
+# pass
+```
+
+At final closeout time, full master reconciliation, architecture review follow-up, and verification have passed for the Builder-only dev-demo scope; safe git push/merge checks remain.
+
+## Master reconciliation — findings closure implementation
+
+**Updated:** 2026-06-08
+
+Master reconciliation verifies the completed Segment 1-4 closure plus follow-up review fixes as a whole. The current diff now covers API auth/scope, production startup policy, durable AI audit-store policy, Postgres identifier/evidence semantics, runtime route auth coverage, execution-lane project scoping, local-only web token proxying, and required ledger/runbook updates.
+
+Verification evidence:
+
+```bash
+python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
+# 944 passed, 1 skipped, 1 warning
+
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
+# 16 passed after strictest audit-store policy fix
+
+bash scripts/check_forbidden_authority.sh && git diff --check
+# passed in the prior master loop; rerun in final closeout before commit
+
+cd apps/web && rm -rf .next && npm run build
+# passed; route summary includes Middleware
+
+cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
+# 120 passed, 4 skipped
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
+# 6 passed after RED confirmed the public API base URL proxy risk
+```
+
+Current stop condition: rerun full closeout verification after documentation reconciliation, obtain fresh post-implementation review PASS, then final git/remote checks decide whether commit and push are safe.
+
+## Final closeout scope warning
+
+This is a Builder-only findings closure. It does not implement Daedalus order-flow profile state machines, does not add live order authority, and does not prove production/live-trading readiness. NautilusTrader adapter/live readiness still requires DataTester, ExecTester, reconciliation evidence, and Daedalus execution-boundary approval.

@@ -7,10 +7,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
-function mockApiResponses() {
+const MOCK_VALIDATED_STRATEGY = {
+  strategy_id: "strat_validated_001",
+  strategy_lineage_id: "line_alpha",
+  status: "validated",
+  latest_spec: {
+    adapter_id: "BINANCE_PERP",
+    instrument_id: "BTCUSDT-PERP",
+    data_range: "2024-01-01:2024-03-01",
+    data_type: "historical_bars",
+    bar_type: "BTCUSDT-PERP.BINANCE-1-MINUTE-LAST-EXTERNAL",
+  },
+} as const;
+
+function mockApiResponses(withStrategy = false) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url === "/api/strategies") return Response.json([]);
+    if (url === "/api/strategies") return Response.json(withStrategy ? [MOCK_VALIDATED_STRATEGY] : []);
     if (url === "/api/adapters") return Response.json([]);
     if (url.startsWith("/api/execution-lane/status")) {
       return Response.json({
@@ -73,33 +86,36 @@ describe("BuilderDashboard", () => {
     });
   });
 
-  it("Backtest Center shows top-down workflow order", async () => {
-    mockApiResponses();
-    render(<BuilderDashboard />);
-
-    const backtestButtons = screen.getAllByText(/Backtest Center/);
-    fireEvent.click(backtestButtons[0].closest("button")!);
+  it("Backtest Center shows full top-down workflow order with a selected strategy", async () => {
+    mockApiResponses(true);
+    const { container } = render(<BuilderDashboard initialTab="backtest" />);
 
     await waitFor(() => {
-      expect(screen.getByText("BacktestNode Replay")).toBeInTheDocument();
+      expect(screen.getByText("strat_validated_001")).toBeInTheDocument();
     });
 
-    // Strategy selection must appear before BacktestNode Replay in DOM order
-    const strategiesHeadings = screen.getAllByText("Strategies");
-    const replay = screen.getByText("BacktestNode Replay");
-    const promotion = screen.getByText("Manual Promotion Review");
+    const selectButton = screen.getByRole("button", { name: /Select/i });
+    fireEvent.click(selectButton);
 
-    // Strategies heading exists before replay
-    const strategies = strategiesHeadings[strategiesHeadings.length - 1];
-    expect(
-      strategies.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("Selected Validated Strategy")).toBeInTheDocument();
+    });
 
-    // Replay appears before promotion
-    expect(
-      replay.compareDocumentPosition(promotion) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
+    expect(screen.getByText("Strategies")).toBeInTheDocument();
+    expect(screen.getByText("BacktestNode Replay")).toBeInTheDocument();
+    expect(screen.getByText("Manual Promotion Review")).toBeInTheDocument();
+
+    const text = container.textContent ?? "";
+    const strategiesIndex = text.indexOf("Strategies");
+    const selectedIndex = text.indexOf("Selected Validated Strategy");
+    const replayIndex = text.indexOf("BacktestNode Replay");
+    const promotionIndex = text.indexOf("Manual Promotion Review");
+
+    expect(strategiesIndex).toBeGreaterThanOrEqual(0);
+    expect(selectedIndex).toBeGreaterThan(strategiesIndex);
+    expect(replayIndex).toBeGreaterThan(selectedIndex);
+    expect(promotionIndex).toBeGreaterThan(replayIndex);
+  }, 10_000);
 
   it("switches to Execution Lane on button click", async () => {
     mockApiResponses();
@@ -136,6 +152,8 @@ describe("BuilderDashboard", () => {
     const body = document.body.textContent ?? "";
     expect(body).not.toMatch(/start live trading/i);
     expect(body).not.toMatch(/auto trade now/i);
+    expect(body).not.toMatch(/execute strategy/i);
+    expect(body).not.toMatch(/live bot running/i);
     expect(body).not.toMatch(/guaranteed profit/i);
     expect(body).not.toMatch(/deploy to exchange/i);
   });

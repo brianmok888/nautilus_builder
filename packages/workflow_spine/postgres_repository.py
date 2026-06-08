@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from sqlite3 import Connection
 
+from packages.auth import ProjectScopeError, UserProjectContext
 from packages.workflow_spine.storage_config import safe_storage_identifier
 from packages.workflow_spine.models import (
     AiSuggestionRecord,
@@ -141,11 +142,25 @@ class SqliteWorkflowRepository:
         payload = self._fetch_payload("test_jobs", "test_job_id", test_job_id)
         return WorkflowJobRecord(**payload) if payload else None
 
-    def result(self, result_id: str) -> WorkflowResultRecord | None:
+    def result(
+        self,
+        result_id: str,
+        *,
+        context: UserProjectContext | None = None,
+    ) -> WorkflowResultRecord | None:
         payload = self._fetch_payload("test_results", "result_id", result_id)
-        return WorkflowResultRecord(**payload) if payload else None
+        result = WorkflowResultRecord(**payload) if payload else None
+        if result is not None and context is not None and result.project_id != context.project_id:
+            raise ProjectScopeError(f"result {result_id} is outside project scope")
+        return result
 
-    def list_results(self, *, limit: int | None = None, offset: int = 0) -> list[WorkflowResultRecord]:
+    def list_results(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+        context: UserProjectContext | None = None,
+    ) -> list[WorkflowResultRecord]:
         table = _table(self._schema, "test_results")
         sql = f"SELECT payload FROM {table} ORDER BY rowid"
         if offset:
@@ -153,7 +168,10 @@ class SqliteWorkflowRepository:
         elif limit is not None:
             sql += f" LIMIT {int(limit)}"
         rows = self._connection.execute(sql).fetchall()
-        return [WorkflowResultRecord(**json.loads(row[0])) for row in rows]
+        results = [WorkflowResultRecord(**json.loads(row[0])) for row in rows]
+        if context is None:
+            return results
+        return [result for result in results if result.project_id == context.project_id]
 
     def suggestions_for_lineage(self, strategy_lineage_id: str) -> list[AiSuggestionRecord]:
         return self._fetch_suggestions("strategy_lineage_id", strategy_lineage_id)

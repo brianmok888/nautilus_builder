@@ -56,6 +56,7 @@ describe("BacktestLaunchPanel layout", () => {
     const body = document.body.textContent ?? "";
     expect(body).not.toMatch(/start live trading/i);
     expect(body).not.toMatch(/auto trade now/i);
+    expect(body).not.toMatch(/live bot running/i);
     expect(body).not.toMatch(/guaranteed profit/i);
     expect(body).not.toMatch(/deploy to exchange/i);
     expect(body).not.toMatch(/execute strategy/i);

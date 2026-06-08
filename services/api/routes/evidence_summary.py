@@ -72,8 +72,13 @@ def strategy_evidence_summary_payload(
     replay_evidence: dict[str, Any] = {"status": "missing", "jobs": []}
     if backtest_job_service is not None and strategy_version_id:
         # Use public method: list_jobs_for_strategy
-        strategy_jobs = backtest_job_service.list_jobs_for_strategy(strategy_version_id)
+        strategy_jobs = backtest_job_service.list_jobs_for_strategy(strategy_version_id, context=context)
         for job in strategy_jobs:
+            if (
+                context is not None
+                and (job.user_id != context.user_id or job.project_id != context.project_id)
+            ):
+                continue
             job_dict: dict[str, Any] = {
                 "jobId": job.job_id,
                 "status": _normalize_replay_status(job.stage, job.status),
@@ -109,9 +114,7 @@ def strategy_evidence_summary_payload(
 
     # Backend status implies compile succeeded (compile is prerequisite for backtest).
     if status in ("backtested", "approved", "execution_ready") and compile_evidence["status"] == "missing":
-        # We don't have the actual hash, but the backend advanced, so compile must have passed.
-        # Mark as "passed" with unknown hash.
-        compile_evidence["status"] = "passed"
+        compile_evidence["status"] = "passed_inferred"
 
     # Promotion evidence — derived from strategy status only.
     # The Builder has no persistent promotion request store; the strategy status

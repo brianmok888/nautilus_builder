@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from packages.backtest_jobs.service import BacktestJobService
+from packages.auth import UserProjectContext
 from packages.strategy_spec.demo_seed import seed_demo_strategies
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 from services.api.routes.evidence_summary import strategy_evidence_summary_payload
@@ -38,8 +39,8 @@ def test_backtested_strategy_has_compile_evidence(repo: InMemoryStrategyReposito
     payload = strategy_evidence_summary_payload(repo, "demo_compiled")
     result = payload.json()
     assert result["strategyStatus"] == "backtested"
-    # Backend status "backtested" implies compile passed even without explicit hash.
-    assert result["compile"]["status"] == "passed"
+    assert result["compile"]["status"] == "passed_inferred"
+    assert result["compile"]["hash"] is None
 
 
 def test_approved_strategy_has_promotion_ready(repo: InMemoryStrategyRepository) -> None:
@@ -88,6 +89,54 @@ def test_evidence_summary_with_backtest_job(repo: InMemoryStrategyRepository) ->
     assert result["replay"]["status"] == "passed"
     assert len(result["replay"]["jobs"]) == 1
     assert result["replay"]["jobs"][0]["jobId"] == job.job_id
+
+
+def test_evidence_summary_filters_backtest_jobs_by_project() -> None:
+    repo = InMemoryStrategyRepository()
+    context = UserProjectContext(user_id="user_alpha", project_id="project_alpha")
+    seed_demo_strategies(repo, context=context)
+    bt_service = BacktestJobService()
+    alpha_job = bt_service.create_job({
+        "strategy_spec_version_id": "demo_validated_v001",
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "BTCUSDT-PERP",
+        "compile_hash": "a" * 64,
+        "validation_report_id": "vr_alpha",
+        "data_range": "2025-01-01:2025-06-01",
+        "user_id": "user_alpha",
+        "project_id": "project_alpha",
+    })
+    bt_service.create_job({
+        "strategy_spec_version_id": "demo_validated_v001",
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "ETHUSDT-PERP",
+        "compile_hash": "b" * 64,
+        "validation_report_id": "vr_beta",
+        "data_range": "2025-01-01:2025-06-01",
+        "user_id": "user_beta",
+        "project_id": "project_beta",
+    })
+
+    payload = strategy_evidence_summary_payload(
+        repo,
+        "demo_validated",
+        backtest_job_service=bt_service,
+        context=context,
+    )
+    result = payload.json()
+
+    assert [job["jobId"] for job in result["replay"]["jobs"]] == [alpha_job.job_id]
+    assert result["compile"]["hash"] == "a" * 64
+
+
+def test_compile_status_inferred_from_lifecycle_does_not_create_compile_audit(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    payload = strategy_evidence_summary_payload(repo, "demo_compiled")
+    result = payload.json()
+
+    assert result["compile"]["status"] == "passed_inferred"
+    assert all(event["kind"] != "compiled" for event in result["audit"])
 
 
 def test_evidence_summary_not_found(repo: InMemoryStrategyRepository) -> None:

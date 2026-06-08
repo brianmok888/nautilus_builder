@@ -99,7 +99,7 @@ describe("apiFetch", () => {
   it("attaches configured local bearer token to API requests when no Authorization header is provided", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubEnv("NEXT_PUBLIC_BUILDER_API_TOKEN", "nb_local_dev_token");
+    vi.stubEnv("BUILDER_API_TOKEN", "nb_local_dev_token");
 
     await apiFetch<{ ok: boolean }>("/api/strategies");
 
@@ -113,7 +113,7 @@ describe("apiFetch", () => {
   it("does not override an explicit Authorization header", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubEnv("NEXT_PUBLIC_BUILDER_API_TOKEN", "nb_local_dev_token");
+    vi.stubEnv("BUILDER_API_TOKEN", "nb_local_dev_token");
 
     await apiFetch<{ ok: boolean }>("/api/strategies", {
       headers: { Authorization: "Bearer caller_token" },
@@ -138,7 +138,7 @@ describe("apiFetch", () => {
     );
 
     await expect(apiFetch("/api/strategies")).rejects.toThrow(
-      /configure BUILDER_API_TOKEN or NEXT_PUBLIC_BUILDER_API_TOKEN/i,
+      /configure BUILDER_API_TOKEN/i,
     );
   });
 

@@ -91,11 +91,7 @@ async function parseResponseBody(response: Response): Promise<unknown> {
 }
 
 function builderApiToken(): string {
-  return (
-    process.env.BUILDER_API_TOKEN ??
-    process.env.NEXT_PUBLIC_BUILDER_API_TOKEN ??
-    ""
-  ).trim();
+  return (process.env.BUILDER_API_TOKEN ?? "").trim();
 }
 
 function requestInitWithAuth(path: string, init?: RequestInit): RequestInit {
@@ -140,7 +136,7 @@ export async function apiFetch<T>(
         ? String((payload as { body: unknown }).body)
         : "";
     const message = isAuthErrorPayload(payload)
-      ? `Nautilus Builder API authentication failed (${response.status}) for ${url}. Configure BUILDER_API_TOKEN or NEXT_PUBLIC_BUILDER_API_TOKEN for local VM/API proxy mode.`
+      ? `Nautilus Builder API authentication failed (${response.status}) for ${url}. Configure BUILDER_API_TOKEN for server-side local VM/API proxy mode.`
       : body || payload === undefined
         ? errorMessage(response.status, url, contentType, body)
         : `Nautilus Builder API request failed (${response.status}) for ${url}`;

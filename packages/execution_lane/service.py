@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+from packages.auth import ProjectScopeError
+
 from .credentials import ExecutionCredentialSlot, ExecutionCredentialSlotRequest, LocalEnvCredentialSlotStore
 from .models import ExecutionCommandStatus, ExecutionLaneCommand, ExecutionLaneProfile, ExecutionLaneReport
 from .nautilus_runtime import NautilusTradingNodeRuntimePlan, build_trading_node_runtime_plan
@@ -41,20 +43,27 @@ class ExecutionLaneService:
         self._profiles[profile.runtime_profile_id] = profile
         return profile
 
-    def get_profile(self, runtime_profile_id: str) -> ExecutionLaneProfile:
-        return self._profiles[runtime_profile_id]
+    def get_profile(self, runtime_profile_id: str, *, project_id: str | None = None) -> ExecutionLaneProfile:
+        profile = self._profiles[runtime_profile_id]
+        if project_id is not None and profile.project_id != project_id:
+            raise ProjectScopeError(f"execution lane profile {runtime_profile_id} is outside project scope")
+        return profile
 
-    def get_command(self, command_id: str) -> ExecutionLaneCommand:
-        return self._commands[command_id]
+    def get_command(self, command_id: str, *, project_id: str | None = None) -> ExecutionLaneCommand:
+        command = self._commands[command_id]
+        if project_id is not None and command.project_id != project_id:
+            raise ProjectScopeError(f"execution lane command {command_id} is outside project scope")
+        return command
 
     def build_trading_node_runtime_plan(
         self,
         *,
         runtime_profile_id: str,
         command_id: str | None = None,
+        project_id: str | None = None,
     ) -> NautilusTradingNodeRuntimePlan:
-        profile = self.get_profile(runtime_profile_id)
-        command = self.get_command(command_id) if command_id is not None else None
+        profile = self.get_profile(runtime_profile_id, project_id=project_id)
+        command = self.get_command(command_id, project_id=project_id) if command_id is not None else None
         return build_trading_node_runtime_plan(profile, command=command)
 
     def list_profiles(self, *, project_id: str | None = None) -> list[ExecutionLaneProfile]:
@@ -77,10 +86,17 @@ class ExecutionLaneService:
         self._idempotency_index[key] = command.command_id
         return command
 
-    def list_commands(self, *, runtime_profile_id: str | None = None) -> list[ExecutionLaneCommand]:
+    def list_commands(
+        self,
+        *,
+        runtime_profile_id: str | None = None,
+        project_id: str | None = None,
+    ) -> list[ExecutionLaneCommand]:
         commands = list(self._commands.values())
         if runtime_profile_id is not None:
             commands = [command for command in commands if command.runtime_profile_id == runtime_profile_id]
+        if project_id is not None:
+            commands = [command for command in commands if command.project_id == project_id]
         return commands
 
     def claim_next(self, *, runtime_profile_id: str, worker_id: str) -> ExecutionLaneCommand:
@@ -125,24 +141,39 @@ class ExecutionLaneService:
         self._sessions[session.session_id] = session
         return session
 
-    def get_session(self, session_id: str) -> ExecutionLaneSession:
-        return self._sessions[session_id]
+    def get_session(self, session_id: str, *, project_id: str | None = None) -> ExecutionLaneSession:
+        session = self._sessions[session_id]
+        if project_id is not None and session.project_id != project_id:
+            raise ProjectScopeError(f"execution lane session {session_id} is outside project scope")
+        return session
 
-    def list_sessions(self, *, runtime_profile_id: str | None = None) -> list[ExecutionLaneSession]:
+    def list_sessions(
+        self,
+        *,
+        runtime_profile_id: str | None = None,
+        project_id: str | None = None,
+    ) -> list[ExecutionLaneSession]:
         sessions = list(self._sessions.values())
         if runtime_profile_id is not None:
             sessions = [session for session in sessions if session.runtime_profile_id == runtime_profile_id]
+        if project_id is not None:
+            sessions = [session for session in sessions if session.project_id == project_id]
         return sessions
 
-    def snapshot(self, *, runtime_profile_id: str | None = None) -> dict[str, object]:
-        commands = self.list_commands(runtime_profile_id=runtime_profile_id)
+    def snapshot(self, *, runtime_profile_id: str | None = None, project_id: str | None = None) -> dict[str, object]:
+        commands = self.list_commands(runtime_profile_id=runtime_profile_id, project_id=project_id)
         reports = list(self._reports.values())
         if runtime_profile_id is not None:
             reports = [report for report in reports if report.runtime_profile_id == runtime_profile_id]
-        sessions = self.list_sessions(runtime_profile_id=runtime_profile_id)
-        profiles = self.list_profiles()
+        if project_id is not None:
+            reports = [report for report in reports if report.project_id == project_id]
+        sessions = self.list_sessions(runtime_profile_id=runtime_profile_id, project_id=project_id)
+        profiles = self.list_profiles(project_id=project_id)
         if runtime_profile_id is not None:
             profiles = [profile for profile in profiles if profile.runtime_profile_id == runtime_profile_id]
+        credential_slots = list(self._credential_slots.values())
+        if project_id is not None:
+            credential_slots = [slot for slot in credential_slots if slot.project_id == project_id]
         return {
             "mode": "execution_lane",
             "runtime_profile_id": runtime_profile_id,
@@ -153,7 +184,7 @@ class ExecutionLaneService:
             "reports": len(reports),
             "sessions": len(sessions),
             "running_sessions": sum(session.lifecycle_status == "RUNNING" for session in sessions),
-            "credential_slots": len(self._credential_slots),
+            "credential_slots": len(credential_slots),
             "strategy_lane_coupled": False,
             "may_submit_order": any(command.may_submit_order for command in commands),
             "venue_bindings": [

@@ -1437,7 +1437,7 @@ pre {
 /* Hash field truncation */
 .hash-field,
 .backtest-hash-value {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

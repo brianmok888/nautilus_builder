@@ -222,6 +222,8 @@ def test_fastapi_production_mode_requires_durable_ai_audit_store(monkeypatch) ->
     monkeypatch.setitem(sys.modules, "fastapi", types.SimpleNamespace(FastAPI=FakeFastAPI, Header=lambda default=None: default))
     monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=object))
     monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
     monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
 
     from services.api.fastapi_app import create_fastapi_app

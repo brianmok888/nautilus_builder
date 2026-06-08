@@ -1,191 +1,163 @@
 # Local Verification Checklist
 
-Run these commands before submitting changes. All must pass.
+Use this checklist for local closeout verification against the Builder-owned dev
+PostgreSQL database. Nautilus Builder remains Builder-only: no live order
+submission, no browser-held credentials, no Nautilus-Daedalus runtime DB writes,
+and manual promotion only after evidence review.
 
-## Backend
-
-```bash
-# Lint
-uv run ruff check .
-
-# Tests
-uv run pytest
-```
-
-## Frontend
+## 1. Start Builder-Owned Dev Database
 
 ```bash
-cd apps/web
-
-# Type checking
-npm run typecheck
-
-# Unit tests
-npm test
-
-# Production build
-npm run build
+docker compose -f docker-compose.dev.yml up -d postgres
 ```
 
-## Safety Search
+Expected dev database credentials from `docker-compose.dev.yml` / `.env.example`:
 
-Verify no forbidden live-trading wording appears in frontend code:
+- database: `nautilus_builder`
+- user: `builder`
+- password: `builder_dev`
+- local endpoint: `localhost:5432`
 
-```bash
-grep -R "submit_order\|Start live trading\|live trading enabled\|Auto execute\|Guaranteed profit\|Auto trade now\|Deploy to exchange" \
-  apps/web/src apps/web/components apps/web/lib --include='*.ts' --include='*.tsx' || echo "OK: no forbidden wording"
-```
-
-Hits must fail unless they are explicit negative safety copy (e.g., "No live order submission").
-
-## Expected Safety Guarantees
-
-- Builder does not submit live orders.
-- Builder does not create executable TradeAction.
-- Builder does not use live credentials in replay.
-- AI remains advisory only.
-- `NEXT_PUBLIC_BUILDER_API_TOKEN` must not be exposed.
-
-## Evidence Summary Endpoint Verification
-
-Start the backend with demo data:
-
-```bash
-export BUILDER_API_TOKEN=dev-token
-export BUILDER_SEED_DEMO_STRATEGIES=1
-uv run uvicorn services.api.fastapi_app:app --port 8000 &
-```
-
-### Verify each demo strategy returns correct evidence
-
-```bash
-AUTH="Authorization: Bearer dev-token"
-BASE="http://localhost:8000"
-
-# Draft strategy — all evidence missing
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_draft/evidence-summary" | python3 -m json.tool
-# Expected: validation.status in (missing, passed), compile.status=missing, replay.status=missing, promotion.status=missing
-
-# Validation failed — validation failed
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_validation_failed/evidence-summary" | python3 -m json.tool
-# Expected: validation.status=failed, compile.status=missing
-
-# Validated — validation passed, compile missing
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_validated/evidence-summary" | python3 -m json.tool
-# Expected: validation.status=passed, compile.status=missing
-
-# Compiled — compile hash present, replay missing
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_compiled/evidence-summary" | python3 -m json.tool
-# Expected: compile.status=passed with hash, replay.status=missing or running
-
-# Replay failed — replay failed with error
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_replay_failed/evidence-summary" | python3 -m json.tool
-# Expected: replay.status=failed, compile.status=passed
-
-# Replay passed — replay succeeded with report refs
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_replay_passed/evidence-summary" | python3 -m json.tool
-# Expected: replay.status=passed, compile hash present, resultArtifactRefs non-empty
-
-# Promotion requested — promotion ready
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_requested/evidence-summary" | python3 -m json.tool
-# Expected: promotion.status=ready, replay.status=passed
-
-# Promotion ready — all evidence present
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_ready/evidence-summary" | python3 -m json.tool
-# Expected: promotion.status=ready, all evidence present
-```
-
-### Verify endpoint is read-only
-
-```bash
-# POST should return 404 (not a valid route)
-curl -s -X POST -H "$AUTH" "$BASE/api/strategies/demo_draft/evidence-summary" | python3 -m json.tool
-# Expected: 404 or method not allowed
-```
-
-### Verify no live execution fields
-
-```bash
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_ready/evidence-summary" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-forbidden = ['submit_order', 'trade_action', 'live_credentials', 'execute_strategy', 'live_execution']
-for field in forbidden:
-    assert field not in str(data).lower(), f'Forbidden field found: {field}'
-print('OK: no forbidden live execution fields')
-"
-```
-
-## Strategy Detail UI Verification
-
-Start both backend and frontend, then verify each strategy:
-
-| Strategy | Lifecycle Stage | Validation | Compile | Replay | Promotion | Next Action |
-|----------|----------------|------------|---------|--------|-----------|-------------|
-| demo_draft | Draft | passed/missing | missing | missing | missing | Validate StrategySpec |
-| demo_validation_failed | Validation failed | failed | missing | missing | missing | Fix validation errors |
-| demo_validated | Validated | passed | missing | missing | missing | Compile preview artifact |
-| demo_compiled | Replay missing | passed | present | missing | missing | Run replay |
-| demo_replay_failed | Replay failed | passed | present | failed | missing | Review replay errors |
-| demo_replay_passed | Replay passed | passed | present | passed | missing | Request promotion review |
-| demo_promotion_requested | Promotion ready | passed | present | passed | ready | Inspect evidence |
-| demo_promotion_ready | Promotion ready | passed | present | passed | ready | Inspect evidence |
-
-For each strategy, verify:
-1. Lifecycle panel shows the correct stage.
-2. Next action card shows the correct action and explanation.
-3. Evidence grid shows compile hash/ref when applicable.
-4. Evidence grid shows replay job/report/artifact refs when applicable.
-5. Evidence grid shows promotion request/ledger status when applicable.
-6. Audit timeline shows evidence-derived events (created, validated, compiled, replay, promotion).
-7. Missing evidence cards show clear "missing" state with next step guidance.
-8. Builder-only safety banner is visible.
-
-## Graceful Fallback Verification
-
-1. Stop the backend server.
-2. Open a strategy detail page in the frontend.
-3. Verify:
-   - Page still renders basic strategy detail (if cached).
-   - A warning card appears: "Rich evidence summary unavailable."
-   - No crash or unhandled error.
-4. Restart the backend and verify the warning disappears on refresh.
-
-## Demo Seed Script Verification
-
-```bash
-# Run the seed script directly
-uv run python scripts/seed_demo_evidence.py
-# Expected output: 8 strategies seeded, backtest jobs for applicable strategies
-
-# Run again to verify idempotency
-uv run python scripts/seed_demo_evidence.py
-# Expected: same output, no duplicate records
-```
-
-## Demo Seed Consistency
-
-The single seed command creates demo strategies **and** demo evidence:
+## 2. Export Demo Environment
 
 ```bash
 export BUILDER_DATABASE_URL="postgresql://builder:builder_dev@localhost:5432/nautilus_builder"
-uv run python scripts/seed_builder_demo_data.py
+export BUILDER_API_TOKEN="replace-with-strong-demo-token"
+export BUILDER_DEV_USER_ID="local_user"
+export BUILDER_DEV_PROJECT_ID="local_project"
+export BUILDER_DEV_ROLE="builder"
+export BUILDER_ARTIFACT_ROOT="./var/builder_artifacts"
 ```
 
-Then verify evidence summary examples for the seeded strategies:
+## 3. Apply Migrations
 
 ```bash
-AUTH="Authorization: Bearer replace-with-strong-demo-token"
-BASE="http://localhost:8000"
-
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_compiled/evidence-summary" | python3 -m json.tool
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_replay_passed/evidence-summary" | python3 -m json.tool
-curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_promotion_ready/evidence-summary" | python3 -m json.tool
+uv run python scripts/apply_builder_migrations.py
 ```
 
-Run twice to verify idempotency (no duplicate records):
+## 4. Seed Demo Data
+
+This single command seeds demo strategies and demo evidence states into the
+Builder-owned database:
 
 ```bash
 uv run python scripts/seed_builder_demo_data.py
-uv run python scripts/seed_builder_demo_data.py
 ```
+
+Expected demo states:
+
+| Demo state | Strategy ID |
+| --- | --- |
+| Demo Draft Strategy | `demo_draft` |
+| Demo Validation Failed Strategy | `demo_validation_failed` |
+| Demo Validated Strategy | `demo_validated` |
+| Demo Compiled Strategy | `demo_compiled` |
+| Demo Replay Failed Strategy | `demo_replay_failed` |
+| Demo Replay Passed Strategy | `demo_replay_passed` |
+| Demo Promotion Requested Strategy | `demo_promotion_requested` |
+| Demo Promotion Ready Strategy | `demo_promotion_ready` |
+
+The seed command is idempotent. Run it twice to verify it does not duplicate
+strategy or backtest records.
+
+## 5. Start API
+
+```bash
+uv run uvicorn services.api.fastapi_app:create_fastapi_app \
+  --factory --reload --host 0.0.0.0 --port 8000
+```
+
+## 6. Start Web
+
+```bash
+cd apps/web
+npm ci
+NEXT_PUBLIC_API_BASE_URL= \
+BUILDER_API_BASE_URL=http://localhost:8000 \
+BUILDER_API_TOKEN="$BUILDER_API_TOKEN" \
+npm run dev
+```
+
+The web app should call same-origin `/api/*` paths in local mode. The Next
+middleware injects the server-side `BUILDER_API_TOKEN`; do not expose Builder
+API tokens through `NEXT_PUBLIC_*` variables.
+
+## 7. Evidence Summary Smoke Test
+
+```bash
+curl -H "Authorization: Bearer replace-with-strong-demo-token" \
+  http://localhost:8000/api/strategies/demo_replay_passed/evidence-summary
+```
+
+Expected:
+
+- strategy exists
+- validation state exists
+- compile evidence exists when applicable
+- replay evidence exists when applicable
+- promotion evidence exists when applicable
+- missing data is shown as missing
+- unknown data is shown as unknown
+- failed data is shown as failed
+- passed data is shown as passed
+
+Useful additional smoke checks:
+
+```bash
+curl -H "Authorization: Bearer replace-with-strong-demo-token" \
+  http://localhost:8000/api/strategies/demo_compiled/evidence-summary
+curl -H "Authorization: Bearer replace-with-strong-demo-token" \
+  http://localhost:8000/api/strategies/demo_promotion_ready/evidence-summary
+```
+
+## 8. Restart Durability Test
+
+Restart the API, then rerun the evidence-summary curl.
+
+Expected:
+
+- demo strategies remain
+- compile evidence remains
+- replay evidence remains
+- promotion evidence remains
+- audit timeline remains
+
+## 9. Frontend Verification
+
+```bash
+cd apps/web
+npm run typecheck
+npm run build
+npx vitest run --config vitest.config.mts --testTimeout=10000
+```
+
+## 10. Backend Verification
+
+```bash
+uv run ruff check .
+uv run pytest
+```
+
+## 11. Safety Search
+
+```bash
+grep -R "submit_order\|Start live trading\|live trading enabled\|Auto execute\|Guaranteed profit" \
+  apps/web services packages scripts docs || true
+```
+
+Review all hits. Allowed hits must be explicitly negative or safety-oriented,
+for example `No live order submission`, `may_submit_order: false`, or a test
+asserting forbidden wording is absent.
+
+## Expected Safety Guarantees
+
+- Builder-only mode remains enforced.
+- Backtest and replay outputs are historical evidence-only.
+- Builder does not submit live orders.
+- Builder does not create executable TradeAction.
+- Builder does not use live credentials in preview, replay, or backtest.
+- Browser credentials remain disabled (`browser_credentials: false`).
+- AI remains advisory and is not authoritative.
+- Backend validation is not bypassed.
+- Manual promotion happens only after review.
+- The Builder database is separate from the Nautilus-Daedalus runtime database.

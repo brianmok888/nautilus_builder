@@ -30,6 +30,7 @@ from packages.strategy_spec.models import (
     StrategyStatus,
     ValidationFlags,
 )
+from packages.auth import UserProjectContext
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 
 _EMA_FAST = IndicatorSpec(type=IndicatorType.EMA, input=IndicatorInput.CLOSE, period=20)
@@ -92,7 +93,11 @@ def _make_spec(label: str, status: StrategyStatus, stage: StrategyStage, validat
     )
 
 
-def seed_demo_strategies(repository: InMemoryStrategyRepository) -> None:
+def seed_demo_strategies(
+    repository: InMemoryStrategyRepository,
+    *,
+    context: UserProjectContext | None = None,
+) -> None:
     """Populate the repository with one strategy per lifecycle status.
 
     Uses explicit IDs (demo_draft, demo_validated, …) so they don't collide
@@ -103,4 +108,4 @@ def seed_demo_strategies(repository: InMemoryStrategyRepository) -> None:
     """
     for strategy_id, _label, status, stage, validation, created_from in _DEMO_STRATEGIES:
         spec = _make_spec(_label, status, stage, validation, created_from)
-        repository.save_explicit(strategy_id, spec)
+        repository.save_explicit(strategy_id, spec, context=context)
