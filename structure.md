@@ -36,10 +36,24 @@
 
 ### Newly surfaced architecture/security blockers
 
+### Segment 1 closure snapshot
+
+Credential/package safety is now closed for browser/API and Docker packaging. Remaining open blockers start at API exposure/rate limiting/audit, then artifact readiness, LLM persistence, frontend runtime-action ownership, and safety scan hardening.
+
+Verification:
+
+```bash
+python3 -m pytest tests/test_dockerfile_safety.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials tests/web/test_execution_lane_ui_contract.py -q
+# 4 passed
+
+cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFeaturePanel.test.tsx
+# 2 files passed; 14 passed, 2 skipped
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
-| **CRITICAL** | Docker API image can bake local credential files into image layers/build context. | `Dockerfile.api:13-15`; `.gitignore:1-6`; no `.dockerignore`; local untracked `.env.execution.local:1-2` contains Binance credential variable names (values redacted during review). | Violates Builder credential boundaries and can leak exchange credentials through Docker layers, remote builders, or pushed images. |
-| **CRITICAL** | Builder UI/API accepts raw venue credentials and persists them to `.env.execution.local`. | `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `62-69`; `packages/execution_lane/credentials.py:124-151`; `packages/execution_lane/adapter_config_builders.py:31-70`. | Frontend is supposed to be observational/advisory; browser-held credential entry conflicts with `browser_credentials: false`. |
+| **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |
+| **CLOSED/WATCH** | Builder UI/API accepts raw venue credentials and persists them to `.env.execution.local`. | Segment 1: Settings no longer mounts `CredentialSlotBootstrap`; frontend API has no credential-slot helper; HTTP route returns `credential_slot_http_disabled`. | Browser/API credential entry closed. Backend-only/CLI secret provisioning remains a future design item. |
 | **HIGH** | Installed `nautilus-builder-api` entrypoint exposes the dependency-free dev server without auth. | `pyproject.toml:19-20`; `services/api/dev_server.py:39-44`; `services/api/app.py:57-125`. | Running the packaged command on a non-loopback host can expose mutating API routes without bearer auth/scope/rate-limit checks. |
 | **HIGH** | Rate limiter is instantiated but not enforced. | `services/api/fastapi_app.py:182-195`; no production call to `_rate_limiter.is_allowed(...)`; `packages/auth/redis_rate_limit.py:56-73`. | Production can claim Redis rate limiting while protected routes bypass it; Redis outages fail open if wired later. |
 | **HIGH** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | `packages/auth/audit_middleware.py:64-77`; no code sets `request.state.actor_id`/`project_id`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py:891-910`. | Mutations can succeed without durable actor/project audit evidence. |

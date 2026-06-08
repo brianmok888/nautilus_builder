@@ -41,6 +41,13 @@ _FORBIDDEN_KEYS = {
 _DEFAULT_ENV_FILE = ".env.execution.local"
 
 
+def browser_credential_bootstrap_disabled_payload() -> dict[str, str]:
+    return {
+        "error": "credential_slot_http_disabled",
+        "details": "Browser/API credential bootstrap is disabled; use backend-only secret provisioning.",
+    }
+
+
 class ExecutionCredentialSlotRequest(BaseModel):
     """One-shot local/dev credential bootstrap request.
 

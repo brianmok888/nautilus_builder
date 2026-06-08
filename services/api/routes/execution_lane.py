@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from packages.execution_lane import ExecutionLaneService, default_execution_lane_service
+from packages.execution_lane.credentials import browser_credential_bootstrap_disabled_payload
 from services.workers.execution_lane_worker import run_execution_lane_worker_once, start_execution_lane_paper_session, stop_execution_lane_session
 from services.api.router import ApiResponse
 
@@ -20,12 +21,7 @@ def create_execution_lane_credential_slot_payload(
     *,
     service: ExecutionLaneService | None = None,
 ) -> ApiResponse:
-    service = service or default_execution_lane_service()
-    try:
-        slot = service.create_credential_slot(payload)
-    except ValueError as exc:
-        return ApiResponse({"error": "invalid_execution_lane_credential_slot", "details": str(exc)}, status_code=422)
-    return ApiResponse(slot.model_dump(mode="json"), status_code=201)
+    return ApiResponse(browser_credential_bootstrap_disabled_payload(), status_code=410)
 
 
 def register_execution_lane_profile_payload(

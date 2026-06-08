@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { ApiError, apiFetch, runBacktestJob, startExecutionLanePaperSession, stopExecutionLaneSession } from "./api";
 
 describe("apiFetch", () => {
@@ -176,53 +177,12 @@ describe("apiFetch", () => {
       /unable to reach Nautilus Builder API/i,
     );
   });
-  it("posts credential-slot bootstrap payload without echoing secrets", async () => {
-    const { saveExecutionLaneCredentialSlot } = await import("./api");
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      expect(String(input)).toBe("/api/execution-lane/credential-slots");
-      expect(init?.method).toBe("POST");
-      const payload = JSON.parse(String(init?.body));
-      expect(payload).toMatchObject({
-        runtime_profile_id: "rp_paper_tradingnode",
-        venue: "BINANCE",
-        credential_values: { BINANCE_API_KEY: "test-binance-key" },
-      });
-      return Response.json(
-        {
-          credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
-          tenant_id: "tenant_a",
-          project_id: "project_alpha",
-          runtime_profile_id: "rp_paper_tradingnode",
-          adapter_id: "BINANCE_PERP",
-          venue: "BINANCE",
-          lane_mode: "paper",
-          secrets_storage: "local_env_file",
-          env_file_path: ".env.execution.local",
-          redacted_keys: ["BINANCE_API_KEY"],
-          fingerprint: "a".repeat(64),
-          browser_secret_echo: false,
-        },
-        { status: 201 },
-      );
-    });
-    vi.stubGlobal("fetch", fetchMock);
+  it("does not expose browser credential-slot posting helpers", () => {
+    const apiSource = readFileSync("lib/api.ts", "utf8");
 
-    await expect(
-      saveExecutionLaneCredentialSlot({
-        tenant_id: "tenant_a",
-        project_id: "project_alpha",
-        runtime_profile_id: "rp_paper_tradingnode",
-        adapter_id: "BINANCE_PERP",
-        venue: "BINANCE",
-        lane_mode: "paper",
-        requested_by: "ops_user",
-        credential_values: { BINANCE_API_KEY: "test-binance-key" },
-      }),
-    ).resolves.toMatchObject({
-      credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
-      browser_secret_echo: false,
-      redacted_keys: ["BINANCE_API_KEY"],
-    });
+    expect(apiSource).not.toContain("saveExecutionLaneCredentialSlot");
+    expect(apiSource).not.toContain("/api/execution-lane/credential-slots");
+    expect(apiSource).not.toContain("credential_values");
   });
 
 

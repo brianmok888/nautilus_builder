@@ -2,7 +2,7 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** REQUEST CHANGES for production/security readiness. Clean-route/Overview local UI closeout remains verified, but critical credential packaging/storage and runtime-safety findings are open. Production/live trading readiness is not claimed.
+**Current state:** REQUEST CHANGES for production/security readiness. Segment 1 closed Docker credential packaging and browser/API credential entry, but runtime-safety findings remain open. Production/live trading readiness is not claimed.
 
 ## 0. Current review gate — 2026-06-08 post-route standardization
 
@@ -10,8 +10,8 @@
 
 ### Immediate blocker guards
 
-1. **Credential packaging guard:** Docker builds must never copy `.env.execution.local` or any `.env*` secret file into an image or remote build context. Current evidence: `Dockerfile.api:13-15`, missing `.dockerignore`, and a local untracked `.env.execution.local` with credential variable names. Remove the copy pattern, add `.dockerignore`, and rotate any real keys.
-2. **Browser credential guard:** Builder UI must not collect raw venue credentials. Current evidence: `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `62-69`. Replace with backend-only secret references or a CLI/admin bootstrap.
+1. **Credential packaging guard — CLOSED Segment 1:** Docker builds must never copy `.env.execution.local` or any `.env*` secret file into an image or remote build context. Current evidence: `Dockerfile.api` no longer copies env files and `.dockerignore` excludes `.env*`; rotate any real keys that existed before closure.
+2. **Browser credential guard — CLOSED Segment 1:** Builder UI must not collect raw venue credentials. Current evidence: Settings no longer imports `CredentialSlotBootstrap`, the frontend API client no longer exposes `/api/execution-lane/credential-slots`, and HTTP credential-slot writes return `credential_slot_http_disabled`. Future secret provisioning must be backend-only or CLI/admin-only.
 3. **Paper/runtime credential guard:** Paper sessions must not require live venue credentials or construct live venue data/exec clients from browser-provided secrets. Current evidence: `packages/execution_lane/sessions.py:218-232`, `packages/execution_lane/adapter_config_builders.py:31-70`.
 4. **Dev server exposure guard:** `nautilus-builder-api` must not start an unauthenticated mutating API on non-loopback hosts. Current evidence: `pyproject.toml:19-20`, `services/api/dev_server.py:39-44`, `services/api/app.py:57-125`.
 5. **Rate-limit enforcement guard:** A configured limiter must be enforced by middleware/dependency before readiness claims. Current evidence: `services/api/fastapi_app.py:182-195` constructs a limiter but no route calls it.
@@ -26,6 +26,16 @@
 - Keep sidebar links as clean paths: `/`, `/builder`, `/backtests`, `/execution`, `/strategies`, `/pipeline`, `/results`, `/config`.
 - Do not reintroduce `?tab=strategy`, `?tab=backtest`, or `?tab=execution` for primary navigation.
 - Keep Overview as distinct summary/data-view content, not a duplicate Strategy Builder lane.
+
+### Segment 1 verification evidence
+
+```bash
+python3 -m pytest tests/test_dockerfile_safety.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials tests/web/test_execution_lane_ui_contract.py -q
+# 4 passed
+
+cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFeaturePanel.test.tsx
+# 2 files passed; 14 passed, 2 skipped
+```
 
 ### Current positive guard evidence
 

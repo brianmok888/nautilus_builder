@@ -622,7 +622,7 @@ def test_fastapi_backtest_job_events_require_auth_and_project_scope(monkeypatch)
     assert same_scope.json()["events"][0]["stage"] == "RUNNING"
 
 
-def test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope(monkeypatch, tmp_path) -> None:
+def test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials(monkeypatch, tmp_path) -> None:
     from packages.auth import AuthTokenService
     from packages.execution_lane import ExecutionLaneService
 
@@ -648,20 +648,16 @@ def test_fastapi_execution_lane_credential_slot_requires_auth_and_project_scope(
     }
 
     missing = app.routes[("POST", "/api/execution-lane/credential-slots")](payload)
-    cross_scope = app.routes[("POST", "/api/execution-lane/credential-slots")](
-        payload,
-        authorization=f"Bearer {token.token}",
-    )
     same_scope = app.routes[("POST", "/api/execution-lane/credential-slots")](
         {**payload, "project_id": "project_alpha"},
         authorization=f"Bearer {token.token}",
     )
 
     assert missing.status_code == 401
-    assert cross_scope.status_code == 403
-    assert cross_scope.json()["error"] == "project_scope_mismatch"
-    assert same_scope.status_code == 201
+    assert same_scope.status_code == 410
+    assert same_scope.json()["error"] == "credential_slot_http_disabled"
     assert "test-binance-key" not in str(same_scope.json())
+    assert not (tmp_path / ".env.execution.local").exists()
 
 
 def test_fastapi_execution_lane_session_start_requires_auth_and_project_scope(monkeypatch, tmp_path) -> None:

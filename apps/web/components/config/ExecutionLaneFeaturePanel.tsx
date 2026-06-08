@@ -23,12 +23,10 @@ import {
   fetchExecutionLaneStatus,
   registerExecutionLaneProfile,
   runExecutionLaneWorkerOnce,
-  saveExecutionLaneCredentialSlot,
   startExecutionLanePaperSession,
   stopExecutionLaneSession,
 } from "../../lib/api";
 import type {
-  ExecutionCredentialSlot,
   ExecutionLaneCommand,
   ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
@@ -74,14 +72,6 @@ type PaperWireDraft = {
   strategy_version_id: string;
 };
 
-type CredentialDraft = {
-  requested_by: string;
-  variable_1: string;
-  value_1: string;
-  variable_2: string;
-  value_2: string;
-};
-
 const defaultWireDraft: PaperWireDraft = {
   tenant_id: "tenant_a",
   project_id: "project_alpha",
@@ -97,14 +87,6 @@ const defaultWireDraft: PaperWireDraft = {
   strategy_version_id: "strategy_001_v004",
 };
 
-const defaultCredentialDraft: CredentialDraft = {
-  requested_by: "ops_user",
-  variable_1: "",
-  value_1: "",
-  variable_2: "",
-  value_2: "",
-};
-
 function boolText(value: boolean): string {
   return value ? "true" : "false";
 }
@@ -113,7 +95,7 @@ function streamName(draft: PaperWireDraft): string {
   return `builder.execution.commands.paper.${draft.project_id}.${draft.venue.toLowerCase()}`;
 }
 
-function profilePayload(draft: PaperWireDraft, credentialSlotRef?: string): Record<string, unknown> {
+function profilePayload(draft: PaperWireDraft): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     tenant_id: draft.tenant_id,
     project_id: draft.project_id,
@@ -130,7 +112,6 @@ function profilePayload(draft: PaperWireDraft, credentialSlotRef?: string): Reco
     live_controls_enabled: false,
     consumes_stream: streamName(draft),
   };
-  if (credentialSlotRef) payload.credential_slot_ref = credentialSlotRef;
   return payload;
 }
 
@@ -160,30 +141,6 @@ function commandPayload(draft: PaperWireDraft): Record<string, unknown> {
   };
 }
 
-function credentialValues(draft: CredentialDraft): Record<string, string> {
-  return Object.fromEntries(
-    [
-      [draft.variable_1, draft.value_1],
-      [draft.variable_2, draft.value_2],
-    ]
-      .map(([key, value]) => [key.trim().toUpperCase(), value] as const)
-      .filter(([key, value]) => key && value.trim()),
-  );
-}
-
-function credentialPayload(wireDraft: PaperWireDraft, credentialDraft: CredentialDraft): Record<string, unknown> {
-  return {
-    tenant_id: wireDraft.tenant_id,
-    project_id: wireDraft.project_id,
-    runtime_profile_id: wireDraft.runtime_profile_id,
-    adapter_id: wireDraft.adapter_id,
-    venue: wireDraft.venue,
-    lane_mode: "paper",
-    requested_by: credentialDraft.requested_by,
-    credential_values: credentialValues(credentialDraft),
-  };
-}
-
 export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_id: string; strategy_lineage_id?: string } | null }) {
   const [status, setStatus] = useState<ExecutionLaneStatus>(fallbackStatus);
   const [wireDraft, setWireDraft] = useState<PaperWireDraft>(defaultWireDraft);
@@ -197,15 +154,13 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
       strategy_version_id: strategy.strategy_id ?? prev.strategy_version_id,
     }));
   }, [strategy]);
-  const [credentialDraft, setCredentialDraft] = useState<CredentialDraft>(defaultCredentialDraft);
-  const [credentialSlot, setCredentialSlot] = useState<ExecutionCredentialSlot | null>(null);
   const [runtimePlan, setRuntimePlan] = useState<ExecutionLaneRuntimePlan | null>(null);
   const [command, setCommand] = useState<ExecutionLaneCommand | null>(null);
   const [workerReport, setWorkerReport] = useState<ExecutionLaneReport | null>(null);
   const [session, setSession] = useState<ExecutionLaneSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"credential" | "profile" | "command" | "worker" | "start-session" | "stop-session" | null>(null);
+  const [action, setAction] = useState<"profile" | "command" | "worker" | "start-session" | "stop-session" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,9 +188,8 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
 
   const features = status.ui_features ?? fallbackStatus.ui_features;
   const bindings = status.venue_bindings ?? [];
-  const profilePreview = useMemo(() => profilePayload(wireDraft, credentialSlot?.credential_slot_ref), [credentialSlot?.credential_slot_ref, wireDraft]);
+  const profilePreview = useMemo(() => profilePayload(wireDraft), [wireDraft]);
   const commandPreview = useMemo(() => commandPayload(wireDraft), [wireDraft]);
-  const credentialPreview = useMemo(() => credentialPayload(wireDraft, credentialDraft), [credentialDraft, wireDraft]);
   const preview = useMemo(
     () => ({
       mode: status.mode,
@@ -244,8 +198,6 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
       strategy_lane_coupled: status.strategy_lane_coupled,
       may_submit_order: status.may_submit_order,
       credential_policy: "server-side credential slot only",
-      credential_slot_ref: credentialSlot?.credential_slot_ref ?? null,
-      credential_slot_redacted_keys: credentialSlot?.redacted_keys ?? [],
       runtime_plan: runtimePlan
         ? {
             readiness_status: runtimePlan.readiness_status,
@@ -260,7 +212,7 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
       session_id: session?.session_id ?? null,
       session_status: session?.lifecycle_status ?? null,
     }),
-    [bindings, command, credentialSlot, features, runtimePlan, session, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
+    [bindings, command, features, runtimePlan, session, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
   );
 
   function updateWireField<K extends keyof PaperWireDraft>(field: K, value: PaperWireDraft[K]) {
@@ -269,40 +221,11 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
     setCommand(null);
     setWorkerReport(null);
     setSession(null);
-    setCredentialSlot(null);
   }
 
   async function refreshStatus(runtimeProfileId = wireDraft.runtime_profile_id) {
     const next = await fetchExecutionLaneStatus(runtimeProfileId);
     setStatus(next);
-  }
-
-  function updateCredentialField<K extends keyof CredentialDraft>(field: K, value: CredentialDraft[K]) {
-    setCredentialDraft((current) => ({ ...current, [field]: value }));
-    setCredentialSlot(null);
-    setRuntimePlan(null);
-    setCommand(null);
-    setWorkerReport(null);
-    setSession(null);
-  }
-
-  async function onSaveCredentialSlot() {
-    setAction("credential");
-    setError(null);
-    setRuntimePlan(null);
-    setCommand(null);
-    setWorkerReport(null);
-    setSession(null);
-    try {
-      const slot = await saveExecutionLaneCredentialSlot(credentialPreview as Parameters<typeof saveExecutionLaneCredentialSlot>[0]);
-      setCredentialSlot(slot);
-      setCredentialDraft((current) => ({ ...current, value_1: "", value_2: "" }));
-      await refreshStatus(wireDraft.runtime_profile_id);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setAction(null);
-    }
   }
 
   async function onWireProfile() {
@@ -394,10 +317,9 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
     }
   }
 
-  const canSaveCredentialSlot = Object.keys(credentialValues(credentialDraft)).length > 0;
   const canQueue = Boolean(runtimePlan && runtimePlan.readiness_status === "READY");
   const canRunWorker = Boolean(command?.command_id);
-  const canStartPaperSession = Boolean(command?.command_id && credentialSlot?.credential_slot_ref && runtimePlan?.readiness_status === "READY");
+  const canStartPaperSession = false;
   const canStopPaperSession = Boolean(session?.session_id && session.lifecycle_status === "RUNNING");
 
   return (

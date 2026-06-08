@@ -1,31 +1,3 @@
-export type ExecutionCredentialSlotRequest = {
-  tenant_id: string;
-  project_id: string;
-  runtime_profile_id: string;
-  adapter_id: string;
-  venue: string;
-  lane_mode: "paper" | "live";
-  requested_by: string;
-  credential_values: Record<string, string>;
-  storage_target?: string;
-};
-
-export type ExecutionCredentialSlot = {
-  credential_slot_ref: string;
-  tenant_id: string;
-  project_id: string;
-  runtime_profile_id: string;
-  adapter_id: string;
-  venue: string;
-  lane_mode: "paper" | "live" | string;
-  requested_by: string;
-  secrets_storage: "local_env_file";
-  env_file_path: string;
-  redacted_keys: string[];
-  fingerprint: string;
-  browser_secret_echo: false;
-};
-
 export type ExecutionLaneVenueBinding = {
   runtime_profile_id: string;
   adapter_id: string;

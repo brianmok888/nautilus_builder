@@ -10,9 +10,6 @@ RUN pip install --no-cache-dir "psycopg[binary,pool]>=3.2" fastapi uvicorn pydan
 
 COPY packages/ packages/
 COPY services/ services/
-# .env.execution.local is optional; create empty default if missing
-RUN touch .env.execution.local
-COPY .env.execution.local .env.local
 
 EXPOSE 8000
 

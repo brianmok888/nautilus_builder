@@ -17,21 +17,36 @@
 
 ### Current top-priority findings
 
+
+### Segment 1 closure — credential/package safety (2026-06-08)
+
+**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Production/security readiness remains **REQUEST CHANGES** because API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan blockers still need closure.
+
+**Evidence:**
+
+```bash
+python3 -m pytest tests/test_dockerfile_safety.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials tests/web/test_execution_lane_ui_contract.py -q
+# 4 passed
+
+cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFeaturePanel.test.tsx
+# 2 files passed; 14 passed, 2 skipped
+```
+
+**Changes:** `.dockerignore` now excludes `.env*` and local state, `Dockerfile.api` no longer copies `.env.execution.local`, Settings no longer mounts `CredentialSlotBootstrap`, the frontend API client no longer exposes credential-slot posting, and the FastAPI credential-slot route returns `credential_slot_http_disabled` without writing `.env.execution.local`.
+
 #### C-01 — Docker API image can include local exchange credentials
 
-- **Severity:** CRITICAL
+- **Status:** CLOSED in Segment 1 (2026-06-08)
+- **Severity:** Previously CRITICAL
 - **Files:** `Dockerfile.api:13-15`, `.gitignore:1-6`; missing `.dockerignore`; local untracked `.env.execution.local:1-2` was present with Binance credential variable names (values redacted, not copied into this report).
-- **Issue:** The Dockerfile touches and copies `.env.execution.local` into `.env.local`. `.gitignore` keeps the file out of git, but Docker build context still includes it when no `.dockerignore` exists.
-- **Risk:** Local or remote Docker builds can bake credentials into image layers or transmit them to a remote daemon/build cache.
-- **Fix:** Remove the `COPY .env.execution.local .env.local` pattern, add `.dockerignore` excluding `.env*`, `.git`, caches, local DB/artifact folders, and rotate any real keys that may have been present.
+- **Closure:** `Dockerfile.api` no longer touches or copies `.env.execution.local`/`.env.local`, and `.dockerignore` excludes `.env*`, `.git`, caches, local DB/artifact folders, and build outputs. Operators should still rotate any real keys that may have been present before this closure.
 
 #### C-02 — Builder accepts browser-entered venue credentials and stores raw values
 
-- **Severity:** CRITICAL
+- **Status:** CLOSED for browser/API entry in Segment 1 (2026-06-08); backend-only secret provisioning remains a future design seam.
+- **Severity:** Previously CRITICAL
 - **Files:** `apps/web/app/config/page.tsx:3-17`, `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `47-50`, `62-69`; `services/api/fastapi_app.py:431-444`; `packages/execution_lane/credentials.py:124-151`; `packages/execution_lane/sessions.py:218-232`; `packages/execution_lane/adapter_config_builders.py:31-70`.
-- **Issue:** The Settings page mounts a credential form, stores secret values in React state, posts `credential_values` to the backend, writes them into `.env.execution.local`, then constructs Binance live data/execution client config objects for paper sessions.
-- **Risk:** This conflicts with the frontend/display-only boundary and the allowed posture `browser_credentials: false`; it also increases the blast radius from browser extensions, devtools, screenshots, logs, and Docker packaging.
-- **Fix:** Remove browser raw credential entry. Use backend-only secret references or a separate CLI/admin bootstrap. Paper mode should use simulated/local config with no venue secrets; any future live lane must be separate, backend-only, manual-review gated, and testnet/mainnet guarded.
+- **Closure:** Settings no longer mounts credential bootstrap UI, the Execution Lane panel has no raw credential inputs, the frontend API client no longer posts credential slots, and the FastAPI credential-slot route returns `credential_slot_http_disabled` without persisting submitted values. Future secret provisioning must be backend-only or CLI/admin-only, separately designed and tested.
 
 #### H-01 — Packaged `nautilus-builder-api` starts an unauthenticated dev server
 

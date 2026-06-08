@@ -31,6 +31,25 @@ function statusPayload(overrides = {}) {
 describe("ExecutionLaneFeaturePanel", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("does not render browser credential bootstrap inputs", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).startsWith("/api/execution-lane/status")) {
+          return Response.json(statusPayload());
+        }
+        throw new Error(`unexpected fetch ${String(input)}`);
+      }),
+    );
+
+    render(<ExecutionLaneFeaturePanel />);
+
+    expect(await screen.findByText("Feature visibility matrix")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Credential variable 1")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Credential value 1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save credential slot" })).not.toBeInTheDocument();
+  });
+
   it("fully wires paper TradingNode profile, runtime plan, command enqueue, and backend worker report", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
