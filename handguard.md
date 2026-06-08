@@ -462,3 +462,14 @@ Guard: Any PR that reverts layout.tsx to use OperatorAppShell as the primary she
 - Evidence-only safety copy (`may_submit_order: false`, `browser_credentials: false`, authority block) must remain visible.
 
 Guard: Any PR that removes manifest-form-grid, manifest-preview, or hash-field classes from BacktestLaunchPanel must be rejected.
+
+## 22. Builder-owned database boundary (DB sprint)
+
+- Builder DB: `nautilus_builder` (user: `builder`)
+- Runtime DB: `nautilus_daedalus_db` (user: `nd_runtime`)
+- Builder must not write to runtime DB
+- Builder may only read runtime data through: read-only API, read-only replica, exported artifact, dataset index, promotion handoff package
+- Dev compose (`docker-compose.dev.yml`) must bind Postgres to `127.0.0.1:5432` only
+- `.env.demo.example` must not contain `NEXT_PUBLIC_BUILDER_API_TOKEN`
+
+Guard: Any PR that adds Builder writes to the runtime DB must be rejected.

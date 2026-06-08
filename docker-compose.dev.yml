@@ -1,0 +1,29 @@
+version: "3.9"
+
+# Dev-only Postgres for Nautilus Builder.
+# Usage: docker compose -f docker-compose.dev.yml up -d
+#
+# This creates a Builder-owned database (nautilus_builder) that is
+# completely separate from the Nautilus-Daedalus runtime database.
+# The Builder never writes to the runtime DB.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nautilus-builder-postgres
+    environment:
+      POSTGRES_DB: nautilus_builder
+      POSTGRES_USER: builder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-builder_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - builder_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U builder -d nautilus_builder"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  builder_postgres_data:

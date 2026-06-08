@@ -326,3 +326,42 @@ All 10 findings from the validation summary now have corresponding implementatio
 - No API contract changes
 - No safety copy removed
 - No forbidden wording introduced
+
+## Dev Database Orchestration Sprint — 2026-06-08
+
+### New findings resolved
+
+| ID | Finding | Status | Description |
+|---|---------|--------|-------------|
+| DB-1 | No standalone dev docker-compose for Postgres | **FIXED** | Added `docker-compose.dev.yml` with Builder-owned Postgres, localhost-only port binding, healthcheck |
+| DB-2 | No CLI migration script | **FIXED** | Added `scripts/apply_builder_migrations.py` that applies pending migrations from `packages.postgres.migrations` |
+| DB-3 | No Postgres-aware demo seed script | **FIXED** | Added `scripts/seed_builder_demo_data.py` — idempotent seed for 8 demo strategies via PostgresStrategyRepository |
+| DB-4 | No .env.demo.example | **FIXED** | Added `.env.demo.example` with BUILDER_DATABASE_URL, BUILDER_API_TOKEN, BUILDER_ARTIFACT_ROOT, NEXT_PUBLIC_API_BASE_URL |
+| DB-5 | No dev demo runbook | **FIXED** | Added `docs/demo/dev-database-demo-runbook.md` covering Postgres startup, migrations, seed, API/web startup, smoke tests, restart durability |
+| DB-6 | No tests for dev DB orchestration files | **FIXED** | Added `tests/onboarding/test_dev_db_orchestration.py` — 26 tests covering all new files |
+
+### Test evidence
+
+- **Python tests:** 900 passed, 1 skipped (+26 new orchestration tests)
+- **Frontend tests:** 115 passed, 4 skipped
+- **Ruff:** All checks passed
+- **Frontend build:** Passes
+
+### Safety confirmation
+
+- No backend trading behavior changes
+- No ND runtime DB writes
+- No live execution authority
+- No submit_order path
+- Builder DB (`nautilus_builder`) is separate from runtime DB (`nautilus_daedalus_db`)
+- `NEXT_PUBLIC_BUILDER_API_TOKEN` not exposed in demo env file
+- All seed scripts are Builder-only, evidence-only
+
+### Files created
+
+- `docker-compose.dev.yml`
+- `scripts/apply_builder_migrations.py`
+- `scripts/seed_builder_demo_data.py`
+- `.env.demo.example`
+- `docs/demo/dev-database-demo-runbook.md`
+- `tests/onboarding/test_dev_db_orchestration.py`

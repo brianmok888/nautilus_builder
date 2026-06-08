@@ -554,3 +554,29 @@ cd apps/web && npm run build         # Succeeds
 
 - `catalog_backed_replay_smoke` still runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
 - No backend changes in this sprint.
+
+## Dev Database Orchestration Sprint — 2026-06-08
+
+### New files
+
+- `docker-compose.dev.yml` — standalone Builder-owned Postgres for local dev
+- `scripts/apply_builder_migrations.py` — CLI migration runner
+- `scripts/seed_builder_demo_data.py` — idempotent Postgres demo seed (8 strategies)
+- `.env.demo.example` — demo environment template
+- `docs/demo/dev-database-demo-runbook.md` — step-by-step dev demo instructions
+- `tests/onboarding/test_dev_db_orchestration.py` — 26 tests for dev DB files
+
+### Verification gate (current)
+
+```bash
+uv run ruff check .                    # All checks passed
+uv run pytest tests/ -q                # 900 passed, 1 skipped
+cd apps/web && npx vitest run          # 115 passed, 4 skipped
+cd apps/web && npm run build           # Succeeds
+```
+
+### Master reconciliation
+
+- `catalog_backed_replay_smoke` still runnable
+- No backend trading logic changed
+- Builder DB boundary enforced: `nautilus_builder` vs `nautilus_daedalus_db`
