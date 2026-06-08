@@ -34,10 +34,12 @@ export type LifecycleInput = {
   compileHash?: string;
   compileArtifactId?: string;
   /** Replay/backtest evidence. */
+  backtestJobId?: string;
   backtestJobStatus?: string;
   backtestJobStage?: string;
   backtestJobLifecycleStatus?: string;
   backtestResultArtifactRefs?: Record<string, string>;
+  backtestJobUpdatedAt?: string;
   /** Promotion state. */
   promotionRequested?: boolean;
   promotionApproved?: boolean;

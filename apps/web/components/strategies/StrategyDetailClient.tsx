@@ -18,8 +18,8 @@ import {
   EditOutlined,
   ExperimentOutlined,
 } from "@ant-design/icons";
-import { cloneStrategy, fetchStrategyDetail } from "../../lib/api";
-import type { StrategyStatus } from "../../lib/types";
+import { cloneStrategy, fetchStrategyDetail, fetchStrategyEvidenceSummary } from "../../lib/api";
+import type { StrategyStatus, StrategyEvidenceSummary } from "../../lib/types";
 import { STRATEGY_STATUS_COLORS } from "../../lib/types";
 
 import { StrategyLifecyclePanel } from "../lifecycle/StrategyLifecyclePanel";
@@ -27,16 +27,19 @@ import { NextActionCard } from "../lifecycle/NextActionCard";
 import { EvidenceSummaryGrid } from "../evidence/EvidenceSummaryGrid";
 import { AuditTimeline } from "../audit/AuditTimeline";
 import { deriveStrategyLifecycle } from "../../lib/lifecycle/deriveStrategyLifecycle";
-import type { LifecycleInput } from "../../lib/lifecycle/deriveStrategyLifecycle";
 import { deriveEvidenceRefs } from "../../lib/lifecycle/deriveEvidenceRefs";
-import type { EvidenceInput } from "../../lib/lifecycle/deriveEvidenceRefs";
 import { deriveAuditEvents } from "../../lib/lifecycle/deriveAuditEvents";
-import type { AuditInput } from "../../lib/lifecycle/deriveAuditEvents";
+import {
+  mapLifecycleInput,
+  mapEvidenceInput,
+  mapAuditInput,
+} from "../../lib/lifecycle/mapEvidenceSummary";
 
 const { Text, Paragraph } = Typography;
 
 export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const [evidenceSummary, setEvidenceSummary] = useState<StrategyEvidenceSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
 
@@ -46,12 +49,16 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
     fetchStrategyDetail(strategyId)
       .then((d) => setDetail(d as unknown as Record<string, unknown>))
       .catch(() => setError("Unable to load strategy detail."));
+
+    fetchStrategyEvidenceSummary(strategyId)
+      .then((s) => setEvidenceSummary(s))
+      .catch(() => {
+        // Evidence summary is best-effort. If it fails, we fall back to
+        // deriving from strategy detail alone.
+      });
   }, [strategyId]);
 
   // ── Hooks must be above any early returns ──────────────────────
-  // We derive lifecycle data from the detail. While detail is null,
-  // we pass safe defaults. The useMemo hooks always run in the same order.
-
   const status = (detail?.status as StrategyStatus) || "draft";
   const versions =
     (detail?.versions as Array<{
@@ -66,15 +73,19 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
       parent_version_id?: string;
     }) || {};
 
-  const lifecycleInput: LifecycleInput = useMemo(
-    () => ({
-      strategyId,
-      strategyName: String(latestSpec.instrument_id ?? strategyId),
-      status,
-      validation,
-    }),
+  // Derive lifecycle from evidence summary when available, otherwise from strategy detail.
+  const lifecycleInput = useMemo(
+    () =>
+      evidenceSummary
+        ? mapLifecycleInput(evidenceSummary)
+        : {
+            strategyId,
+            strategyName: String(latestSpec.instrument_id ?? strategyId),
+            status,
+            validation,
+          },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, strategyId, latestSpec.instrument_id, validation],
+    [evidenceSummary, status, strategyId, latestSpec.instrument_id, validation],
   );
 
   const lifecycleSummary = useMemo(
@@ -82,14 +93,13 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
     [lifecycleInput],
   );
 
-  const evidenceInput: EvidenceInput = useMemo(
-    () => ({
-      strategyId,
-      validation,
-      status,
-    }),
+  const evidenceInput = useMemo(
+    () =>
+      evidenceSummary
+        ? mapEvidenceInput(evidenceSummary)
+        : { strategyId, validation, status },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, strategyId, validation],
+    [evidenceSummary, status, strategyId, validation],
   );
 
   const evidenceRefs = useMemo(
@@ -97,16 +107,19 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
     [evidenceInput],
   );
 
-  const auditInput: AuditInput = useMemo(
-    () => ({
-      strategyId,
-      strategyLineageId: String(detail?.strategy_lineage_id ?? ""),
-      status,
-      createdBy: provenance.created_by,
-      validation,
-    }),
+  const auditInput = useMemo(
+    () =>
+      evidenceSummary
+        ? mapAuditInput(evidenceSummary)
+        : {
+            strategyId,
+            strategyLineageId: String(detail?.strategy_lineage_id ?? ""),
+            status,
+            createdBy: provenance.created_by,
+            validation,
+          },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, strategyId, validation, provenance.created_by, detail?.strategy_lineage_id],
+    [evidenceSummary, status, strategyId, validation, provenance.created_by, detail?.strategy_lineage_id],
   );
 
   const auditEvents = useMemo(

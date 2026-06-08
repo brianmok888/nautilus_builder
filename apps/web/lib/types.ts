@@ -375,6 +375,48 @@ export type PromotionRequestResult = {
   manual_approval_required: boolean;
 };
 
+export type StrategyEvidenceSummary = {
+  strategyId: string;
+  strategyVersionId: string;
+  strategyStatus: string;
+  validation: {
+    status: string;
+    flags: Record<string, unknown>;
+  };
+  compile: {
+    status: string;
+    hash: string | null;
+    artifactId: string | null;
+  };
+  replay: {
+    status: string;
+    jobs: Array<{
+      jobId: string;
+      status: string;
+      stage: string;
+      lifecycleStatus: string;
+      createdAt: string;
+      updatedAt: string;
+      compileHash: string;
+      compileArtifactId: string | null;
+      resultArtifactRefs: Record<string, string>;
+      datasetId: string;
+    }>;
+  };
+  promotion: {
+    status: string;
+  };
+  audit: Array<{
+    id: string;
+    kind: string;
+    title: string;
+    status: string;
+    refId?: string;
+    hash?: string;
+    timestamp?: string;
+  }>;
+};
+
 /** Which statuses each lane can see */
 export const LANE_ALLOWED_STATUSES: Record<"builder" | "backtest" | "execution", StrategyStatus[]> = {
   builder: ["draft", "validated", "backtested", "approved", "execution_ready"],

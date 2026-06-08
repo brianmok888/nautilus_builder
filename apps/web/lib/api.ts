@@ -24,6 +24,7 @@ import type {
   ResultDashboardPayload,
   ResultListItem,
   StrategyDetail,
+  StrategyEvidenceSummary,
   StrategyRecord,
   StrategySummary,
 } from "./types";
@@ -428,4 +429,10 @@ export async function cloneStrategy(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
+}
+
+export async function fetchStrategyEvidenceSummary(
+  strategyId: string,
+): Promise<StrategyEvidenceSummary> {
+  return apiFetch<StrategyEvidenceSummary>(`/api/strategies/${strategyId}/evidence-summary`);
 }
