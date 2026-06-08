@@ -46,45 +46,119 @@ Hits must fail unless they are explicit negative safety copy (e.g., "No live ord
 - AI remains advisory only.
 - `NEXT_PUBLIC_BUILDER_API_TOKEN` must not be exposed.
 
-## Acceptance Smoke Test
+## Evidence Summary Endpoint Verification
 
-After all checks pass, verify the UI manually:
-
-1. Open `http://localhost:3000` — dashboard loads with safety panel.
-2. Navigate to Strategy Specs — list renders with search/filter.
-3. Click a strategy — detail page shows lifecycle panel, next action, evidence grid, audit timeline.
-4. Navigate to Results — list renders with search/filter.
-5. Open Settings — no live trading controls.
-
-## Evidence Wiring Smoke Test
-
-For a strategy with only a draft:
-- Lifecycle should show Draft.
-- Validation evidence should be missing or passed (depending on validation flags).
-- Next action should be Validate StrategySpec.
-
-For a validated strategy:
-- Lifecycle should show Validated.
-- Compile evidence should be missing.
-- Next action should be Compile preview artifact.
-
-For a compiled strategy (with compile hash):
-- Compile artifact should show ref/hash if available.
-- Replay evidence should be missing unless a replay exists.
-
-For a replayed strategy (with backtest job):
-- Replay evidence should show job/report/artifact refs if available.
-- Promotion should remain missing unless requested.
-
-For a promotion-requested strategy:
-- Promotion evidence should show request id/status.
-
-## Backend Evidence Summary Endpoint
+Start the backend with demo data:
 
 ```bash
-# Verify the read-only endpoint returns existing data only
-curl http://127.0.0.1:8000/api/strategies/demo_validated/evidence-summary | python3 -m json.tool
+export BUILDER_API_TOKEN=dev-token
+export BUILDER_SEED_DEMO_STRATEGIES=1
+uv run uvicorn services.api.fastapi_app:app --port 8000 &
 ```
 
-Expected fields: strategyId, strategyVersionId, strategyStatus, validation, compile, replay, promotion, audit.
-Missing evidence must be "missing", not "passed".
+### Verify each demo strategy returns correct evidence
+
+```bash
+AUTH="Authorization: Bearer dev-token"
+BASE="http://localhost:8000"
+
+# Draft strategy — all evidence missing
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_draft/evidence-summary" | python3 -m json.tool
+# Expected: validation.status in (missing, passed), compile.status=missing, replay.status=missing, promotion.status=missing
+
+# Validation failed — validation failed
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_validation_failed/evidence-summary" | python3 -m json.tool
+# Expected: validation.status=failed, compile.status=missing
+
+# Validated — validation passed, compile missing
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_validated/evidence-summary" | python3 -m json.tool
+# Expected: validation.status=passed, compile.status=missing
+
+# Compiled — compile hash present, replay missing
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_compiled/evidence-summary" | python3 -m json.tool
+# Expected: compile.status=passed with hash, replay.status=missing or running
+
+# Replay failed — replay failed with error
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_replay_failed/evidence-summary" | python3 -m json.tool
+# Expected: replay.status=failed, compile.status=passed
+
+# Replay passed — replay succeeded with report refs
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_replay_passed/evidence-summary" | python3 -m json.tool
+# Expected: replay.status=passed, compile hash present, resultArtifactRefs non-empty
+
+# Promotion requested — promotion ready
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_requested/evidence-summary" | python3 -m json.tool
+# Expected: promotion.status=ready, replay.status=passed
+
+# Promotion ready — all evidence present
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_ready/evidence-summary" | python3 -m json.tool
+# Expected: promotion.status=ready, all evidence present
+```
+
+### Verify endpoint is read-only
+
+```bash
+# POST should return 404 (not a valid route)
+curl -s -X POST -H "$AUTH" "$BASE/api/strategies/demo_draft/evidence-summary" | python3 -m json.tool
+# Expected: 404 or method not allowed
+```
+
+### Verify no live execution fields
+
+```bash
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_promotion_ready/evidence-summary" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+forbidden = ['submit_order', 'trade_action', 'live_credentials', 'execute_strategy', 'live_execution']
+for field in forbidden:
+    assert field not in str(data).lower(), f'Forbidden field found: {field}'
+print('OK: no forbidden live execution fields')
+"
+```
+
+## Strategy Detail UI Verification
+
+Start both backend and frontend, then verify each strategy:
+
+| Strategy | Lifecycle Stage | Validation | Compile | Replay | Promotion | Next Action |
+|----------|----------------|------------|---------|--------|-----------|-------------|
+| demo_draft | Draft | passed/missing | missing | missing | missing | Validate StrategySpec |
+| demo_validation_failed | Validation failed | failed | missing | missing | missing | Fix validation errors |
+| demo_validated | Validated | passed | missing | missing | missing | Compile preview artifact |
+| demo_compiled | Replay missing | passed | present | missing | missing | Run replay |
+| demo_replay_failed | Replay failed | passed | present | failed | missing | Review replay errors |
+| demo_replay_passed | Replay passed | passed | present | passed | missing | Request promotion review |
+| demo_promotion_requested | Promotion ready | passed | present | passed | ready | Inspect evidence |
+| demo_promotion_ready | Promotion ready | passed | present | passed | ready | Inspect evidence |
+
+For each strategy, verify:
+1. Lifecycle panel shows the correct stage.
+2. Next action card shows the correct action and explanation.
+3. Evidence grid shows compile hash/ref when applicable.
+4. Evidence grid shows replay job/report/artifact refs when applicable.
+5. Evidence grid shows promotion request/ledger status when applicable.
+6. Audit timeline shows evidence-derived events (created, validated, compiled, replay, promotion).
+7. Missing evidence cards show clear "missing" state with next step guidance.
+8. Builder-only safety banner is visible.
+
+## Graceful Fallback Verification
+
+1. Stop the backend server.
+2. Open a strategy detail page in the frontend.
+3. Verify:
+   - Page still renders basic strategy detail (if cached).
+   - A warning card appears: "Rich evidence summary unavailable."
+   - No crash or unhandled error.
+4. Restart the backend and verify the warning disappears on refresh.
+
+## Demo Seed Script Verification
+
+```bash
+# Run the seed script directly
+uv run python scripts/seed_demo_evidence.py
+# Expected output: 8 strategies seeded, backtest jobs for applicable strategies
+
+# Run again to verify idempotency
+uv run python scripts/seed_demo_evidence.py
+# Expected: same output, no duplicate records
+```

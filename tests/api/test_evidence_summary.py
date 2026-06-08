@@ -35,7 +35,7 @@ def test_validated_strategy_has_validation_passed(repo: InMemoryStrategyReposito
 
 
 def test_backtested_strategy_has_compile_evidence(repo: InMemoryStrategyRepository) -> None:
-    payload = strategy_evidence_summary_payload(repo, "demo_backtested")
+    payload = strategy_evidence_summary_payload(repo, "demo_compiled")
     result = payload.json()
     assert result["strategyStatus"] == "backtested"
     # Backend status "backtested" implies compile passed even without explicit hash.
@@ -43,14 +43,14 @@ def test_backtested_strategy_has_compile_evidence(repo: InMemoryStrategyReposito
 
 
 def test_approved_strategy_has_promotion_ready(repo: InMemoryStrategyRepository) -> None:
-    payload = strategy_evidence_summary_payload(repo, "demo_approved")
+    payload = strategy_evidence_summary_payload(repo, "demo_promotion_requested")
     result = payload.json()
     assert result["strategyStatus"] == "approved"
     assert result["promotion"]["status"] == "ready"
 
 
 def test_execution_ready_strategy_has_promotion_ready(repo: InMemoryStrategyRepository) -> None:
-    payload = strategy_evidence_summary_payload(repo, "demo_execution_ready")
+    payload = strategy_evidence_summary_payload(repo, "demo_promotion_ready")
     result = payload.json()
     assert result["strategyStatus"] == "execution_ready"
     assert result["promotion"]["status"] == "ready"

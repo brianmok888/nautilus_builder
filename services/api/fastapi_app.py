@@ -71,11 +71,14 @@ def create_fastapi_app(
         _pg_adapter_repo = PostgresAdapterRepository(_pg_conn)
         seed_default_market_data(_pg_conn)
         if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
-            from packages.strategy_spec.demo_seed import seed_demo_strategies
-            seed_demo_strategies(strategy_repository)
+            from scripts.seed_demo_evidence import seed_demo_evidence
+            seed_demo_evidence(strategy_repository, backtest_job_service or BacktestJobService())
     elif os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
-        seed_demo_strategies(strategy_repository)
-    backtest_job_service = backtest_job_service or BacktestJobService()
+        backtest_job_service = backtest_job_service or BacktestJobService()
+        from scripts.seed_demo_evidence import seed_demo_evidence
+        seed_demo_evidence(strategy_repository, backtest_job_service)
+    else:
+        backtest_job_service = backtest_job_service or BacktestJobService()
     auth_token_service = auth_token_service or AuthTokenService()
     _register_env_dev_token(auth_token_service)
     catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
@@ -426,6 +429,13 @@ def create_fastapi_app(
     @app.get("/api/strategies")
     def list_strategies(authorization: str | None = Header(default=None)) -> Any:
         return _fastapi_response(list_strategies_payload(strategy_repository), JSONResponse)
+
+    @app.get("/api/strategies/{strategy_id}/evidence-summary")
+    def strategy_evidence_summary(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:
+        context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
+        return _fastapi_response(strategy_evidence_summary_payload(strategy_repository, strategy_id, backtest_job_service=backtest_job_service, context=context), JSONResponse)
 
     @app.get("/api/strategies/{strategy_id}")
     def strategy_detail(strategy_id: str, authorization: str | None = Header(default=None)) -> Any:

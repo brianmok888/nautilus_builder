@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Button,
   Card,
   Descriptions,
@@ -41,11 +42,13 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [evidenceSummary, setEvidenceSummary] = useState<StrategyEvidenceSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [evidenceSummaryError, setEvidenceSummaryError] = useState<boolean>(false);
   const [cloning, setCloning] = useState(false);
 
   const router = useRouter();
 
   useEffect(() => {
+    setEvidenceSummaryError(false);
     fetchStrategyDetail(strategyId)
       .then((d) => setDetail(d as unknown as Record<string, unknown>))
       .catch(() => setError("Unable to load strategy detail."));
@@ -55,6 +58,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
       .catch(() => {
         // Evidence summary is best-effort. If it fails, we fall back to
         // deriving from strategy detail alone.
+        setEvidenceSummaryError(true);
       });
   }, [strategyId]);
 
