@@ -3,6 +3,9 @@ from .migrations import apply_migrations, current_version, rollback
 from .strategy_repository import PostgresStrategyRepository
 from .adapter_repository import PostgresAdapterRepository
 from .promotion_ledger_repository import PromotionLedgerRepository, PromotionLedgerError
+from .backtest_job_repository import PostgresBacktestJobRepository
+from .workflow_result_repository import PostgresWorkflowResultRepository
+from .config_repository import PostgresConfigRepository
 from .seed import seed_default_market_data
 
 __all__ = [
@@ -16,5 +19,8 @@ __all__ = [
     "PostgresAdapterRepository",
     "PromotionLedgerRepository",
     "PromotionLedgerError",
+    "PostgresBacktestJobRepository",
+    "PostgresWorkflowResultRepository",
+    "PostgresConfigRepository",
     "seed_default_market_data",
 ]

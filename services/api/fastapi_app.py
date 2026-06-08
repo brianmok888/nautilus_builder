@@ -40,6 +40,60 @@ from services.api.routes.workflow_results import (
 )
 
 
+
+class _PgWorkflowAdapter:
+    """Thin adapter that delegates workflow result operations to Postgres
+    while falling back to InMemoryWorkflowRepository for other methods."""
+
+    def __init__(self, pg_result_repo, fallback_repo):
+        self._pg = pg_result_repo
+        self._fallback = fallback_repo
+
+    def save_result(self, record):
+        self._fallback.save_result(record)
+        self._pg.save_result(record)
+
+    def result(self, result_id, *, context=None):
+        from packages.auth import ProjectScopeError
+        rec = self._pg.result(result_id)
+        if rec is not None and context is not None and rec.project_id != context.project_id:
+            raise ProjectScopeError(f"result {result_id} is outside project scope")
+        return rec if rec is not None else self._fallback.result(result_id, context=context)
+
+    def result_for_job(self, test_job_id):
+        rec = self._pg.result_for_job(test_job_id)
+        return rec if rec is not None else self._fallback.result_for_job(test_job_id)
+
+    def list_results(self, *, limit=None, offset=0):
+        return self._pg.list_results(limit=limit, offset=offset)
+
+    def results_for_lineage(self, strategy_lineage_id):
+        return self._pg.results_for_lineage(strategy_lineage_id)
+
+    def save_strategy(self, strategy):
+        return self._fallback.save_strategy(strategy)
+
+    def save_version(self, version):
+        return self._fallback.save_version(version)
+
+    def save_job(self, job):
+        return self._fallback.save_job(job)
+
+    def strategy(self, strategy_id):
+        return self._fallback.strategy(strategy_id)
+
+    def version(self, strategy_version_id):
+        return self._fallback.version(strategy_version_id)
+
+    def job(self, test_job_id):
+        return self._fallback.job(test_job_id)
+
+    def save_suggestion(self, suggestion):
+        return self._fallback.save_suggestion(suggestion)
+
+    def suggestions(self, result_id):
+        return self._fallback.suggestions(result_id)
+
 def create_fastapi_app(
     workflow_repository: InMemoryWorkflowRepository | None = None,
     strategy_repository: InMemoryStrategyRepository | None = None,
@@ -60,31 +114,57 @@ def create_fastapi_app(
 
     # Postgres: when BUILDER_DATABASE_URL is set, use real persistence
     import os
+    import logging
+    _log = logging.getLogger(__name__)
     _pg_dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
     _pg_conn = None
     _pg_adapter_repo = None
     if _pg_dsn:
-        from packages.postgres import connect_pool, apply_migrations, PostgresStrategyRepository, PostgresAdapterRepository, seed_default_market_data
+        from packages.postgres import connect_pool, apply_migrations, PostgresStrategyRepository, PostgresAdapterRepository, PostgresBacktestJobRepository, PostgresConfigRepository, PostgresWorkflowResultRepository, seed_default_market_data
         _pg_conn = connect_pool(_pg_dsn)
         apply_migrations(_pg_conn)
         strategy_repository = PostgresStrategyRepository(_pg_conn)
         _pg_adapter_repo = PostgresAdapterRepository(_pg_conn)
         seed_default_market_data(_pg_conn)
+        # Replace in-memory services with Postgres-backed implementations
+        if backtest_job_service is None:
+            from packages.backtest_jobs.postgres_service import PostgresBacktestJobService
+            _pg_bt_repo = PostgresBacktestJobRepository(_pg_conn)
+            backtest_job_service = PostgresBacktestJobService(_pg_bt_repo)
+        # Replace in-memory workflow repository with Postgres-backed
+        _pg_workflow_repo = PostgresWorkflowResultRepository(_pg_conn)
+        # Wrap with a thin adapter that delegates to PG
+        workflow_repository = _PgWorkflowAdapter(_pg_workflow_repo, workflow_repository)
+        # LLM config: load from Postgres if available
+        _pg_config_repo = PostgresConfigRepository(_pg_conn)
+        if llm_config_service is None:
+            _saved_config = _pg_config_repo.get("llm_config")
+            if _saved_config:
+                from packages.llm_config.models import LlmConfig
+                try:
+                    llm_config_service = LlmConfigService(LlmConfig.model_validate(_saved_config))
+                except Exception:
+                    llm_config_service = LlmConfigService()
+            else:
+                llm_config_service = LlmConfigService()
         if os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
             from scripts.seed_demo_evidence import seed_demo_evidence
-            seed_demo_evidence(strategy_repository, backtest_job_service or BacktestJobService())
+            seed_demo_evidence(strategy_repository, backtest_job_service)
     elif os.environ.get("BUILDER_SEED_DEMO_STRATEGIES", "").strip().lower() in ("1", "true", "yes"):
         backtest_job_service = backtest_job_service or BacktestJobService()
         from scripts.seed_demo_evidence import seed_demo_evidence
         seed_demo_evidence(strategy_repository, backtest_job_service)
+        _log.warning("Running with in-memory Builder repositories. State will not survive restart.")
     else:
         backtest_job_service = backtest_job_service or BacktestJobService()
+        _log.warning("Running with in-memory Builder repositories. State will not survive restart.")
     auth_token_service = auth_token_service or AuthTokenService()
     _register_env_dev_token(auth_token_service)
     catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
     ai_builder_service = AiBuilderService.from_env(store=_default_ai_audit_store(ai_audit_store))
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
+    _pg_config_repo = None
     runtime_event_service = runtime_event_service or RuntimeEventService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
@@ -326,7 +406,7 @@ def create_fastapi_app(
         _context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        return _fastapi_response(save_llm_config_payload(llm_config_service, payload), JSONResponse)
+        return _fastapi_response(save_llm_config_payload(llm_config_service, payload, pg_config_repo=_pg_config_repo if _pg_conn else None), JSONResponse)
 
     @app.post("/api/execution-lane/credential-slots")
     def create_execution_lane_credential_slot(payload: dict[str, Any], authorization: str | None = Header(default=None)) -> Any:

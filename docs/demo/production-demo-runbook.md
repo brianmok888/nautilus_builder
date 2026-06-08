@@ -186,6 +186,34 @@ Expected response for `demo_replay_passed`:
 - `promotion.status`: `"missing"`
 - `audit`: array with created, validated, compiled, replay events
 
+## Restart Durability Demo
+
+This demo proves that Builder state survives API restart when using Postgres.
+
+### With Docker (Recommended)
+
+```bash
+# Start all services with Postgres
+docker compose up -d postgres api web
+
+# Verify demo data is seeded
+curl -s -H "Authorization: Bearer $BUILDER_API_TOKEN" \
+  http://localhost:8000/api/strategies/demo_replay_passed/evidence-summary | python3 -m json.tool
+
+# Restart the API (Postgres stays up)
+docker compose restart api
+sleep 10
+
+# Verify evidence still exists after restart
+curl -s -H "Authorization: Bearer $BUILDER_API_TOKEN" \
+  http://localhost:8000/api/strategies/demo_replay_passed/evidence-summary | python3 -m json.tool
+```
+
+The evidence summary should be identical before and after restart — strategies,
+backtest jobs, compile hashes, replay reports, and promotion evidence all persist.
+
+See [persistence-verification.md](../verification/persistence-verification.md) for the full restart durability test.
+
 ## Troubleshooting
 
 | Issue | Solution |

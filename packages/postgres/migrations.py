@@ -224,3 +224,96 @@ MIGRATIONS.append(
         """,
     ),
 )
+
+
+MIGRATIONS.append(
+    Migration(
+        version=4,
+        name="builder_backtest_and_config_tables",
+        up="""
+        CREATE TABLE IF NOT EXISTS {schema}.backtest_jobs (
+            job_id TEXT PRIMARY KEY,
+            strategy_id TEXT NOT NULL,
+            strategy_spec_version_id TEXT NOT NULL,
+            adapter_profile_id TEXT NOT NULL DEFAULT '',
+            instrument_id TEXT NOT NULL DEFAULT '',
+            data_range TEXT NOT NULL DEFAULT 'unspecified',
+            compile_hash TEXT NOT NULL DEFAULT '',
+            compile_artifact_id TEXT,
+            validation_report_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'CREATED',
+            stage TEXT NOT NULL DEFAULT 'CREATED',
+            lifecycle_status TEXT NOT NULL DEFAULT 'CREATED',
+            worker_id TEXT NOT NULL DEFAULT 'unassigned',
+            result_artifact_refs JSONB NOT NULL DEFAULT '{{}}',
+            event_stream_id TEXT NOT NULL DEFAULT '',
+            created_by TEXT NOT NULL DEFAULT 'builder_api',
+            user_id TEXT NOT NULL DEFAULT 'system',
+            project_id TEXT NOT NULL DEFAULT 'default',
+            dataset_id TEXT NOT NULL DEFAULT 'unspecified',
+            catalog_path TEXT,
+            data_type TEXT NOT NULL DEFAULT 'unspecified',
+            timeframe TEXT NOT NULL DEFAULT 'unspecified',
+            market_type TEXT NOT NULL DEFAULT 'unspecified',
+            cancel_requested BOOLEAN NOT NULL DEFAULT false,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_backtest_jobs_strategy_id ON {schema}.backtest_jobs (strategy_id);
+        CREATE INDEX IF NOT EXISTS idx_backtest_jobs_strategy_spec_version_id ON {schema}.backtest_jobs (strategy_spec_version_id);
+        CREATE INDEX IF NOT EXISTS idx_backtest_jobs_status ON {schema}.backtest_jobs (status);
+        CREATE INDEX IF NOT EXISTS idx_backtest_jobs_created_at ON {schema}.backtest_jobs (created_at);
+
+        CREATE TABLE IF NOT EXISTS {schema}.backtest_results (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            job_id TEXT NOT NULL REFERENCES {schema}.backtest_jobs(job_id) ON DELETE CASCADE,
+            strategy_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'unknown',
+            summary JSONB NOT NULL DEFAULT '{{}}',
+            metrics JSONB NOT NULL DEFAULT '{{}}',
+            result_artifact_refs JSONB NOT NULL DEFAULT '{{}}',
+            report_artifact_id TEXT,
+            report_artifact_ref TEXT,
+            report_hash TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_backtest_results_job_id ON {schema}.backtest_results (job_id);
+        CREATE INDEX IF NOT EXISTS idx_backtest_results_strategy_id ON {schema}.backtest_results (strategy_id);
+
+        CREATE TABLE IF NOT EXISTS {schema}.builder_config (
+            key TEXT PRIMARY KEY,
+            value JSONB NOT NULL DEFAULT '{{}}',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_by TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS {schema}.workflow_results (
+            result_id TEXT PRIMARY KEY,
+            test_job_id TEXT NOT NULL,
+            strategy_lineage_id TEXT NOT NULL DEFAULT '',
+            project_id TEXT NOT NULL DEFAULT 'default',
+            payload JSONB NOT NULL DEFAULT '{{}}',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_workflow_results_test_job_id ON {schema}.workflow_results (test_job_id);
+        CREATE INDEX IF NOT EXISTS idx_workflow_results_strategy_lineage_id ON {schema}.workflow_results (strategy_lineage_id);
+        """,
+        down="""
+        DROP INDEX IF EXISTS {schema}.idx_workflow_results_strategy_lineage_id;
+        DROP INDEX IF EXISTS {schema}.idx_workflow_results_test_job_id;
+        DROP TABLE IF EXISTS {schema}.workflow_results;
+        DROP TABLE IF EXISTS {schema}.builder_config;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_results_strategy_id;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_results_job_id;
+        DROP TABLE IF EXISTS {schema}.backtest_results;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_jobs_created_at;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_jobs_status;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_jobs_strategy_spec_version_id;
+        DROP INDEX IF EXISTS {schema}.idx_backtest_jobs_strategy_id;
+        DROP TABLE IF EXISTS {schema}.backtest_jobs;
+        """,
+    ),
+)
