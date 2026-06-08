@@ -2,7 +2,37 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** VERIFIED BUILDER-ONLY DEV-DEMO CLOSEOUT. Production/live trading readiness remains out of scope.
+**Current state:** REQUEST CHANGES for production/security readiness. Clean-route/Overview local UI closeout remains verified, but critical credential packaging/storage and runtime-safety findings are open. Production/live trading readiness is not claimed.
+
+## 0. Current review gate — 2026-06-08 post-route standardization
+
+**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified, but the following guard violations are open and must be treated as blockers for any production or live-readiness claim.
+
+### Immediate blocker guards
+
+1. **Credential packaging guard:** Docker builds must never copy `.env.execution.local` or any `.env*` secret file into an image or remote build context. Current evidence: `Dockerfile.api:13-15`, missing `.dockerignore`, and a local untracked `.env.execution.local` with credential variable names. Remove the copy pattern, add `.dockerignore`, and rotate any real keys.
+2. **Browser credential guard:** Builder UI must not collect raw venue credentials. Current evidence: `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `62-69`. Replace with backend-only secret references or a CLI/admin bootstrap.
+3. **Paper/runtime credential guard:** Paper sessions must not require live venue credentials or construct live venue data/exec clients from browser-provided secrets. Current evidence: `packages/execution_lane/sessions.py:218-232`, `packages/execution_lane/adapter_config_builders.py:31-70`.
+4. **Dev server exposure guard:** `nautilus-builder-api` must not start an unauthenticated mutating API on non-loopback hosts. Current evidence: `pyproject.toml:19-20`, `services/api/dev_server.py:39-44`, `services/api/app.py:57-125`.
+5. **Rate-limit enforcement guard:** A configured limiter must be enforced by middleware/dependency before readiness claims. Current evidence: `services/api/fastapi_app.py:182-195` constructs a limiter but no route calls it.
+6. **Audit attribution guard:** Mutations must persist actor/project attribution and must not silently drop audit failures. Current evidence: `packages/auth/audit_middleware.py:64-77`, `packages/postgres/migrations.py:199-210`, `services/api/fastapi_app.py:891-910`.
+7. **Artifact readiness guard:** FastAPI startup/readiness must initialize and report an actual artifact store from env/factory before BacktestNode/promotion readiness claims. Current evidence: `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`.
+8. **LLM config persistence guard:** Postgres-backed config saves must preserve `_pg_config_repo`; do not reset it to `None` after loading. Current evidence: `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`.
+9. **Frontend action-ownership guard:** The web UI may request/observe backend plans; it must not be the authority constructing risk-approved order intents or runtime worker/session actions. Current evidence: `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-372`, `539-552`.
+10. **Safety scan guard:** `scripts/check_forbidden_authority.sh` must scan production directories by default rather than allowlisting `packages/`, `services/`, and `apps/web`.
+
+### Current web-route guard
+
+- Keep sidebar links as clean paths: `/`, `/builder`, `/backtests`, `/execution`, `/strategies`, `/pipeline`, `/results`, `/config`.
+- Do not reintroduce `?tab=strategy`, `?tab=backtest`, or `?tab=execution` for primary navigation.
+- Keep Overview as distinct summary/data-view content, not a duplicate Strategy Builder lane.
+
+### Current positive guard evidence
+
+- No direct production Builder `submit_order(` or authoritative `TradeAction(` construction was found in the focused source scan.
+- `NEXT_PUBLIC_BUILDER_API_TOKEN` remains forbidden by policy and not used for browser token proxying.
+- `aiogram`/Telegram and LangChain/LangGraph/EvoMap remain outside Builder runtime dependencies; keep them as Daedalus/advisory boundaries unless a separate design is approved.
+
 
 ## 1. Authority boundary — Builder never owns live order submission
 
@@ -317,7 +347,7 @@ python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/te
 # 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: full verification and post-implementation review have passed; run final git/remote safety checks before the Lore commit and push.
+Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier branch. Current addendum stop condition is publication-only after clean git/remote checks; production/security readiness remains blocked until the guard violations in section 0 are fixed.
 
 ## Production/live-readiness warning
 

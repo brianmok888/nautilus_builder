@@ -4,7 +4,54 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **APPROVE FOR BUILDER-ONLY DEV-DEMO CLOSEOUT** — hash styling, DOM-order coverage, verification docs, scoped demo seed, local DB smoke, and safety checks are verified. Production/live trading readiness remains out of scope.
+**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — the clean-route/Overview UI closeout remains verified for local Builder-only UX, but this follow-up review found critical credential-packaging and runtime-safety gaps. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
+
+## Current deep review addendum — 2026-06-08 post-route standardization
+
+**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI: `Overview` routes to `/` and renders `BuilderOverview`, while `Strategy Builder`, `Backtest Center`, and `Execution Lane` route to `/builder`, `/backtests`, and `/execution` respectively. The query-tab surface is no longer present in the web source scan.
+
+### Current inventory snapshot
+
+| Area | Current tracked files | Notes |
+|---|---:|---|
+| `packages/` | 137 | Domain layer, including execution-lane, artifact store, auth, Postgres, AI builder, and backtest packages. |
+| `services/` | 25 | FastAPI factory, dependency-free dev API, route adapters, and workers. |
+| `apps/web/` | 127 | Next/React/AntD UI; clean path lanes are present. |
+| `tests/` | 182 | Backend/frontend contract and regression tests. |
+| `scripts/` | 8 | Local/dev/demo scripts and safety scan. |
+| `doc/` | 13 | Source-truth product and hardguard docs. |
+| `docs/` | 63 | Derived runbooks and verification docs. |
+
+### Current UI route map
+
+| Link / page | Current evidence | Review status |
+|---|---|---|
+| Overview | `apps/web/components/shell/BuilderSidebar.tsx:25-33`, `apps/web/app/page.tsx:5-6`, `apps/web/components/dashboard/BuilderOverview.tsx:13-86` | **Closed** — root has distinct overview cards/data view. |
+| Strategy Builder | `apps/web/app/builder/page.tsx:5-6`, `apps/web/components/dashboard/BuilderDashboard.tsx:97-112` | **Closed** — clean `/builder` route, no `?tab=` dependency. |
+| Backtest Center | `apps/web/app/backtests/page.tsx:5-6`, `apps/web/components/dashboard/BuilderDashboard.tsx:114-205` | **Closed** — clean `/backtests` route. |
+| Execution Lane | `apps/web/app/execution/page.tsx:5-6`, `apps/web/components/dashboard/BuilderDashboard.tsx:208-240` | **Closed/WATCH** — path is clean, but execution controls still need authority-boundary hardening. |
+| Pipeline / Results | `apps/web/app/pipeline/page.tsx:7-17`, `apps/web/app/results/page.tsx:7-17` | **Aligned** — separate pages already used `/pipeline` and `/results`; no query tab. |
+
+`grep -R "?tab=\|tab=strategy\|tab=backtest\|tab=execution" apps/web --exclude-dir=.next --exclude-dir=node_modules` returned no matches during this review.
+
+### Newly surfaced architecture/security blockers
+
+| Priority | Finding | Evidence | Why it matters |
+|---|---|---|---|
+| **CRITICAL** | Docker API image can bake local credential files into image layers/build context. | `Dockerfile.api:13-15`; `.gitignore:1-6`; no `.dockerignore`; local untracked `.env.execution.local:1-2` contains Binance credential variable names (values redacted during review). | Violates Builder credential boundaries and can leak exchange credentials through Docker layers, remote builders, or pushed images. |
+| **CRITICAL** | Builder UI/API accepts raw venue credentials and persists them to `.env.execution.local`. | `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `62-69`; `packages/execution_lane/credentials.py:124-151`; `packages/execution_lane/adapter_config_builders.py:31-70`. | Frontend is supposed to be observational/advisory; browser-held credential entry conflicts with `browser_credentials: false`. |
+| **HIGH** | Installed `nautilus-builder-api` entrypoint exposes the dependency-free dev server without auth. | `pyproject.toml:19-20`; `services/api/dev_server.py:39-44`; `services/api/app.py:57-125`. | Running the packaged command on a non-loopback host can expose mutating API routes without bearer auth/scope/rate-limit checks. |
+| **HIGH** | Rate limiter is instantiated but not enforced. | `services/api/fastapi_app.py:182-195`; no production call to `_rate_limiter.is_allowed(...)`; `packages/auth/redis_rate_limit.py:56-73`. | Production can claim Redis rate limiting while protected routes bypass it; Redis outages fail open if wired later. |
+| **HIGH** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | `packages/auth/audit_middleware.py:64-77`; no code sets `request.state.actor_id`/`project_id`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py:891-910`. | Mutations can succeed without durable actor/project audit evidence. |
+| **MEDIUM** | FastAPI ignores the artifact-store factory/env and still reports artifact readiness. | `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `docs/verification/local-verification-checklist.md:30`. | Local demo backtest runs/promotions can fail despite `BUILDER_ARTIFACT_ROOT` docs, and readiness can be misleading. |
+| **MEDIUM** | Postgres LLM config saves are disabled by a reset variable. | `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`. | Config is loaded from Postgres but subsequent saves pass `None`, causing restart drift. |
+
+### Official/reference alignment notes
+
+- NautilusTrader upstream/docs URLs were reachable during review and remain the source of truth for adapter, execution-test, and live-runtime expectations. Builder still must not claim adapter/live readiness without DataTester, ExecTester, and reconciliation evidence.
+- The local Daedalus reference (`/home/mok/projects/Nautilus-Daedalus`) reinforces that `TradeAction` is approved intent, not execution evidence; Telegram/EvoMap/LangChain/LangGraph lanes stay downstream/advisory and non-authoritative.
+- The loaded `aiogram-dialog-menus` lens remains negative inventory only: no Builder aiogram/Telegram runtime dependency should be added.
+
 
 ## Authoritative references checked
 
@@ -38,7 +85,7 @@
 |---|---|---|
 | Builder vs live order authority | **Aligned** | `packages/strategy_validation/policy.py` blocks `submit_order`, `TradeAction`, credential terms; `packages/backtest_runner/config_builder.py` rejects credentials; execution lane payloads keep `may_submit_order=False` in paper paths. |
 | Builder vs Daedalus | **Aligned but needs wording discipline** | Daedalus owns live execution, TradeAction intent, ExecutionReport, Telegram delivery, EvoMap/LangGraph decision lanes. Builder must only produce specs, validation/compile/backtest evidence, and reviewed handoff artifacts. |
-| NautilusTrader version | **Aligned** | Builder `pyproject.toml` pins `nautilus_trader==1.227.0`; Daedalus `pyproject.toml` also pins `1.227.0`. |
+| NautilusTrader version | **WATCH — dependency drift** | Builder `pyproject.toml` pins `nautilus_trader==1.227.0`; the local Daedalus reference currently pins `1.228.0`. Treat this as an explicit compatibility review item before any NT adapter/live-readiness claim. |
 | NT adapter readiness claims | **WATCH** | Official adapter docs require Rust/Python adapter layers and DataTester/ExecTester evidence. Builder can gate on evidence refs but must not claim it produces adapter compliance evidence. |
 | Python `TradingNode` / Rust `LiveNode` wording | **WATCH** | Builder uses Python `TradingNode` as an integration-specific paper/runtime contract; docs should not present it as the universal current live runtime. Rust-backed `LiveNode` remains the future/current Rust v2 path. |
 | AI/EvoMap/LangChain/LangGraph | **Aligned** | Builder does not depend on EvoMap/LangChain/LangGraph in `packages/`, `services/`, or `pyproject.toml`; it uses an OpenAI-compatible advisory provider and validates outputs before acceptance. |
@@ -72,9 +119,9 @@ nautilus_builder/
 └── tests/                       # Contract-first regression suite
 ```
 
-## Current changed-diff assessment
+## Historical changed-diff assessment — prior Segment 1-4 closure
 
-The current uncommitted diff is a findings-closure hardening set, not only a demo-evidence change. It closes the reviewed auth/scope/startup/storage/evidence issues while preserving Builder-only authority boundaries.
+The paragraph/table below is retained as prior closure history. The current worktree now contains the review documentation update plus existing clean-route contract-test changes. The prior findings-closure hardening set was not re-implemented by this addendum. It closes the reviewed auth/scope/startup/storage/evidence issues while preserving Builder-only authority boundaries.
 
 | Diff area | Assessment |
 |---|---|
@@ -208,7 +255,7 @@ python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_s
 # pass
 ```
 
-At final closeout time, full master reconciliation, architecture review follow-up, and verification have passed for the Builder-only dev-demo scope; safe git push/merge checks remain.
+Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review is blocked until the credential, rate-limit, audit, artifact-store, and runtime-action findings are closed.
 
 ## Master reconciliation — findings closure implementation
 
@@ -244,7 +291,7 @@ python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/te
 # 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: full verification and post-implementation review have passed; final git/remote checks decide whether the Lore commit and push are safe.
+Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier findings-closure branch. Current stop condition for this addendum is narrower: publish the review artifact only after git/remote checks are clean; do not treat the push as production/security readiness approval.
 
 ## Final closeout scope warning
 

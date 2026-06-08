@@ -7,9 +7,124 @@
 
 ## Executive summary
 
-**Final recommendation:** **APPROVE FOR BUILDER-ONLY DEV-DEMO CLOSEOUT**
-**Architectural status:** **CLEAR for the requested closeout scope**
+**Final recommendation:** **REQUEST CHANGES** for production/security readiness. The previous Builder-only route/hash UI closeout remains locally verified, but the current review found critical credential and runtime safety gaps.
+**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until credential, rate-limit, audit, artifact-store, and web-auth findings are closed.
 **Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
+
+## Current deep review addendum — 2026-06-08 post-route standardization
+
+**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified, but this inventory-first review found critical credential and runtime-hardening gaps. The review intentionally did **not** edit backend/UI code; it records prioritized findings for follow-up closure.
+
+### Current top-priority findings
+
+#### C-01 — Docker API image can include local exchange credentials
+
+- **Severity:** CRITICAL
+- **Files:** `Dockerfile.api:13-15`, `.gitignore:1-6`; missing `.dockerignore`; local untracked `.env.execution.local:1-2` was present with Binance credential variable names (values redacted, not copied into this report).
+- **Issue:** The Dockerfile touches and copies `.env.execution.local` into `.env.local`. `.gitignore` keeps the file out of git, but Docker build context still includes it when no `.dockerignore` exists.
+- **Risk:** Local or remote Docker builds can bake credentials into image layers or transmit them to a remote daemon/build cache.
+- **Fix:** Remove the `COPY .env.execution.local .env.local` pattern, add `.dockerignore` excluding `.env*`, `.git`, caches, local DB/artifact folders, and rotate any real keys that may have been present.
+
+#### C-02 — Builder accepts browser-entered venue credentials and stores raw values
+
+- **Severity:** CRITICAL
+- **Files:** `apps/web/app/config/page.tsx:3-17`, `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `47-50`, `62-69`; `services/api/fastapi_app.py:431-444`; `packages/execution_lane/credentials.py:124-151`; `packages/execution_lane/sessions.py:218-232`; `packages/execution_lane/adapter_config_builders.py:31-70`.
+- **Issue:** The Settings page mounts a credential form, stores secret values in React state, posts `credential_values` to the backend, writes them into `.env.execution.local`, then constructs Binance live data/execution client config objects for paper sessions.
+- **Risk:** This conflicts with the frontend/display-only boundary and the allowed posture `browser_credentials: false`; it also increases the blast radius from browser extensions, devtools, screenshots, logs, and Docker packaging.
+- **Fix:** Remove browser raw credential entry. Use backend-only secret references or a separate CLI/admin bootstrap. Paper mode should use simulated/local config with no venue secrets; any future live lane must be separate, backend-only, manual-review gated, and testnet/mainnet guarded.
+
+#### H-01 — Packaged `nautilus-builder-api` starts an unauthenticated dev server
+
+- **Severity:** HIGH
+- **Files:** `pyproject.toml:19-20`; `services/api/dev_server.py:39-44`; `services/api/app.py:57-125`.
+- **Issue:** The installed console script points to the dependency-free dev server, which accepts arbitrary host binding and exposes mutating routes without bearer auth/scope/rate-limit/CORS policy.
+- **Risk:** `nautilus-builder-api --host 0.0.0.0` can expose unauthenticated local/dev mutation surfaces, including credential slots and execution-lane commands.
+- **Fix:** Move the console script to an authenticated FastAPI entrypoint, or force loopback-only unless an explicit unsafe dev flag is passed and clearly logged.
+
+#### H-02 — Rate limiting is configured but not enforced
+
+- **Severity:** HIGH
+- **Files:** `services/api/fastapi_app.py:182-195`; `packages/auth/redis_rate_limit.py:42-46`, `56-73`; `docker-compose.production.yml:69-70`.
+- **Issue:** `_rate_limiter` is instantiated but no route or middleware calls `_rate_limiter.is_allowed(...)`. Redis limiter logs the configured URL and fails open when unavailable.
+- **Risk:** Production can claim Redis-backed rate limiting while all requests bypass it; if wired later, outage behavior can still disable rate limiting and may leak Redis credentials through logs.
+- **Fix:** Add FastAPI middleware/dependency around protected routes, redact Redis URLs, and fail closed or fall back to a strict local limiter in production.
+
+#### H-03 — Mutation audit events are not attributable and may fail silently
+
+- **Severity:** HIGH
+- **Files:** `packages/auth/audit_middleware.py:64-77`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py:891-910`.
+- **Issue:** Audit middleware reads `request.state.actor_id`/`project_id`, but no production auth path writes those values. Postgres schema requires `actor_id TEXT NOT NULL`; the writer inserts a possibly-null actor and omits project, then swallows insert failures into logs.
+- **Risk:** Mutating requests can succeed without durable actor/project audit evidence.
+- **Fix:** Attach `UserProjectContext` to request state in an auth middleware/dependency, persist `project_id`, and fail closed or return a controlled error when audit writes fail for critical mutations.
+
+#### H-04 — Frontend can construct execution-lane order-intent/worker actions
+
+- **Severity:** HIGH
+- **Files:** `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-350`, `362-372`, `539-552`.
+- **Issue:** The browser constructs `order_intent` and an `approved` risk decision, queues the command, runs the backend worker once, and starts/stops paper sessions.
+- **Risk:** Backend checks keep `may_submit_order=false` today, but this weakens the architectural rule that the UI is display/advisory only and should not own runtime-action composition.
+- **Fix:** Move command/risk/order-intent creation server-side. The frontend should request/observe backend-created plans or submit a manual approval request only.
+
+#### M-01 — Artifact-store env/factory is not wired into FastAPI startup
+
+- **Severity:** MEDIUM
+- **Files:** `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `services/api/routes/backtest_execution.py:193-198`; `docs/verification/local-verification-checklist.md:30`.
+- **Issue:** `create_fastapi_app()` accepts `artifact_store` but does not create one from `BUILDER_ARTIFACT_ROOT`/`BUILDER_ARTIFACT_BACKEND`; `/health/ready` still reports `artifact_store: ok`.
+- **Risk:** Local BacktestNode runs and strict promotion can fail with `artifact store is required` even when runbooks export artifact env variables.
+- **Fix:** Build the artifact store from the factory during app startup, honor `BUILDER_ARTIFACT_ROOT`, and make readiness reflect actual store initialization.
+
+#### M-02 — Postgres LLM config saves do not persist after startup
+
+- **Severity:** MEDIUM
+- **Files:** `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`.
+- **Issue:** `_pg_config_repo` is created and used to load config, then reset to `None`, so `save_llm_config_payload(..., pg_config_repo=_pg_config_repo if _pg_conn else None)` never persists saves.
+- **Risk:** UI says config saved but restart can revert to old/default config.
+- **Fix:** Preserve the Postgres config repo variable and add a restart/persistence regression test.
+
+#### M-03 — Direct frontend fetches bypass the canonical API client
+
+- **Severity:** MEDIUM
+- **Files:** `apps/web/components/ai-builder/AiStrategyCopilot.tsx:29-35`, `134-137`; `apps/web/hooks/useHealthCheck.ts:24`; `apps/web/lib/apiClient.ts:25-69`; `apps/web/lib/api.ts:130-163`.
+- **Issue:** Some UI code bypasses `lib/api.ts`, losing central auth/proxy/error behavior; `/api/adapters` auth errors can become non-array state and later crash `.map()`.
+- **Risk:** Inconsistent local/prod behavior and poor UX under API auth/config errors.
+- **Fix:** Route all API calls through `apiFetch` helpers and remove or wrap the older `apiClient.ts` module.
+
+#### M-04 — Forbidden-authority scan allowlists production code directories
+
+- **Severity:** MEDIUM
+- **Files:** `scripts/check_forbidden_authority.sh:21-38`.
+- **Issue:** The safety scan allowlists `packages/`, `services/`, and `apps/web/`, so it would miss future forbidden authority in production code.
+- **Risk:** A green safety scan can provide false confidence.
+- **Fix:** Invert the scan: search production code by default, allow only policy/docs/tests/negative literals, and keep an explicit false-positive allowlist.
+
+### Web UI / UX status
+
+- **Closed:** Overview and Strategy Builder no longer link to the same content. `Overview` uses `/` and `BuilderOverview`; Strategy Builder uses `/builder`; Backtest and Execution use `/backtests` and `/execution`.
+- **Closed:** The `?tab=` route style is gone from `apps/web` source in this review scan.
+- **WATCH:** Execution Lane copy and controls should reinforce “backend-only plan/request” rather than browser action ownership. `apps/web/components/dashboard/BuilderDashboard.tsx:52-54` still says “Paper / live TradingNode gate”; prefer “Paper / reviewed runtime gate” until a production live model exists.
+- **WATCH:** Settings should not present credential bootstrap as normal web UX. Remove or isolate it behind a backend-only local operator path.
+
+### Inventory-first semantic legacy/deprecation update
+
+| Item | Current status | Evidence / closure action |
+|---|---|---|
+| `storage_config.py` legacy alias | **OPEN** | `packages/workflow_spine/storage_config.py:1-3`; keep 2026-07-01 removal deadline. |
+| `PostgresWorkflowRepository` alias | **OPEN** | `packages/workflow_spine/postgres_repository.py:213-219`, `packages/workflow_spine/__init__.py:28-45`; remove after cutoff. |
+| Backtest legacy hash derivation | **OPEN** | `services/api/routes/backtest_jobs.py:267-275`; keep disabled by default and remove env escape after cutoff. |
+| `allow_legacy_fixture_refs` | **OPEN/WATCH** | `services/api/routes/promotions.py:22-34`, `pyproject.toml:36`; strict mode remains required for production. |
+| `res_001` fixture fallback | **WATCH** | `services/api/routes/workflow_results.py:23-24`; flag-gated, keep production off. |
+| `NEXT_PUBLIC_BUILDER_API_TOKEN` | **CLOSED/WATCH** | `packages/auth/policy.py:67-71`, `apps/web/middleware.ts:31-59`; reject browser-token reintroduction. |
+| aiogram / Telegram | **CLOSED for Builder runtime** | No Builder dependency found; keep Telegram under Daedalus boundary. |
+| LangChain/LangGraph/EvoMap | **CLOSED for Builder runtime** | No Builder dependency found; keep these as Daedalus/advisory references unless separately designed. |
+| Query-tab routes | **CLOSED** | Source grep returned no `?tab=` / tab query references under `apps/web`. |
+
+### Positive validation during this review
+
+- No direct production Builder `submit_order(` call or authoritative `TradeAction(` construction was found in the focused source scan.
+- `apps/web` safety tests referenced by the frontend review passed in the subagent lane (`middleware.test.ts`, `lib/api.test.ts`, `safety-contract.test.tsx`: 23 passed).
+- Builder `pyproject.toml` still pins `nautilus_trader==1.227.0`; the local Daedalus reference currently pins `1.228.0`, so NT compatibility must be reviewed before any adapter/live-readiness claim.
+- Official NautilusTrader and AI reference URLs were reachable during review; they remain authoritative for adapter/test/live/advisory boundaries.
+
 
 The Builder/Daedalus/NautilusTrader execution boundary remains directionally correct: no Builder production path was found that directly calls `submit_order(` or constructs authoritative `TradeAction(`. The historical risk was not live order authority creep; it was cross-project data exposure/mutation and stale review artifacts that previously claimed `APPROVE` despite blockers.
 
@@ -46,9 +161,11 @@ cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --
 # 123 passed, 4 skipped
 ```
 
-Current stop condition: closeout verification is green; remaining work is commit, merge/up-to-date check, and push to `origin/master`.
+Current stop condition for this addendum: focused review verification is green for publishing the review artifact after final git/remote checks, but production/security readiness remains **REQUEST CHANGES** until the blocker list above is fixed.
 
-## Severity summary
+## Historical severity summary — prior Segment 1-4 closure
+
+The table and detailed findings below this heading are retained as prior closure history. The **current** review verdict and priorities are the 2026-06-08 post-route-standardization addendum above.
 
 | Category | CRITICAL | HIGH | MEDIUM | LOW | WATCH |
 |---|---:|---:|---:|---:|---:|
@@ -220,14 +337,14 @@ Current stop condition: closeout verification is green; remaining work is commit
 
 ## NautilusTrader / Daedalus alignment notes
 
-- Builder and Daedalus both pin `nautilus_trader==1.227.0`.
+- Builder pins `nautilus_trader==1.227.0`; the local Daedalus reference pins `1.228.0`. Treat this drift as a required compatibility review item before claiming adapter/live-readiness alignment.
 - Official NT adapter docs define layered Rust core + Python integration layers and require DataTester/ExecTester evidence for adapter readiness. Builder currently gates on evidence refs but should not claim it produces those adapter test artifacts.
 - Official NT Data Testing Spec notes legacy Python `TradingNode` examples but prefers Rust-backed `LiveNode` for new Rust/PyO3 adapters. Builder docs should retain the `python_live_integration_specific` label for TradingNode contracts.
 - Daedalus `AGENTS.md` and README state Telegram is downstream-only, TradeAction is approved intent rather than execution evidence, and ExecutionReport is the source for submitted/filled/rejected/canceled wording. Builder should mirror this boundary.
 
 ## Current diff inclusion assessment
 
-**Safe to include with review artifacts, but not production-readiness proof.** The current findings-closure diff does not introduce Builder order authority or Daedalus coupling. Segment 3 closed M-01, M-02, L-01, and L-03, and reduced M-03 by separating `passed_inferred` from artifact-backed compile evidence. Segment 4 closed H-04 runtime auth coverage. Follow-up review fixes closed `/api/results` list scoping, evidence-summary job scoping, execution-lane project scoping, explicit-local web token proxying, strictest-env token/CORS/audit-store handling, production Redis rate-limit startup policy, and the public API base URL middleware proxy risk. Fresh post-implementation review passed; final git/remote checks remain the active stop condition.
+**Historical prior-closeout inclusion assessment, retained for context only.** The earlier findings-closure diff did not introduce Builder order authority or Daedalus coupling and closed the listed Segment 3/4 items. The current 2026-06-08 addendum supersedes any merge-ready implication: production/security readiness is **REQUEST CHANGES**, and git/remote checks only decide whether this review artifact can be published.
 
 ## Verification evidence
 
@@ -392,4 +509,4 @@ python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/te
 # 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: full verification and post-implementation review have passed; perform final git/remote safety checks before the Lore commit and push.
+Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier branch. Current addendum stop condition is publication-only after clean git/remote checks; production/security readiness remains blocked.

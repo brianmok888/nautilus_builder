@@ -28,7 +28,7 @@ def test_root_layout_mounts_builder_shell_with_ant_design() -> None:
     assert "Nautilus Builder" in sidebar
     assert "Builder-only mode" in banner
     assert "does not submit live orders" in banner
-    for href in ("/", "/strategies", "/config", "/?tab=backtest", "/?tab=execution", "/results"):
+    for href in ("/", "/builder", "/backtests", "/execution", "/strategies", "/pipeline", "/results", "/config"):
         assert href in sidebar
     assert "submit_order" not in sidebar
     assert "TradeAction" not in sidebar

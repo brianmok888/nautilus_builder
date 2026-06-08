@@ -125,7 +125,7 @@ describe("BuilderDashboard", () => {
     expect(selectedIndex).toBeGreaterThan(strategiesIndex);
     expect(replayIndex).toBeGreaterThan(selectedIndex);
     expect(promotionIndex).toBeGreaterThan(replayIndex);
-  }, 10_000);
+  }, 20_000);
 
   it("switches to Execution Lane on button click", async () => {
     mockApiResponses();

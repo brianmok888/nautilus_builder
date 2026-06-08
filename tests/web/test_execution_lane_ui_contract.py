@@ -8,11 +8,14 @@ WEB = ROOT / "apps" / "web"
 
 def test_execution_page_exposes_execution_lane_venue_feature_panel() -> None:
     page = (WEB / "app" / "execution" / "page.tsx").read_text()
+    dashboard = (WEB / "components" / "dashboard" / "BuilderDashboard.tsx").read_text()
     component = (WEB / "components" / "config" / "ExecutionLaneFeaturePanel.tsx").read_text()
     types = (WEB / "lib" / "types.ts").read_text()
     api = (WEB / "lib" / "api.ts").read_text()
 
-    assert "ExecutionLaneFeaturePanel" in page
+    assert "BuilderDashboard" in page
+    assert 'initialTab="execution"' in page
+    assert "ExecutionLaneFeaturePanel" in dashboard
     assert "Execution lane venue binding" in component
     assert "Adapter ID" in component
     assert "Venue" in component
