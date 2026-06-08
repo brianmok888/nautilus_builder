@@ -17,6 +17,7 @@ import { StrategySpecEditor } from "../strategy-builder/StrategySpecEditor";
 import { JobTerminal } from "../terminal/JobTerminal";
 import { DashboardCard } from "../ui/DashboardCard";
 import { WorkflowSteps, type WorkflowStep } from "../ui/WorkflowSteps";
+import { BuilderSafetyStatusPanel } from "../safety/BuilderSafetyStatusPanel";
 import type { StrategySummary } from "../../lib/types";
 
 const { Text, Paragraph } = Typography;
@@ -72,6 +73,11 @@ export function BuilderDashboard({
       {/* 1-2-3 workflow step buttons */}
       <WorkflowSteps steps={steps} activeKey={activeSection} onSelect={switchTab} />
 
+      {/* Builder safety status — always visible */}
+      <div style={{ marginTop: 8 }}>
+        <BuilderSafetyStatusPanel />
+      </div>
+
       {/* Content panels */}
       <div style={{ marginTop: 8 }}>
         {/* TAB 1: Strategy Builder */}
@@ -108,7 +114,6 @@ export function BuilderDashboard({
                 <DashboardCard
                   title={`Spec: ${selectedStrategy.strategy_id}`}
                   actions={<Tag color="purple">AI review before backtest</Tag>}
-                  
                   style={{ marginTop: 12 }}
                 >
                   <Paragraph type="secondary">

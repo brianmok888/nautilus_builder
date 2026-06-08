@@ -48,7 +48,7 @@ describe("StrategyListClient", () => {
     render(<StrategyListClient />);
 
     await waitFor(() =>
-      expect(screen.getByText(/No strategies yet/)).toBeInTheDocument(),
+      expect(screen.getByText(/No strategy specs yet/)).toBeInTheDocument(),
     );
   });
 

@@ -2,12 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
   Descriptions,
-  Empty,
   Space,
   Spin,
   Table,
@@ -23,16 +22,18 @@ import { cloneStrategy, fetchStrategyDetail } from "../../lib/api";
 import type { StrategyStatus } from "../../lib/types";
 import { STRATEGY_STATUS_COLORS } from "../../lib/types";
 
-const { Text, Paragraph, Title } = Typography;
+import { StrategyLifecyclePanel } from "../lifecycle/StrategyLifecyclePanel";
+import { NextActionCard } from "../lifecycle/NextActionCard";
+import { EvidenceSummaryGrid } from "../evidence/EvidenceSummaryGrid";
+import { AuditTimeline } from "../audit/AuditTimeline";
+import { deriveStrategyLifecycle } from "../../lib/lifecycle/deriveStrategyLifecycle";
+import type { LifecycleInput } from "../../lib/lifecycle/deriveStrategyLifecycle";
+import { deriveEvidenceRefs } from "../../lib/lifecycle/deriveEvidenceRefs";
+import type { EvidenceInput } from "../../lib/lifecycle/deriveEvidenceRefs";
+import { deriveAuditEvents } from "../../lib/lifecycle/deriveAuditEvents";
+import type { AuditInput } from "../../lib/lifecycle/deriveAuditEvents";
 
-/** Lifecycle chain for visual status timeline */
-const LIFECYCLE_CHAIN: StrategyStatus[] = [
-  "draft",
-  "validated",
-  "backtested",
-  "approved",
-  "execution_ready",
-];
+const { Text, Paragraph } = Typography;
 
 export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
@@ -47,6 +48,73 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
       .catch(() => setError("Unable to load strategy detail."));
   }, [strategyId]);
 
+  // ── Hooks must be above any early returns ──────────────────────
+  // We derive lifecycle data from the detail. While detail is null,
+  // we pass safe defaults. The useMemo hooks always run in the same order.
+
+  const status = (detail?.status as StrategyStatus) || "draft";
+  const versions =
+    (detail?.versions as Array<{
+      strategy_version_id: string;
+      spec: Record<string, unknown>;
+    }>) || [];
+  const latestSpec = versions.length > 0 ? versions[versions.length - 1].spec : {};
+  const validation = (latestSpec.validation as Record<string, unknown>) || {};
+  const provenance =
+    (latestSpec.provenance as {
+      created_by: string;
+      parent_version_id?: string;
+    }) || {};
+
+  const lifecycleInput: LifecycleInput = useMemo(
+    () => ({
+      strategyId,
+      strategyName: String(latestSpec.instrument_id ?? strategyId),
+      status,
+      validation,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [status, strategyId, latestSpec.instrument_id, validation],
+  );
+
+  const lifecycleSummary = useMemo(
+    () => deriveStrategyLifecycle(lifecycleInput),
+    [lifecycleInput],
+  );
+
+  const evidenceInput: EvidenceInput = useMemo(
+    () => ({
+      strategyId,
+      validation,
+      status,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [status, strategyId, validation],
+  );
+
+  const evidenceRefs = useMemo(
+    () => deriveEvidenceRefs(evidenceInput),
+    [evidenceInput],
+  );
+
+  const auditInput: AuditInput = useMemo(
+    () => ({
+      strategyId,
+      strategyLineageId: String(detail?.strategy_lineage_id ?? ""),
+      status,
+      createdBy: provenance.created_by,
+      validation,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [status, strategyId, validation, provenance.created_by, detail?.strategy_lineage_id],
+  );
+
+  const auditEvents = useMemo(
+    () => deriveAuditEvents(auditInput),
+    [auditInput],
+  );
+
+  // ── Early returns (after hooks) ────────────────────────────────
   if (error) {
     return (
       <Card size="small">
@@ -63,16 +131,17 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
     );
   }
 
-  const status = (detail.status as StrategyStatus) || "draft";
-  const versions = (detail.versions as Array<{ strategy_version_id: string; spec: Record<string, unknown> }>) || [];
-  const latestSpec = versions.length > 0 ? versions[versions.length - 1].spec : {};
-
-  const indicators = (latestSpec.indicators as Record<string, { type: string; input: string; period: number }>) || {};
-  const rules = (latestSpec.rules as Record<string, Record<string, unknown>>) || {};
+  // ── Derived data (non-hook) ────────────────────────────────────
+  const indicators =
+    (latestSpec.indicators as Record<
+      string,
+      { type: string; input: string; period: number }
+    >) || {};
+  const rules =
+    (latestSpec.rules as Record<string, Record<string, unknown>>) || {};
   const risk = (latestSpec.risk as Record<string, number>) || {};
-  const validation = (latestSpec.validation as Record<string, unknown>) || {};
-  const dataRange = (latestSpec.data_range as { start: string; end: string }) || {};
-  const provenance = (latestSpec.provenance as { created_by: string; parent_version_id?: string }) || {};
+  const dataRange =
+    (latestSpec.data_range as { start: string; end: string }) || {};
 
   function canEdit(): boolean {
     return status === "draft" || status === "validated";
@@ -94,34 +163,33 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
     }
   }
 
-  // Status timeline
-  const currentIdx = LIFECYCLE_CHAIN.indexOf(status);
-
   return (
-    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-      {/* Status timeline */}
-      <Card size="small" title="Status">
-        <Space wrap>
-          {LIFECYCLE_CHAIN.map((s, idx) => {
-            const reached = idx <= currentIdx;
-            const current = s === status;
-            return (
-              <Tag
-                key={s}
-                color={current ? STRATEGY_STATUS_COLORS[s] : reached ? "blue" : "default"}
-                style={{ opacity: reached ? 1 : 0.4 }}
-              >
-                {current ? "● " : reached ? "✓ " : "○ "}
-                {s.replace("_", " ")}
-              </Tag>
-            );
-          })}
-        </Space>
-      </Card>
+    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      {/* ── Lifecycle panel ─────────────────────────────────────── */}
+      <StrategyLifecyclePanel summary={lifecycleSummary} />
 
-      {/* Strategy overview */}
+      {/* ── Next action guidance ─────────────────────────────────── */}
+      <NextActionCard
+        action={lifecycleSummary.nextAction}
+        blockingReasons={lifecycleSummary.blockingReasons}
+        links={{
+          validation: `/builder/${strategyId}`,
+          replay: `/?tab=backtest`,
+          promotion: `/?tab=backtest`,
+        }}
+        onRunReplay={() => router.push(`/?tab=backtest`)}
+      />
+
+      {/* ── Evidence dashboard ──────────────────────────────────── */}
+      <EvidenceSummaryGrid evidenceRefs={evidenceRefs} />
+
+      {/* ── Strategy overview ───────────────────────────────────── */}
       <Card size="small" title="Overview">
-        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered>
+        <Descriptions
+          column={{ xs: 1, sm: 2, md: 3 }}
+          size="small"
+          bordered
+        >
           <Descriptions.Item label="Strategy ID">
             <Text code>{strategyId}</Text>
           </Descriptions.Item>
@@ -129,7 +197,9 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
             {String(detail.strategy_lineage_id ?? "")}
           </Descriptions.Item>
           <Descriptions.Item label="Status">
-            <Tag color={STRATEGY_STATUS_COLORS[status]}>{status.replace("_", " ")}</Tag>
+            <Tag color={STRATEGY_STATUS_COLORS[status]}>
+              {status.replace("_", " ")}
+            </Tag>
           </Descriptions.Item>
           <Descriptions.Item label="Adapter">
             {String(latestSpec.adapter_id ?? "")}
@@ -154,7 +224,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         </Descriptions>
       </Card>
 
-      {/* Indicators */}
+      {/* ── Indicators ──────────────────────────────────────────── */}
       <Card size="small" title="Indicators">
         <Table
           size="small"
@@ -175,13 +245,15 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         />
       </Card>
 
-      {/* Rules */}
+      {/* ── Rules ───────────────────────────────────────────────── */}
       <Card size="small" title="Entry/Exit Rules">
-        <Space orientation="vertical" style={{ width: "100%" }}>
+        <Space direction="vertical" style={{ width: "100%" }}>
           {Object.entries(rules).map(([name, block]) => (
             <Descriptions
               key={name}
-              title={name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+              title={name
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (c) => c.toUpperCase())}
               size="small"
               bordered
               column={1}
@@ -191,12 +263,20 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
               </Descriptions.Item>
               <Descriptions.Item label="Clauses">
                 <Space wrap>
-                  {((block.all || block.any) as Array<Record<string, unknown>>)?.map((clause, idx) => {
-                    const operator = Object.entries(clause).find(([, v]) => v !== null);
+                  {(
+                    (block.all || block.any) as Array<Record<string, unknown>>
+                  )?.map((clause, idx) => {
+                    const operator = Object.entries(clause).find(
+                      ([, v]) => v !== null,
+                    );
                     if (!operator) return <Tag key={idx}>—</Tag>;
                     return (
                       <Tag key={idx} color="blue">
-                        {operator[0]}({Array.isArray(operator[1]) ? (operator[1] as unknown[]).join(", ") : String(operator[1])})
+                        {operator[0]}(
+                        {Array.isArray(operator[1])
+                          ? (operator[1] as unknown[]).join(", ")
+                          : String(operator[1])}
+                        )
                       </Tag>
                     );
                   })}
@@ -207,7 +287,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         </Space>
       </Card>
 
-      {/* Risk */}
+      {/* ── Risk parameters ─────────────────────────────────────── */}
       <Card size="small" title="Risk Parameters">
         <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
           <Descriptions.Item label="Position Size %">
@@ -225,26 +305,54 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         </Descriptions>
       </Card>
 
-      {/* Validation flags */}
+      {/* ── Validation flags ────────────────────────────────────── */}
       <Card size="small" title="Validation">
         <Space wrap>
           {Object.entries(validation).map(([key, value]) => (
-            <Tag key={key} color={value === true ? "green" : value === false ? "red" : "default"}>
+            <Tag
+              key={key}
+              color={
+                value === true
+                  ? "green"
+                  : value === false
+                    ? "red"
+                    : "default"
+              }
+            >
               {key.replace(/_/g, " ")}: {String(value)}
             </Tag>
           ))}
         </Space>
       </Card>
 
-      {/* Version history */}
-      <Card size="small" title="Version History" extra={<Tag>{versions.length} version{versions.length !== 1 ? "s" : ""}</Tag>}>
+      {/* ── Audit timeline ──────────────────────────────────────── */}
+      <AuditTimeline events={auditEvents} />
+
+      {/* ── Version history ─────────────────────────────────────── */}
+      <Card
+        size="small"
+        title="Version History"
+        extra={
+          <Tag>
+            {versions.length} version{versions.length !== 1 ? "s" : ""}
+          </Tag>
+        }
+      >
         <Table
           size="small"
           pagination={false}
-          dataSource={versions.map((v, idx) => ({ key: v.strategy_version_id, ...v, idx: idx + 1 }))}
+          dataSource={versions.map((v, idx) => ({
+            key: v.strategy_version_id,
+            ...v,
+            idx: idx + 1,
+          }))}
           columns={[
             { title: "#", dataIndex: "idx", width: 40 },
-            { title: "Version ID", dataIndex: "strategy_version_id", render: (id: string) => <Text code>{id}</Text> },
+            {
+              title: "Version ID",
+              dataIndex: "strategy_version_id",
+              render: (id: string) => <Text code>{id}</Text>,
+            },
             {
               title: "Stage",
               key: "stage",
@@ -257,7 +365,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         />
       </Card>
 
-      {/* Actions */}
+      {/* ── Actions ─────────────────────────────────────────────── */}
       <Card size="small" title="Actions">
         <Space>
           <Button

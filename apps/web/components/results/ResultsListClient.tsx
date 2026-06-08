@@ -1,46 +1,128 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Table, Tag, Typography, Empty, Spin, Card, Space } from "antd";
-import { BarChartOutlined } from "@ant-design/icons";
+import {
+  Button,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  Spin,
+} from "antd";
+import {
+  BarChartOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { fetchResultList } from "../../lib/api";
 import type { ResultListItem } from "../../lib/types";
+import { ErrorStateCard } from "../ui/ErrorStateCard";
+import { EmptyStateCard } from "../ui/EmptyStateCard";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export function ResultsListClient() {
   const [results, setResults] = useState<ResultListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filters
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("date");
+
   useEffect(() => {
     fetchResultList()
       .then((data) => setResults(data))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load results"))
+      .catch((err) =>
+        setError(
+          err instanceof Error ? err.message : "Failed to load results",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
+  const filtered = useMemo(() => {
+    const lowerSearch = search.trim().toLowerCase();
+    const out = results.filter((r) => {
+      if (!lowerSearch) return true;
+      const id = r.result_id.toLowerCase();
+      const lineage = (r.strategy_lineage_id ?? "").toLowerCase();
+      return id.includes(lowerSearch) || lineage.includes(lowerSearch);
+    });
+
+    out.sort((a, b) => {
+      switch (sortBy) {
+        case "id":
+          return a.result_id.localeCompare(b.result_id);
+        case "strategy":
+          return (a.strategy_lineage_id ?? "").localeCompare(
+            b.strategy_lineage_id ?? "",
+          );
+        default:
+          // date — newest first
+          return (
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime()
+          );
+      }
+    });
+    return out;
+  }, [results, search, sortBy]);
+
   if (loading) return <Spin tip="Loading results..." />;
-  if (error) return <Card><Text type="danger">{error}</Text></Card>;
+  if (error) {
+    return (
+      <ErrorStateCard
+        message={error}
+        detail="Check that the Builder backend is reachable."
+        retryLabel="Retry"
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
   if (results.length === 0) {
     return (
-      <Empty description="No backtest results yet">
-        <Link href="/?tab=backtest">Run a backtest to see results</Link>
-      </Empty>
+      <EmptyStateCard
+        title="Results"
+        message="No backtest results yet."
+        detail="Run a replay to generate observational evidence."
+        actionLabel="Open Backtest Center"
+        actionHref="/?tab=backtest"
+      />
     );
   }
 
   return (
-    <Space orientation="vertical" style={{ width: "100%" }} size="middle">
-      <Card>
-        <Title level={4}>Backtest Results</Title>
-        <Text type="secondary">
-          Observational results and reports from backtest runs. No execution authority.
+    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      {/* Filter toolbar */}
+      <Space wrap>
+        <Input
+          allowClear
+          prefix={<SearchOutlined />}
+          placeholder="Search by result or lineage ID"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 260 }}
+        />
+        <Select
+          value={sortBy}
+          onChange={(v) => setSortBy(v)}
+          options={[
+            { label: "Newest first", value: "date" },
+            { label: "Result ID", value: "id" },
+            { label: "Strategy", value: "strategy" },
+          ]}
+          style={{ width: 160 }}
+        />
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {filtered.length} of {results.length} results
         </Text>
-      </Card>
+      </Space>
+
       <Table
-        dataSource={results}
+        dataSource={filtered}
         rowKey="result_id"
         pagination={{ pageSize: 20 }}
         columns={[
@@ -56,7 +138,15 @@ export function ResultsListClient() {
           {
             title: "Strategy",
             dataIndex: "strategy_lineage_id",
-            render: (id: string) => <Text>{id}</Text>,
+            render: (id: string) => (
+              <a
+                onClick={() => {
+                  /* Could navigate to strategy detail if lineage mapped to strategy_id */
+                }}
+              >
+                <Text>{id}</Text>
+              </a>
+            ),
           },
           {
             title: "Version",
@@ -68,14 +158,20 @@ export function ResultsListClient() {
             key: "metrics",
             render: (_, record) => {
               const m = record.metrics;
-              if (!m || Object.keys(m).length === 0) return <Text type="secondary">—</Text>;
+              if (!m || Object.keys(m).length === 0)
+                return <Text type="secondary">—</Text>;
               return (
                 <Space size="small">
                   {Object.entries(m)
                     .slice(0, 3)
                     .map(([key, value]) => (
                       <Tag key={key} color="blue">
-                        {key}: {String(typeof value === "number" ? value.toFixed(4) : value)}
+                        {key}:{" "}
+                        {String(
+                          typeof value === "number"
+                            ? value.toFixed(4)
+                            : value,
+                        )}
                       </Tag>
                     ))}
                 </Space>
@@ -83,8 +179,18 @@ export function ResultsListClient() {
             },
           },
           {
+            title: "Created",
+            dataIndex: "created_at",
+            render: (v: string) => (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {v ? new Date(v).toLocaleDateString() : "—"}
+              </Text>
+            ),
+          },
+          {
             title: "",
             key: "actions",
+            width: 80,
             render: (_, record) => (
               <Link href={`/results/${record.result_id}`}>
                 <BarChartOutlined /> View
