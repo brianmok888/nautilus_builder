@@ -90,6 +90,7 @@ services:
       dockerfile: Dockerfile
     container_name: nautilus-builder-web-staging
     environment:
+      BUILDER_ENV: staging
       BUILDER_API_BASE_URL: http://api:8000
     depends_on:
       api:

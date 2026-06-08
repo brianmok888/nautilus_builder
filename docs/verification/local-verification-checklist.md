@@ -22,6 +22,7 @@ Expected dev database credentials from `docker-compose.dev.yml` / `.env.example`
 
 ```bash
 export BUILDER_DATABASE_URL="postgresql://builder:builder_dev@localhost:5432/nautilus_builder"
+export BUILDER_ENV="local"
 export BUILDER_API_TOKEN="replace-with-strong-demo-token"
 export BUILDER_DEV_USER_ID="local_user"
 export BUILDER_DEV_PROJECT_ID="local_project"
@@ -73,6 +74,7 @@ uv run uvicorn services.api.fastapi_app:create_fastapi_app \
 cd apps/web
 npm ci
 NEXT_PUBLIC_API_BASE_URL= \
+BUILDER_ENV=local \
 BUILDER_API_BASE_URL=http://localhost:8000 \
 BUILDER_API_TOKEN="$BUILDER_API_TOKEN" \
 npm run dev

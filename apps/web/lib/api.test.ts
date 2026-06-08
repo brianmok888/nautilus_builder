@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, apiFetch, runBacktestJob, startExecutionLanePaperSession, stopExecutionLaneSession } from "./api";
 
 describe("apiFetch", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
 
   it("returns parsed JSON for successful backend responses", async () => {
     vi.stubGlobal(
@@ -99,6 +102,7 @@ describe("apiFetch", () => {
   it("attaches configured local bearer token to API requests when no Authorization header is provided", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("BUILDER_ENV", "local");
     vi.stubEnv("BUILDER_API_TOKEN", "nb_local_dev_token");
 
     await apiFetch<{ ok: boolean }>("/api/strategies");
@@ -110,9 +114,22 @@ describe("apiFetch", () => {
     );
   });
 
+  it("does not attach configured bearer token unless local mode is explicit", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("BUILDER_API_TOKEN", "nb_local_dev_token");
+
+    await apiFetch<{ ok: boolean }>("/api/strategies");
+
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const init = calls[0][1];
+    expect(new Headers(init.headers).get("Authorization")).toBeNull();
+  });
+
   it("does not override an explicit Authorization header", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("BUILDER_ENV", "local");
     vi.stubEnv("BUILDER_API_TOKEN", "nb_local_dev_token");
 
     await apiFetch<{ ok: boolean }>("/api/strategies", {

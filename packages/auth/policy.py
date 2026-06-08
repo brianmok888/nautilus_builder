@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import assert_never
 
 from packages.auth.models import ScopedArtifactRef, UserProjectContext
 
@@ -84,3 +85,31 @@ def validate_cors_config(
 
     if "*" in origins:
         raise ValueError("Wildcard CORS (*) is forbidden in staging/production")
+
+
+def validate_rate_limit_config(
+    *,
+    env: BuilderEnvironment,
+    backend: str | None,
+    redis_url: str | None,
+) -> None:
+    normalized_backend = (backend or "").strip().lower()
+    normalized_redis_url = (redis_url or "").strip()
+    match env:
+        case BuilderEnvironment.LOCAL | BuilderEnvironment.STAGING:
+            return
+        case BuilderEnvironment.PRODUCTION:
+            if normalized_backend != "redis":
+                if normalized_backend == "memory":
+                    raise ValueError(
+                        "BUILDER_RATE_LIMIT_BACKEND=memory is forbidden in production; "
+                        "set BUILDER_RATE_LIMIT_BACKEND=redis"
+                    )
+                raise ValueError("BUILDER_RATE_LIMIT_BACKEND=redis is required in production")
+            if not normalized_redis_url:
+                raise ValueError(
+                    "BUILDER_REDIS_URL is required when BUILDER_RATE_LIMIT_BACKEND=redis "
+                    "in production"
+                )
+        case unreachable:
+            assert_never(unreachable)

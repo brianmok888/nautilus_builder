@@ -4,10 +4,11 @@ from __future__ import annotations
 import pytest
 
 from packages.auth.policy import (
-    validate_builder_env,
-    validate_production_token,
-    validate_cors_config,
     BuilderEnvironment,
+    validate_builder_env,
+    validate_cors_config,
+    validate_production_token,
+    validate_rate_limit_config,
 )
 from packages.errors.errors import (
     ErrorCode,
@@ -131,6 +132,46 @@ class TestCorsValidation:
         validate_cors_config(
             env=BuilderEnvironment.LOCAL,
             origins=[],
+        )
+
+
+class TestRateLimitValidation:
+    def test_local_allows_memory_backend(self):
+        validate_rate_limit_config(
+            env=BuilderEnvironment.LOCAL,
+            backend="memory",
+            redis_url=None,
+        )
+
+    def test_production_rejects_missing_backend(self):
+        with pytest.raises(ValueError, match="BUILDER_RATE_LIMIT_BACKEND=redis"):
+            validate_rate_limit_config(
+                env=BuilderEnvironment.PRODUCTION,
+                backend=None,
+                redis_url="redis://redis:6379/0",
+            )
+
+    def test_production_rejects_memory_backend(self):
+        with pytest.raises(ValueError, match="memory"):
+            validate_rate_limit_config(
+                env=BuilderEnvironment.PRODUCTION,
+                backend="memory",
+                redis_url="redis://redis:6379/0",
+            )
+
+    def test_production_rejects_redis_without_url(self):
+        with pytest.raises(ValueError, match="BUILDER_REDIS_URL"):
+            validate_rate_limit_config(
+                env=BuilderEnvironment.PRODUCTION,
+                backend="redis",
+                redis_url="",
+            )
+
+    def test_production_accepts_redis_backend(self):
+        validate_rate_limit_config(
+            env=BuilderEnvironment.PRODUCTION,
+            backend="redis",
+            redis_url="redis://redis:6379/0",
         )
 
 

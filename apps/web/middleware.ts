@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const HTML_NO_STORE = "no-store, max-age=0, must-revalidate";
 const DEFAULT_SERVER_API_BASE_URL = "http://127.0.0.1:8000";
 const API_PREFIX = "/api/";
+const HEALTH_BACKEND_PATH = "/health/backend";
+const BACKEND_HEALTH_PATH = "/health";
 
 function withNoStore(response: NextResponse): NextResponse {
   // VM demos frequently restart/rebuild the Next app in place. Do not let stale
@@ -34,14 +36,19 @@ function serverTokenProxyAllowed(): boolean {
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value.length > 0);
   return (
-    configuredEnvironments.length === 0 ||
+    configuredEnvironments.length > 0 &&
     configuredEnvironments.every((value) => value === "local")
   );
 }
 
 export function apiProxyDestination(requestUrl: URL): URL | null {
-  if (!requestUrl.pathname.startsWith(API_PREFIX)) return null;
-  return new URL(`${requestUrl.pathname}${requestUrl.search}`, serverApiBaseUrl());
+  if (requestUrl.pathname === HEALTH_BACKEND_PATH) {
+    return new URL(`${BACKEND_HEALTH_PATH}${requestUrl.search}`, serverApiBaseUrl());
+  }
+  if (requestUrl.pathname.startsWith(API_PREFIX)) {
+    return new URL(`${requestUrl.pathname}${requestUrl.search}`, serverApiBaseUrl());
+  }
+  return null;
 }
 
 export function headersWithServerAuth(headers: Headers): Headers {
@@ -55,6 +62,9 @@ export function headersWithServerAuth(headers: Headers): Headers {
 
 export function middleware(request: NextRequest) {
   const destination = apiProxyDestination(request.nextUrl);
+  if (destination !== null && request.nextUrl.pathname === HEALTH_BACKEND_PATH) {
+    return withNoStore(NextResponse.rewrite(destination));
+  }
   if (destination !== null && serverApiToken() && serverTokenProxyAllowed()) {
     return withNoStore(
       NextResponse.rewrite(destination, {

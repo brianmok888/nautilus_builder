@@ -74,6 +74,7 @@ The seed is **idempotent**: running it twice will not duplicate records.
 
 ```bash
 export BUILDER_DATABASE_URL="postgresql://builder:builder_dev@localhost:5432/nautilus_builder"
+export BUILDER_ENV="local"
 export BUILDER_API_TOKEN="replace-with-strong-demo-token"
 export BUILDER_ARTIFACT_ROOT="./var/builder_artifacts"
 
@@ -92,7 +93,11 @@ curl http://localhost:8000/health
 ```bash
 cd apps/web
 npm ci
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+NEXT_PUBLIC_API_BASE_URL= \
+BUILDER_ENV=local \
+BUILDER_API_BASE_URL=http://localhost:8000 \
+BUILDER_API_TOKEN="$BUILDER_API_TOKEN" \
+npm run dev
 ```
 
 Open: http://localhost:3000

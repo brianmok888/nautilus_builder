@@ -168,15 +168,19 @@ Create a web environment file:
 
 ```bash
 sudo tee /etc/nautilus-builder/web.env >/dev/null <<'EOF_WEB'
+BUILDER_ENV=staging
 BUILDER_API_BASE_URL=http://127.0.0.1:8000
-
-# Server-side token for Next SSR/API fetches.
-BUILDER_API_TOKEN=replace-with-long-random-dev-token
+NEXT_PUBLIC_API_BASE_URL=
 EOF_WEB
 sudo chmod 600 /etc/nautilus-builder/web.env
 ```
 
-The web process injects this token server-side in the Next middleware proxy for `/api/*` requests. Do **not** set `NEXT_PUBLIC_BUILDER_API_TOKEN`; raw Builder API tokens must not be exposed to browser bundles.
+The Next middleware only injects `BUILDER_API_TOKEN` when `BUILDER_ENV=local`.
+In staging, keep raw Builder API tokens out of the web process and browser
+bundle; authenticated API verification should use server-side curl commands or
+an explicit upstream auth/reverse-proxy layer. Do **not** set
+`NEXT_PUBLIC_BUILDER_API_TOKEN`; raw Builder API tokens must not be exposed to
+browser bundles.
 
 Credential slots for execution lanes are stored by the backend in `.env.execution.local` only after an operator explicitly saves venue-prefixed paper/sandbox credentials from the UI or API. This file must remain gitignored and server-side:
 
@@ -432,7 +436,7 @@ Check:
 
 - `uv sync --extra test` completed.
 - `nautilus_trader==1.227.0` imports.
-- `BUILDER_API_TOKEN` matches the web server-side token for VM demo mode; do not set `BUILDER_DEV_AUTH_TOKEN` outside local development.
+- API curl checks use the private `/etc/nautilus-builder/api.env` `BUILDER_API_TOKEN`; do not pass that token to the staging web process and do not set `BUILDER_DEV_AUTH_TOKEN` outside local development.
 - Firewall allows port `8000` only if you intentionally expose API; otherwise keep API local and web proxy-facing.
 
 ### Missing PyYAML during tests

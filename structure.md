@@ -79,10 +79,10 @@ The current uncommitted diff is a findings-closure hardening set, not only a dem
 | Diff area | Assessment |
 |---|---|
 | FastAPI route/auth layer | Strategy, workflow result, evidence-summary, and execution-lane routes now require bearer context and enforce project scope where records or runtime state are project-owned. |
-| Startup policy | `create_fastapi_app()` validates production/staging token and CORS policy before app startup; strictest configured `BUILDER_ENV`/`APP_ENV` wins, and `BUILDER_DEV_AUTH_TOKEN` is rejected outside local mode. |
+| Startup policy | `create_fastapi_app()` validates production/staging token and CORS policy before app startup; production also requires Redis-backed rate limiting with `BUILDER_REDIS_URL`; strictest configured `BUILDER_ENV`/`APP_ENV` wins, and `BUILDER_DEV_AUTH_TOKEN` is rejected outside local mode. |
 | Evidence/storage | Postgres identifiers are validated before interpolation; evidence summary distinguishes `passed_inferred` from artifact-backed compile evidence and filters backtest jobs by `UserProjectContext`. |
 | Demo seeding | Demo strategies/evidence seed under the configured dev user/project scope and no longer swallow unexpected strategy save failures. |
-| Web proxy | Next middleware injects server-side API auth only in local mode and now ignores `NEXT_PUBLIC_API_BASE_URL` for token-proxy destinations. Staging/production compose files do not pass `BUILDER_API_TOKEN` to the web service. |
+| Web proxy | Next middleware injects server-side API auth only when `BUILDER_ENV`/`APP_ENV` explicitly resolve to local, ignores `NEXT_PUBLIC_API_BASE_URL` for server-token destinations, owns `/health/backend` at runtime, and no longer relies on build-time Next rewrites. Staging/production compose files set non-local web env and do not pass `BUILDER_API_TOKEN` to the web service. |
 | Docs/tests | Route matrix tests cover every registered FastAPI `/api/*` route, focused regression tests cover review blockers, and runbooks now use same-origin server-side web proxying instead of browser-held tokens. |
 
 No direct `submit_order(` or authoritative `TradeAction(` call was found in production Builder code during the review scan. `TradeAction`/`submit_order` references are expected in docs/tests/policy text and Daedalus boundary references.
@@ -91,7 +91,7 @@ No direct `submit_order(` or authoritative `TradeAction(` call was found in prod
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 bash scripts/check_forbidden_authority.sh && git diff --check
 # passed
@@ -100,10 +100,16 @@ cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed public API base URL proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
 Former manual-probe failures for unauthenticated strategy list access, wrong-project strategy list access, wrong-project approve/clone, short production token startup, `/api/results` list leakage, evidence-summary cross-project job leakage, and execution-lane project-scope bypass are now represented by regression tests.
@@ -214,25 +220,31 @@ Verification evidence:
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
 # 16 passed after strictest audit-store policy fix
 
 bash scripts/check_forbidden_authority.sh && git diff --check
-# passed in the prior master loop; rerun in final closeout before commit
+# passed in final closeout
 
 cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed the public API base URL proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: rerun full closeout verification after documentation reconciliation, obtain fresh post-implementation review PASS, then final git/remote checks decide whether commit and push are safe.
+Current stop condition: full verification and post-implementation review have passed; final git/remote checks decide whether the Lore commit and push are safe.
 
 ## Final closeout scope warning
 

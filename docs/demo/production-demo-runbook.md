@@ -19,6 +19,7 @@ This demo shows Nautilus Builder as a **Builder-only** strategy workflow UI. It 
 uv sync
 
 # Set environment variables for demo mode
+export BUILDER_ENV=local
 export BUILDER_API_TOKEN=dev-token
 export BUILDER_SEED_DEMO_STRATEGIES=1
 
@@ -36,6 +37,8 @@ cd apps/web
 npm ci
 
 # Configure the API base URL (server-side proxy to backend)
+export BUILDER_ENV=local
+export NEXT_PUBLIC_API_BASE_URL=
 export BUILDER_API_BASE_URL=http://127.0.0.1:8000
 export BUILDER_API_TOKEN=dev-token
 
@@ -221,5 +224,5 @@ See [persistence-verification.md](../verification/persistence-verification.md) f
 | Dashboard shows "Unable to reach Nautilus Builder API" | Verify backend is running on port 8000. Check `BUILDER_API_BASE_URL`. |
 | Strategy list is empty | Set `BUILDER_SEED_DEMO_STRATEGIES=1` and restart the backend. |
 | Evidence summary returns 404 | Strategy ID not found. Check `/api/strategies` for valid IDs. |
-| Auth errors | Verify `BUILDER_API_TOKEN` matches between backend and frontend. |
+| Auth errors | For this local demo, verify `BUILDER_ENV=local` and `BUILDER_API_TOKEN` match between backend and the local Next middleware process. |
 | Frontend build fails | Run `cd apps/web && npm ci && npm run typecheck` for detailed errors. |

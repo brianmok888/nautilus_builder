@@ -19,6 +19,16 @@ describe("middleware API proxy auth", () => {
     );
   });
 
+  it("maps backend health checks to the runtime Builder API health route", () => {
+    vi.stubEnv("BUILDER_API_BASE_URL", "http://api:8000");
+
+    const destination = apiProxyDestination(
+      new URL("http://web.local/health/backend"),
+    );
+
+    expect(destination?.toString()).toBe("http://api:8000/health");
+  });
+
   it("does not proxy non-API requests", () => {
     vi.stubEnv("BUILDER_API_BASE_URL", "http://api:8000");
 
@@ -61,6 +71,14 @@ describe("middleware API proxy auth", () => {
 
   it("does not inject the server token outside local mode", () => {
     vi.stubEnv("BUILDER_ENV", "production");
+    vi.stubEnv("BUILDER_API_TOKEN", "nb_server_only_token");
+
+    const headers = headersWithServerAuth(new Headers());
+
+    expect(headers.get("Authorization")).toBeNull();
+  });
+
+  it("does not inject the server token unless local mode is explicit", () => {
     vi.stubEnv("BUILDER_API_TOKEN", "nb_server_only_token");
 
     const headers = headersWithServerAuth(new Headers());

@@ -29,7 +29,7 @@ services:
       BUILDER_SEED_DEMO_STRATEGIES: "1"
       BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,6 +46,7 @@ services:
       dockerfile: Dockerfile
     container_name: nautilus-builder-web
     environment:
+      BUILDER_ENV: local
       NEXT_PUBLIC_API_BASE_URL: ""
       BUILDER_API_BASE_URL: http://api:8000
       BUILDER_API_TOKEN: ${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}

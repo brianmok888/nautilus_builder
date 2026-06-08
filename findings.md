@@ -34,7 +34,7 @@ Fresh verification evidence:
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 bash scripts/check_forbidden_authority.sh && git diff --check
 # passed
@@ -43,7 +43,7 @@ cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 ```
 
 Current stop condition: closeout verification is green; remaining work is commit, merge/up-to-date check, and push to `origin/master`.
@@ -213,7 +213,7 @@ Current stop condition: closeout verification is green; remaining work is commit
 | `fill_limit_at_touch` / `fill_limit_inside_spread` | **CLOSED** | No Builder usage found; Builder backtest config keeps `trade_execution=False`. | Re-check on NT upgrades. |
 | `load_ids_async` / `load_async` | **CLOSED/WATCH** | No custom Builder adapter implementation uses these methods. | If Builder adds adapters, follow official adapter guide and DataTester evidence. |
 | `builder_fee_refresh_mins` | **CLOSED** | No references found. | No action. |
-| `NEXT_PUBLIC_BUILDER_API_TOKEN` | **CLOSED/WATCH** | `apps/web/lib/api.ts`, `apps/web/middleware.ts`, compose tests, `.env.production.example` forbid browser-exposed Builder API tokens. | Web `/api/*` requests use a server-side Next middleware proxy with `BUILDER_API_TOKEN`; reject browser-token reintroduction. |
+| `NEXT_PUBLIC_BUILDER_API_TOKEN` | **CLOSED/WATCH** | `apps/web/lib/api.ts`, `apps/web/middleware.ts`, compose tests, `.env.production.example` forbid browser-exposed Builder API tokens. Runtime proxy/token tests now require explicit local web env, no build-time rewrites, and no staging/production web `BUILDER_API_TOKEN`. | Web `/api/*` token injection is local-only and explicit; reject browser-token reintroduction and reject staging/prod token proxy defaults. |
 | `aiogram` / `telegram` | **FALSE POSITIVE for Builder runtime** | No Builder dependency in `pyproject.toml`; docs reference Daedalus Telegram boundary. | Keep as Daedalus-only. Reject Builder aiogram dependency. |
 | `langchain` / `langgraph` / `evomap` | **FALSE POSITIVE for Builder runtime** | No Builder dependency in `pyproject.toml`; Daedalus owns these AI lanes. | Keep Builder AI provider advisory-only; do not couple to Daedalus AI runtimes. |
 | `fixture` / `fallback` | **WATCH** | Many intentional fixture/dev paths in backtest and workflow results. | Ensure every fixture path is labelled dev/test only and disabled by default in production. |
@@ -227,13 +227,13 @@ Current stop condition: closeout verification is green; remaining work is commit
 
 ## Current diff inclusion assessment
 
-**Safe to include with review artifacts, but not production-readiness proof.** The current findings-closure diff does not introduce Builder order authority or Daedalus coupling. Segment 3 closed M-01, M-02, L-01, and L-03, and reduced M-03 by separating `passed_inferred` from artifact-backed compile evidence. Segment 4 closed H-04 runtime auth coverage. Follow-up review fixes closed `/api/results` list scoping, evidence-summary job scoping, execution-lane project scoping, local-only web token proxying, strictest-env token/CORS/audit-store handling, and the public API base URL middleware proxy risk. Fresh post-implementation review and final git/remote checks remain the active stop condition.
+**Safe to include with review artifacts, but not production-readiness proof.** The current findings-closure diff does not introduce Builder order authority or Daedalus coupling. Segment 3 closed M-01, M-02, L-01, and L-03, and reduced M-03 by separating `passed_inferred` from artifact-backed compile evidence. Segment 4 closed H-04 runtime auth coverage. Follow-up review fixes closed `/api/results` list scoping, evidence-summary job scoping, execution-lane project scoping, explicit-local web token proxying, strictest-env token/CORS/audit-store handling, production Redis rate-limit startup policy, and the public API base URL middleware proxy risk. Fresh post-implementation review passed; final git/remote checks remain the active stop condition.
 
 ## Verification evidence
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
 # 16 passed after strictest audit-store policy fix
@@ -242,10 +242,16 @@ cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed the public API base URL proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
 Former H-01/H-02/H-03 manual probes are now represented by regression tests and segment evidence below.
@@ -356,28 +362,34 @@ At Segment 4 completion time, remaining blockers were full master reconciliation
 
 **Updated:** 2026-06-08
 
-Master reconciliation verified Segment 1-4 and the follow-up review-fix loop as a Builder-only findings closure. The closure now includes strictest-env production policy for token/CORS and durable AI audit-store requirements, scoped `/api/results`, scoped evidence-summary backtest jobs, scoped execution-lane runtime routes, local-only server-token web proxying, and same-origin local web verification docs.
+Master reconciliation verified Segment 1-4 and the follow-up review-fix loop as a Builder-only findings closure. The closure now includes strictest-env production policy for token/CORS, durable AI audit-store requirements, production Redis rate-limit startup policy, scoped `/api/results`, scoped evidence-summary backtest jobs, scoped execution-lane runtime routes, explicit-local server-token web proxying, runtime `/health/backend` proxying, removal of build-time API rewrites, and same-origin local web verification docs.
 
 Verification evidence:
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
 # 16 passed after strictest audit-store policy fix
 
 bash scripts/check_forbidden_authority.sh && git diff --check
-# passed in the prior master loop; rerun in final closeout before commit
+# passed in final closeout
 
 cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed the public API base URL proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: rerun full closeout verification after this documentation reconciliation, obtain fresh post-implementation review PASS, then perform final git/remote safety checks before Lore commit and push.
+Current stop condition: full verification and post-implementation review have passed; perform final git/remote safety checks before the Lore commit and push.

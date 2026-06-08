@@ -8,7 +8,7 @@ from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraf
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import AuthTokenService, InvalidAuthTokenError, ProjectScopeError, UserProjectContext
-from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token
+from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token, validate_rate_limit_config
 from packages.auth.audit_middleware import AuditMiddleware, RequestIdMiddleware
 from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.auth.redis_rate_limit import RedisRateLimiter
@@ -808,6 +808,11 @@ def _validate_startup_policy() -> None:
         public_token=os.environ.get("NEXT_PUBLIC_BUILDER_API_TOKEN"),
     )
     validate_cors_config(env=env, origins=_cors_origins_from_env())
+    validate_rate_limit_config(
+        env=env,
+        backend=os.environ.get("BUILDER_RATE_LIMIT_BACKEND"),
+        redis_url=os.environ.get("BUILDER_REDIS_URL"),
+    )
 
 
 def _strictest_configured_env() -> BuilderEnvironment:

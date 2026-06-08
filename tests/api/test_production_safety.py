@@ -29,6 +29,8 @@ def _clear_policy_env(monkeypatch) -> None:
         "NEXT_PUBLIC_BUILDER_API_TOKEN",
         "BUILDER_CORS_ORIGINS",
         "BUILDER_AI_AUDIT_SQLITE_PATH",
+        "BUILDER_RATE_LIMIT_BACKEND",
+        "BUILDER_REDIS_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -168,6 +170,8 @@ def test_fastapi_startup_rejects_dev_auth_token_with_conflicting_production_env(
     monkeypatch.setenv("BUILDER_DEV_PROJECT_ID", "p")
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
     monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -182,11 +186,72 @@ def test_fastapi_startup_treats_app_env_production_as_strictest_audit_store_poli
     monkeypatch.setenv("BUILDER_ENV", "local")
     monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
     monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
 
     from services.api.fastapi_app import create_fastapi_app
 
     with pytest.raises(ValueError, match="durable AI audit store is required"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_missing_production_rate_limit_backend(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="BUILDER_RATE_LIMIT_BACKEND=redis"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_memory_production_rate_limit_backend(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "memory")
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="memory"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_rejects_redis_rate_limit_without_url(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("BUILDER_ENV", "production")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="BUILDER_REDIS_URL"):
+        create_fastapi_app()
+
+
+def test_fastapi_startup_treats_app_env_production_as_strictest_rate_limit_policy(monkeypatch, tmp_path) -> None:
+    _install_fake_fastapi(monkeypatch)
+    _clear_policy_env(monkeypatch)
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("BUILDER_ENV", "local")
+    monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
+    monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    with pytest.raises(ValueError, match="BUILDER_RATE_LIMIT_BACKEND=redis"):
         create_fastapi_app()
 
 
@@ -197,6 +262,8 @@ def test_fastapi_startup_accepts_strong_production_policy(monkeypatch, tmp_path)
     monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
     monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
 
     from services.api.fastapi_app import create_fastapi_app
 

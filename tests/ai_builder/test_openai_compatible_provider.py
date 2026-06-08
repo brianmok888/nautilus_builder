@@ -224,6 +224,8 @@ def test_fastapi_production_mode_requires_durable_ai_audit_store(monkeypatch) ->
     monkeypatch.setenv("BUILDER_ENV", "production")
     monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
+    monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
+    monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
     monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
 
     from services.api.fastapi_app import create_fastapi_app

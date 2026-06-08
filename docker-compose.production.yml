@@ -100,6 +100,7 @@ services:
       dockerfile: Dockerfile
     container_name: nautilus-builder-web
     environment:
+      BUILDER_ENV: production
       BUILDER_API_BASE_URL: http://api:8000
     depends_on:
       api:

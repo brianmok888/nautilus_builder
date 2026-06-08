@@ -94,10 +94,28 @@ function builderApiToken(): string {
   return (process.env.BUILDER_API_TOKEN ?? "").trim();
 }
 
+function builderApiTokenAllowed(): boolean {
+  const configuredEnvironments = [
+    process.env.BUILDER_ENV ?? "",
+    process.env.APP_ENV ?? "",
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0);
+  return (
+    configuredEnvironments.length > 0 &&
+    configuredEnvironments.every((value) => value === "local")
+  );
+}
+
 function requestInitWithAuth(path: string, init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers);
   const token = builderApiToken();
-  if (path.startsWith("/api/") && token && !headers.has("Authorization")) {
+  if (
+    path.startsWith("/api/") &&
+    token &&
+    builderApiTokenAllowed() &&
+    !headers.has("Authorization")
+  ) {
     headers.set("Authorization", `Bearer ${token}`);
   }
   return { ...init, headers };

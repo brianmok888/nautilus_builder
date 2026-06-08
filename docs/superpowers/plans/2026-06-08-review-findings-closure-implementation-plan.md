@@ -139,16 +139,22 @@ Implemented the plan in TDD segments and follow-up review-fix loops. Fresh verif
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# latest full backend run before final doc/security fix: 944 passed, 1 skipped, 1 warning
+# final full backend run after rate-limit policy fix: 954 passed, 1 skipped, 1 warning
 
 python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
 # 16 passed after strictest audit-store policy fix
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed public API base URL token-proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 
 bash scripts/check_forbidden_authority.sh && git diff --check
-# passed in the prior master verification loop; rerun during final closeout before commit
+# passed in final closeout
 ```
 
-Final closeout must rerun full backend/frontend verification after this documentation reconciliation and before the Lore commit/push.
+Final closeout verification and post-implementation review passed; only git/remote safety checks remain before the Lore commit/push.

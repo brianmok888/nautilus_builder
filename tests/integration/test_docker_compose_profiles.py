@@ -31,6 +31,11 @@ class TestLocalCompose:
         ports = compose["services"]["postgres"]["ports"]
         assert any("127.0.0.1" in p for p in ports)
 
+    def test_api_port_bound_localhost(self):
+        compose = _load_compose(ROOT / "docker-compose.yml")
+        ports = compose["services"]["api"]["ports"]
+        assert any("127.0.0.1:8000:8000" in p for p in ports)
+
     def test_health_checks_present(self):
         compose = _load_compose(ROOT / "docker-compose.yml")
         for svc in ("postgres", "api"):
@@ -39,6 +44,7 @@ class TestLocalCompose:
     def test_web_proxy_uses_server_side_api_token(self):
         compose = _load_compose(ROOT / "docker-compose.yml")
         env = compose["services"]["web"]["environment"]
+        assert env["BUILDER_ENV"] == "local"
         assert env["BUILDER_API_TOKEN"] == "${BUILDER_API_TOKEN:?Set BUILDER_API_TOKEN in .env}"
         assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
 
@@ -75,6 +81,7 @@ class TestStagingCompose:
     def test_web_proxy_does_not_receive_server_side_api_token(self):
         compose = _load_compose(ROOT / "docker-compose.staging.yml")
         env = compose["services"]["web"]["environment"]
+        assert env["BUILDER_ENV"] == "staging"
         assert "BUILDER_API_TOKEN" not in env
         assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
 
@@ -108,6 +115,7 @@ class TestProductionCompose:
     def test_web_proxy_does_not_receive_server_side_api_token(self):
         compose = _load_compose(ROOT / "docker-compose.production.yml")
         env = compose["services"]["web"]["environment"]
+        assert env["BUILDER_ENV"] == "production"
         assert "BUILDER_API_TOKEN" not in env
         assert "NEXT_PUBLIC_BUILDER_API_TOKEN" not in env
 

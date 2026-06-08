@@ -183,7 +183,7 @@ Runtime/live-readiness claims also require NT evidence refs (DataTester/ExecTest
 | Backtest legacy hash derivation | OPEN | 2026-07-01 | Keep disabled by default; remove env escape after cutoff. |
 | `allow_legacy_fixture_refs` | OPEN | 2026-07-01 | Strict evidence for non-dev promotions. |
 | `res_001` fixture fallback | WATCH | 2026-07-01 | Production flag must stay off. |
-| `NEXT_PUBLIC_BUILDER_API_TOKEN` local mode | CLOSED/WATCH | n/a | Browser-exposed Builder API tokens are forbidden; web proxy uses server-side `BUILDER_API_TOKEN`. |
+| `NEXT_PUBLIC_BUILDER_API_TOKEN` local mode | CLOSED/WATCH | n/a | Browser-exposed Builder API tokens are forbidden; web proxy uses server-side `BUILDER_API_TOKEN` only when web env is explicitly local. |
 
 ## 15. Current production-scope watches
 
@@ -287,31 +287,37 @@ At Segment 2 completion time, remaining blockers were H-04 runtime auth coverage
 
 **Updated:** 2026-06-08
 
-Master reconciliation verifies the Segment 1-4 closure plus follow-up review fixes as Builder-only dev-demo hardening. It does not claim production/live-trading readiness. The latest follow-up fixes include strictest-env durable audit-store enforcement and a middleware regression preventing server-side Builder tokens from being proxied to `NEXT_PUBLIC_API_BASE_URL` destinations.
+Master reconciliation verifies the Segment 1-4 closure plus follow-up review fixes as Builder-only dev-demo hardening. It does not claim production/live-trading readiness. The latest follow-up fixes include strictest-env durable audit-store enforcement, production Redis rate-limit startup enforcement, runtime `/health/backend` proxying, removal of build-time API rewrites, localhost-only local API compose exposure, and web/API-client token injection that requires explicit local env instead of treating unset env as local.
 
 Fresh verification evidence recorded in this closeout cycle:
 
 ```bash
 python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 944 passed, 1 skipped, 1 warning
+# 954 passed, 1 skipped, 1 warning
 
 python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
 # 16 passed after strictest audit-store policy fix
 
 bash scripts/check_forbidden_authority.sh && git diff --check
-# passed in the prior master loop; rerun in final closeout before commit
+# passed in final closeout
 
 cd apps/web && rm -rf .next && npm run build
 # passed; route summary includes Middleware
 
 cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 120 passed, 4 skipped
+# 123 passed, 4 skipped
 
 cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# 6 passed after RED confirmed the public API base URL proxy risk
+# superseded by the targeted deployment-safety loop below
+
+cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
+# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
+
+python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
+# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Current stop condition: rerun full closeout verification after documentation reconciliation, obtain fresh post-implementation review PASS, then run final git/remote safety checks before Lore commit and push.
+Current stop condition: full verification and post-implementation review have passed; run final git/remote safety checks before the Lore commit and push.
 
 ## Production/live-readiness warning
 

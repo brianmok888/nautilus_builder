@@ -62,10 +62,16 @@ def test_frontend_visual_shell_uses_approved_ant_design_stack() -> None:
     assert ".builder-dashboard" in css
 
 
-def test_next_rewrites_use_server_api_base_before_browser_public_base() -> None:
+def test_next_config_does_not_freeze_api_proxy_rewrites_at_build_time() -> None:
     config = (WEB / "next.config.mjs").read_text()
+    middleware = (WEB / "middleware.ts").read_text()
 
-    assert "BUILDER_API_BASE_URL" in config
-    assert "process.env.BUILDER_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL" in config
-    assert "destination: `${apiBaseUrl}/api/:path*`" in config
-    assert "destination: `${apiBaseUrl}/health`" in config
+    assert "outputFileTracingRoot" in config
+    assert "async rewrites" not in config
+    assert "BUILDER_API_BASE_URL" not in config
+    assert "NEXT_PUBLIC_API_BASE_URL" not in config
+    assert "/api/:path*" not in config
+    assert "/health/backend" not in config
+    assert 'const API_PREFIX = "/api/"' in middleware
+    assert 'const HEALTH_BACKEND_PATH = "/health/backend"' in middleware
+    assert "process.env.BUILDER_API_BASE_URL" in middleware
