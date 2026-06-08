@@ -89,7 +89,7 @@ export function ResultsListClient() {
         message="No backtest results yet."
         detail="Run a replay to generate observational evidence."
         actionLabel="Open Backtest Center"
-        actionHref="/?tab=backtest"
+        actionHref="/backtests"
       />
     );
   }

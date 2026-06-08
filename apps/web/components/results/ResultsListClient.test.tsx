@@ -44,6 +44,10 @@ describe("ResultsListClient", () => {
     await waitFor(() => {
       expect(screen.getByText(/No backtest results yet/i)).toBeTruthy();
     });
+    expect(screen.getByText("Open Backtest Center").closest("a")).toHaveAttribute(
+      "href",
+      "/backtests",
+    );
   });
 
   it("shows error on fetch failure", async () => {

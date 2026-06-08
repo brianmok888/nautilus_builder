@@ -191,10 +191,10 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
         blockingReasons={lifecycleSummary.blockingReasons}
         links={{
           validation: `/builder/${strategyId}`,
-          replay: `/?tab=backtest`,
-          promotion: `/?tab=backtest`,
+          replay: "/backtests",
+          promotion: "/backtests",
         }}
-        onRunReplay={() => router.push(`/?tab=backtest`)}
+        onRunReplay={() => router.push("/backtests")}
       />
 
       {/* ── Evidence dashboard ──────────────────────────────────── */}
@@ -402,7 +402,7 @@ export function StrategyDetailClient({ strategyId }: { strategyId: string }) {
           <Button
             icon={<ExperimentOutlined />}
             disabled={!canBacktest()}
-            onClick={() => router.push(`/?tab=backtest`)}
+            onClick={() => router.push("/backtests")}
           >
             Backtest
           </Button>

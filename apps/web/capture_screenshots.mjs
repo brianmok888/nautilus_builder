@@ -7,9 +7,9 @@ mkdirSync(OUT_DIR, { recursive: true });
 
 const SHOTS = [
   { name: "01-overview", url: "/", label: "Overview / Dashboard" },
-  { name: "02-strategy-builder", url: "/?tab=strategy", label: "Strategy Builder" },
-  { name: "03-backtest-center", url: "/?tab=backtest", label: "Backtest Center" },
-  { name: "04-execution-lane", url: "/?tab=execution", label: "Execution Lane" },
+  { name: "02-strategy-builder", url: "/builder", label: "Strategy Builder" },
+  { name: "03-backtest-center", url: "/backtests", label: "Backtest Center" },
+  { name: "04-execution-lane", url: "/execution", label: "Execution Lane" },
   { name: "05-strategy-specs", url: "/strategies", label: "Strategy Specs" },
   { name: "06-settings", url: "/config", label: "Settings" },
   { name: "07-results", url: "/results", label: "Results" },

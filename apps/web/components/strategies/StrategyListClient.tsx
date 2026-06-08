@@ -127,7 +127,7 @@ export function StrategyListClient() {
   }
 
   function handleBacktest() {
-    router.push(`/?tab=backtest`);
+    router.push("/backtests");
   }
 
   function canEdit(status: StrategyStatus): boolean {
@@ -156,7 +156,7 @@ export function StrategyListClient() {
         message="No strategy specs yet."
         detail="Create your first Builder draft to get started."
         actionLabel="Open Strategy Builder"
-        actionHref="/?tab=strategy"
+        actionHref="/builder"
       />
     );
   }

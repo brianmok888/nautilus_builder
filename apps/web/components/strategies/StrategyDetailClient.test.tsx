@@ -1,10 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { StrategyDetailClient } from "./StrategyDetailClient";
 
+const pushMock = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: pushMock }),
 }));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  pushMock.mockReset();
+});
 
 const mockDetail = {
   strategy_id: "demo_backtested",
@@ -38,7 +45,7 @@ const mockDetail = {
 
 describe("StrategyDetailClient", () => {
   it("loads and renders strategy detail with overview cards", async () => {
-    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail as any);
+    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail);
 
     render(<StrategyDetailClient strategyId="demo_backtested" />);
 
@@ -52,7 +59,7 @@ describe("StrategyDetailClient", () => {
   });
 
   it("shows version history with version ID", async () => {
-    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail as any);
+    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail);
 
     render(<StrategyDetailClient strategyId="demo_backtested" />);
 
@@ -63,7 +70,7 @@ describe("StrategyDetailClient", () => {
   });
 
   it("disables Edit for backtested strategies, enables Clone", async () => {
-    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail as any);
+    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail);
 
     render(<StrategyDetailClient strategyId="demo_backtested" />);
 
@@ -76,5 +83,19 @@ describe("StrategyDetailClient", () => {
 
     const cloneBtn = screen.getByText("Clone as Draft").closest("button")!;
     expect(cloneBtn.disabled).toBe(false);
+  });
+
+  it("routes Backtest action to the clean Backtest Center path", async () => {
+    vi.spyOn(await import("../../lib/api"), "fetchStrategyDetail").mockResolvedValueOnce(mockDetail);
+
+    render(<StrategyDetailClient strategyId="demo_backtested" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Actions")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Backtest").closest("button")!);
+
+    expect(pushMock).toHaveBeenCalledWith("/backtests");
   });
 });

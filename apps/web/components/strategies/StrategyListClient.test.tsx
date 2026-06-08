@@ -1,12 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StrategyListClient } from "./StrategyListClient";
 
+const pushMock = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: pushMock }),
 }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  pushMock.mockReset();
+});
 
 describe("StrategyListClient", () => {
   it("loads and renders strategies with status chips", async () => {
@@ -50,6 +55,10 @@ describe("StrategyListClient", () => {
     await waitFor(() =>
       expect(screen.getByText(/No strategy specs yet/)).toBeInTheDocument(),
     );
+    expect(screen.getByText("Open Strategy Builder").closest("a")).toHaveAttribute(
+      "href",
+      "/builder",
+    );
   });
 
   it("renders Edit, Clone, Backtest action buttons per row", async () => {
@@ -74,6 +83,9 @@ describe("StrategyListClient", () => {
     expect(screen.getAllByText("Edit").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Clone").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Backtest").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText("Backtest").closest("button")!);
+    expect(pushMock).toHaveBeenCalledWith("/backtests");
   });
 
   it("disables Edit for approved strategies", async () => {

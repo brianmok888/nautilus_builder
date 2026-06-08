@@ -2,6 +2,6 @@
 
 import { BuilderDashboard } from "../../components/dashboard/BuilderDashboard";
 
-export default function BacktestsPage() {
-  return <BuilderDashboard initialTab="backtest" />;
+export default function BuilderPage() {
+  return <BuilderDashboard initialTab="strategy" />;
 }

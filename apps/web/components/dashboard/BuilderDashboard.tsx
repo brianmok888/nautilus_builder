@@ -23,6 +23,13 @@ import type { StrategySummary } from "../../lib/types";
 
 const { Text, Paragraph } = Typography;
 
+const sectionPaths: Record<string, string> = {
+  overview: "/",
+  strategy: "/builder",
+  backtest: "/backtests",
+  execution: "/execution",
+};
+
 const steps: WorkflowStep[] = [
   {
     key: "strategy",
@@ -70,8 +77,7 @@ export function BuilderDashboard({
   function switchTab(key: string) {
     setActiveSection(key);
     setSelectedStrategy(null);
-    const path = key === "overview" ? "/" : `/?tab=${key}`;
-    router.replace(path, { scroll: false });
+    router.replace(sectionPaths[key] ?? "/", { scroll: false });
   }
 
   return (

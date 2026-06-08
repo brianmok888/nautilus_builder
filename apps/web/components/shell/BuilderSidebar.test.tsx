@@ -47,11 +47,16 @@ describe("BuilderSidebar", () => {
     expect(activeLink?.textContent).toContain("Overview");
   });
 
-  it("links Strategy Builder to the strategy tab, not bare Overview root", () => {
+  it("uses clean path routes for root dashboard lanes", () => {
     render(<BuilderSidebar />);
 
     const strategyLink = screen.getByText("Strategy Builder").closest("a");
-    expect(strategyLink?.getAttribute("href")).toBe("/?tab=strategy");
+    const backtestLink = screen.getByText("Backtest Center").closest("a");
+    const executionLink = screen.getByText("Execution Lane").closest("a");
+
+    expect(strategyLink?.getAttribute("href")).toBe("/builder");
+    expect(backtestLink?.getAttribute("href")).toBe("/backtests");
+    expect(executionLink?.getAttribute("href")).toBe("/execution");
   });
 
   it("shows Builder-only mode footer", () => {

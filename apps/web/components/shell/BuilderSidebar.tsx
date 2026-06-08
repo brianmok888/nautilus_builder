@@ -12,7 +12,7 @@ import {
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 type NavItem = {
@@ -20,36 +20,28 @@ type NavItem = {
   label: string;
   icon: ReactNode;
   exact?: boolean;
-  path?: string;
-  tab?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Overview", icon: <AppstoreOutlined />, exact: true },
-  { href: "/?tab=strategy", label: "Strategy Builder", icon: <CodeOutlined />, tab: "strategy" },
-  { href: "/?tab=backtest", label: "Backtest Center", icon: <ExperimentOutlined /> },
-  { href: "/?tab=execution", label: "Execution Lane", icon: <PlayCircleOutlined /> },
+  { href: "/builder", label: "Strategy Builder", icon: <CodeOutlined /> },
+  { href: "/backtests", label: "Backtest Center", icon: <ExperimentOutlined /> },
+  { href: "/execution", label: "Execution Lane", icon: <PlayCircleOutlined /> },
   { href: "/strategies", label: "Strategy Specs", icon: <FileTextOutlined /> },
   { href: "/pipeline", label: "Pipeline", icon: <ThunderboltOutlined /> },
   { href: "/results", label: "Results", icon: <BarChartOutlined /> },
   { href: "/config", label: "Settings", icon: <SettingOutlined /> },
 ];
 
-function isActive(pathname: string, tab: string | null, item: NavItem): boolean {
-  const path = item.path ?? item.href.split("?", 1)[0] ?? item.href;
+function isActive(pathname: string, item: NavItem): boolean {
   if (item.exact) {
-    return pathname === path && !tab && !item.tab;
+    return pathname === item.href;
   }
-  if (item.tab) {
-    return pathname === path && tab === item.tab;
-  }
-  return pathname.startsWith(path) && path !== "/";
+  return pathname.startsWith(item.href) && item.href !== "/";
 }
 
 export function BuilderSidebar() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const tab = searchParams.get("tab");
 
   return (
     <aside className="nb-sidebar" aria-label="Nautilus Builder navigation">
@@ -63,10 +55,10 @@ export function BuilderSidebar() {
 
       <nav className="nb-sidebar-nav" aria-label="Nautilus Builder navigation">
         {NAV_ITEMS.map((item) => {
-          const active = isActive(pathname, tab, item);
+          const active = isActive(pathname, item);
           return (
             <Link
-              key={`${item.href}-${item.tab ?? "none"}`}
+              key={item.href}
               href={item.href}
               className={
                 active
