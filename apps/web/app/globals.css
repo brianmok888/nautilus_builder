@@ -1375,3 +1375,92 @@ pre {
   height: 44px;
   line-height: 44px;
 }
+
+/* ========== Backtest Center — Top-Down Workflow ========== */
+
+.backtest-center-flow {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+}
+
+.backtest-center-flow .nb-card {
+  width: 100%;
+}
+
+/* Manifest form grid — 3-column on desktop */
+.manifest-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.manifest-form-field {
+  min-width: 0;
+}
+
+.manifest-form-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--nb-text-soft);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.manifest-form-field input,
+.manifest-form-field .ant-input {
+  width: 100%;
+  height: 40px;
+}
+
+/* Manifest preview */
+.manifest-preview {
+  background: #f8fafc;
+  border: 1px solid var(--nb-border);
+  border-radius: 14px;
+  padding: 16px;
+  overflow: auto;
+  max-height: 360px;
+}
+
+.manifest-preview pre {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* Hash field truncation */
+.hash-field,
+.backtest-hash-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  display: inline-block;
+}
+
+/* Workflow step alignment */
+.workflow-step-card {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+}
+
+/* Backtest Center responsive */
+@media (max-width: 960px) {
+  .manifest-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .backtest-center-flow {
+    gap: 12px;
+  }
+}

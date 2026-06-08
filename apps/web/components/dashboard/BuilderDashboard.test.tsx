@@ -73,6 +73,34 @@ describe("BuilderDashboard", () => {
     });
   });
 
+  it("Backtest Center shows top-down workflow order", async () => {
+    mockApiResponses();
+    render(<BuilderDashboard />);
+
+    const backtestButtons = screen.getAllByText(/Backtest Center/);
+    fireEvent.click(backtestButtons[0].closest("button")!);
+
+    await waitFor(() => {
+      expect(screen.getByText("BacktestNode Replay")).toBeInTheDocument();
+    });
+
+    // Strategy selection must appear before BacktestNode Replay in DOM order
+    const strategiesHeadings = screen.getAllByText("Strategies");
+    const replay = screen.getByText("BacktestNode Replay");
+    const promotion = screen.getByText("Manual Promotion Review");
+
+    // Strategies heading exists before replay
+    const strategies = strategiesHeadings[strategiesHeadings.length - 1];
+    expect(
+      strategies.compareDocumentPosition(replay) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // Replay appears before promotion
+    expect(
+      replay.compareDocumentPosition(promotion) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("switches to Execution Lane on button click", async () => {
     mockApiResponses();
     render(<BuilderDashboard />);
@@ -92,5 +120,23 @@ describe("BuilderDashboard", () => {
     // Strategy Builder tab should NOT show promotion
     expect(screen.queryByText("Manual Promotion Review")).not.toBeInTheDocument();
     expect(screen.queryByText("Manual promotion review")).not.toBeInTheDocument();
+  });
+
+  it("shows Builder safety status in all tabs", () => {
+    mockApiResponses();
+    render(<BuilderDashboard />);
+
+    expect(screen.getByText(/Builder safety status/)).toBeInTheDocument();
+    expect(screen.getByText(/Builder-only mode/)).toBeInTheDocument();
+  });
+
+  it("does not contain live trading wording", () => {
+    mockApiResponses();
+    render(<BuilderDashboard />);
+    const body = document.body.textContent ?? "";
+    expect(body).not.toMatch(/start live trading/i);
+    expect(body).not.toMatch(/auto trade now/i);
+    expect(body).not.toMatch(/guaranteed profit/i);
+    expect(body).not.toMatch(/deploy to exchange/i);
   });
 });

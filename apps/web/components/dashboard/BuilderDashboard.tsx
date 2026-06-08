@@ -7,7 +7,7 @@ import {
   PlayCircleOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { Row, Col, Space, Tag, Typography } from "antd";
+import { Descriptions, Space, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
 import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
@@ -45,6 +45,11 @@ const steps: WorkflowStep[] = [
     subtitle: "Paper / live TradingNode gate",
   },
 ];
+
+function textOrDash(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "—";
+  return String(value);
+}
 
 export function BuilderDashboard({
   initialTab = "strategy",
@@ -97,53 +102,98 @@ export function BuilderDashboard({
           </Space>
         )}
 
-        {/* TAB 2: Backtest Center */}
+        {/* TAB 2: Backtest Center — top-down workflow */}
         {activeSection === "backtest" && (
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={10}>
+          <div className="backtest-center-flow">
+            {/* Step 1: Strategy Selection — full width */}
+            <DashboardCard
+              title="Strategies"
+              subtitle="Select a validated StrategySpec before creating a BacktestNode replay manifest."
+              actions={<Tag color="purple">Validated onward</Tag>}
+            >
+              <LaneStrategyTable
+                lane="backtest"
+                onSelect={(s) => setSelectedStrategy(s)}
+              />
+            </DashboardCard>
+
+            {/* Step 2: Selected Validated Strategy summary */}
+            {selectedStrategy && (
               <DashboardCard
-                title="Strategies"
-                actions={<Tag color="purple">Validated onward</Tag>}
+                title="Selected Validated Strategy"
+                subtitle="Evidence summary for the strategy that will be used in the replay manifest."
+                actions={<Tag color="purple">Strategy evidence</Tag>}
               >
-                <LaneStrategyTable
-                  lane="backtest"
-                  onSelect={(s) => setSelectedStrategy(s)}
-                />
-              </DashboardCard>
-              {selectedStrategy && (
-                <DashboardCard
-                  title={`Spec: ${selectedStrategy.strategy_id}`}
-                  actions={<Tag color="purple">AI review before backtest</Tag>}
-                  style={{ marginTop: 12 }}
+                <Descriptions
+                  column={{ xs: 1, sm: 2, lg: 3 }}
+                  size="small"
+                  bordered
                 >
-                  <Paragraph type="secondary">
-                    Review or edit the StrategySpec before running. AI can check
-                    correctness, parameter validity, and adapter compatibility.
-                  </Paragraph>
+                  <Descriptions.Item label="Strategy">
+                    <Text code>{selectedStrategy.strategy_id}</Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Lineage">
+                    {textOrDash(selectedStrategy.strategy_lineage_id)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Version">
+                    {textOrDash(selectedStrategy.strategy_id + '_v001')}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Status">
+                    <Tag color="purple">{selectedStrategy.status.replace(/_/g, " ")}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Adapter">
+                    {textOrDash((selectedStrategy.latest_spec as Record<string, unknown>)?.adapter_id)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Instrument">
+                    {textOrDash((selectedStrategy.latest_spec as Record<string, unknown>)?.instrument_id)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Data range">
+                    {textOrDash(
+                      typeof (selectedStrategy.latest_spec as Record<string, unknown>)?.data_range === "object"
+                        ? JSON.stringify((selectedStrategy.latest_spec as Record<string, unknown>)?.data_range)
+                        : (selectedStrategy.latest_spec as Record<string, unknown>)?.data_range,
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Data type">
+                    {textOrDash((selectedStrategy.latest_spec as Record<string, unknown>)?.data_type)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Timeframe">
+                    {textOrDash(
+                      (selectedStrategy.latest_spec as Record<string, unknown>)?.bar_type
+                        ? String(((selectedStrategy.latest_spec as Record<string, unknown>)?.bar_type as string) || "").split("-").slice(-2, -1)[0] || "—"
+                        : "—",
+                    )}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                {/* Spec preview */}
+                <div style={{ marginTop: 12 }}>
                   <StrategySpecEditor spec={selectedStrategy.latest_spec} />
-                </DashboardCard>
-              )}
-            </Col>
-            <Col xs={24} xl={14}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                <DashboardCard
-                  title="BacktestNode Replay"
-                  actions={<Tag color="purple">Historical evidence-only</Tag>}
-                >
-                  <BacktestLaunchPanel strategy={selectedStrategy} />
-                  <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
-                    {JobTerminal()}
-                  </Text>
-                </DashboardCard>
-                <DashboardCard
-                  title="Manual Promotion Review"
-                  actions={<Tag color="blue">Human gate</Tag>}
-                >
-                  <PromotionRequestPanel strategy={selectedStrategy} />
-                </DashboardCard>
-              </Space>
-            </Col>
-          </Row>
+                </div>
+              </DashboardCard>
+            )}
+
+            {/* Step 3: BacktestNode Replay manifest — full width */}
+            <DashboardCard
+              title="BacktestNode Replay"
+              subtitle="Run manifest for historical evidence-only backtest."
+              actions={<Tag color="purple">Historical evidence-only</Tag>}
+            >
+              <BacktestLaunchPanel strategy={selectedStrategy} />
+              <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+                {JobTerminal()}
+              </Text>
+            </DashboardCard>
+
+            {/* Step 4: Manual Promotion Review — full width */}
+            <DashboardCard
+              title="Manual Promotion Review"
+              subtitle="Human gate for promotion readiness."
+              actions={<Tag color="blue">Human gate</Tag>}
+            >
+              <PromotionRequestPanel strategy={selectedStrategy} />
+            </DashboardCard>
+          </div>
         )}
 
         {/* TAB 3: Execution Lane */}
