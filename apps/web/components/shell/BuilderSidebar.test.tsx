@@ -47,6 +47,13 @@ describe("BuilderSidebar", () => {
     expect(activeLink?.textContent).toContain("Overview");
   });
 
+  it("links Strategy Builder to the strategy tab, not bare Overview root", () => {
+    render(<BuilderSidebar />);
+
+    const strategyLink = screen.getByText("Strategy Builder").closest("a");
+    expect(strategyLink?.getAttribute("href")).toBe("/?tab=strategy");
+  });
+
   it("shows Builder-only mode footer", () => {
     render(<BuilderSidebar />);
     expect(screen.getByText(/Builder-only mode/)).toBeTruthy();

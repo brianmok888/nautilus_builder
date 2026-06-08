@@ -20,12 +20,13 @@ type NavItem = {
   label: string;
   icon: ReactNode;
   exact?: boolean;
+  path?: string;
   tab?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Overview", icon: <AppstoreOutlined />, exact: true },
-  { href: "/", label: "Strategy Builder", icon: <CodeOutlined />, tab: "strategy" },
+  { href: "/?tab=strategy", label: "Strategy Builder", icon: <CodeOutlined />, tab: "strategy" },
   { href: "/?tab=backtest", label: "Backtest Center", icon: <ExperimentOutlined /> },
   { href: "/?tab=execution", label: "Execution Lane", icon: <PlayCircleOutlined /> },
   { href: "/strategies", label: "Strategy Specs", icon: <FileTextOutlined /> },
@@ -35,13 +36,14 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 function isActive(pathname: string, tab: string | null, item: NavItem): boolean {
+  const path = item.path ?? item.href.split("?", 1)[0] ?? item.href;
   if (item.exact) {
-    return pathname === item.href && !tab && !item.tab;
+    return pathname === path && !tab && !item.tab;
   }
   if (item.tab) {
-    return pathname === item.href && tab === item.tab;
+    return pathname === path && tab === item.tab;
   }
-  return pathname.startsWith(item.href) && item.href !== "/";
+  return pathname.startsWith(path) && path !== "/";
 }
 
 export function BuilderSidebar() {
@@ -59,7 +61,7 @@ export function BuilderSidebar() {
         </div>
       </div>
 
-      <nav className="nb-sidebar-nav">
+      <nav className="nb-sidebar-nav" aria-label="Nautilus Builder navigation">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, tab, item);
           return (

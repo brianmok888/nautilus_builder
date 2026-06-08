@@ -57,6 +57,16 @@ function mockApiResponses(withStrategy = false) {
 describe("BuilderDashboard", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("renders Overview cards as distinct root content", () => {
+    mockApiResponses();
+    render(<BuilderDashboard initialTab="overview" />);
+
+    expect(screen.getByText("Workspace Overview")).toBeInTheDocument();
+    expect(screen.getAllByText("Builder-only mode").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Backtest evidence").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Strategy Editor")).not.toBeInTheDocument();
+  });
+
   it("renders Strategy Builder as default active lane", () => {
     mockApiResponses();
     render(<BuilderDashboard />);

@@ -5,6 +5,6 @@ import { BuilderDashboard } from "../components/dashboard/BuilderDashboard";
 
 export default function HomePage() {
   const params = useSearchParams();
-  const tab = params.get("tab") ?? "strategy";
+  const tab = params.get("tab") ?? "overview";
   return <BuilderDashboard initialTab={tab} />;
 }

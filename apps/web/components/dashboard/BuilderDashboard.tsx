@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Descriptions, Space, Tag, Typography } from "antd";
 import { AiStrategyCopilot } from "../ai-builder/AiStrategyCopilot";
 import { BacktestLaunchPanel } from "../backtests/BacktestLaunchPanel";
+import { BuilderOverview } from "./BuilderOverview";
 import { ExecutionLaneFeaturePanel } from "../config/ExecutionLaneFeaturePanel";
 import { PromotionRequestPanel } from "../promotions/PromotionRequestPanel";
 import { LaneStrategyTable } from "../strategy-builder/LaneStrategyTable";
@@ -69,8 +70,8 @@ export function BuilderDashboard({
   function switchTab(key: string) {
     setActiveSection(key);
     setSelectedStrategy(null);
-    const params = key === "strategy" ? "" : `?tab=${key}`;
-    router.replace(params || "/", { scroll: false });
+    const path = key === "overview" ? "/" : `/?tab=${key}`;
+    router.replace(path, { scroll: false });
   }
 
   return (
@@ -85,6 +86,8 @@ export function BuilderDashboard({
 
       {/* Content panels */}
       <div style={{ marginTop: 8 }}>
+        {activeSection === "overview" && <BuilderOverview />}
+
         {/* TAB 1: Strategy Builder */}
         {activeSection === "strategy" && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
