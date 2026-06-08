@@ -1,475 +1,203 @@
 # Nautilus Builder Handguard
 
-**Review date:** 2026-05-29 (updated — full deep review v2)
-**Purpose:** Runtime-enforced boundaries and hardguard constraints that must not be violated. These are invariants, not suggestions.
+**Review date:** 2026-06-08
+**Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
+**Current state:** REQUEST CHANGES until the auth/project-scope gates below are implemented.
 
----
+## 1. Authority boundary — Builder never owns live order submission
 
-## 1. Authority boundary
+Builder production code must not call `submit_order(`, construct authoritative `TradeAction(`, hold direct exchange execution credentials in browser/UI state, or directly couple to Daedalus runtime internals.
 
-Builder NEVER holds `submit_order` authority.
+Required false/blocked values in Builder-owned production paths:
 
 ```python
-# These must remain False in all production paths:
 execution_authority = False
 may_submit_order = False
 live_trading_authority = False
 advisory_only = True
+browser_credentials_allowed = False
+credential_inputs_allowed = False
+strategy_lane_coupled = False
 ```
 
-Enforcement:
-- `execution_lane/nautilus_runtime.py` — `Literal[False]` on `browser_credentials_allowed`, `credential_inputs_allowed`, `strategy_lane_coupled`
-- `strategy_validation/policy.py` — `FORBIDDEN_REFERENCES` blocks `submit_order`, `modify_order`, `cancel_order`, `close_position`, `TradeAction`
-- `strategy_validation/policy.py` — `RAW_CODE_PATTERNS` blocks `eval`, `exec`, `subprocess`, `socket`, `requests`
-- `backtest_runner/config_builder.py` — raises `ValueError` if `credentials` passed to backtest config
-- `compiler.py` — sets `execution_authority=False` for all profiles
+Current enforcement surfaces:
 
-Guard: Any PR that changes these to `True` or `Literal[True]` must be rejected.
+- `packages/strategy_validation/policy.py` blocks `submit_order`, `modify_order`, `cancel_order`, `close_position`, `TradeAction`, and credential terms in StrategySpec inputs.
+- `packages/backtest_runner/config_builder.py` rejects live credentials in backtest config.
+- `packages/backtest_runner/contracts.py` uses `Literal[False]` for backtest execution authority and credential usage.
+- `packages/execution_lane/models.py` rejects paper-mode live authority and requires multiple gates for any live authority fields.
+- `packages/execution_lane/sessions.py` keeps paper session configs `execution_authority=False` and `may_submit_order=False`.
 
-## 2. Credential boundary
+Guard: reject any PR that adds a Builder-side production `submit_order(` path or authoritative `TradeAction(` construction.
 
-- `.env.execution.local` is gitignored and local-dev-only. **Never deploy with real credentials in this file.**
-- Venue credentials use prefixed keys only: `BINANCE_API_KEY`, `BINANCE_API_SECRET`, etc.
-- Bare key names like `API_KEY`, `SECRET`, `PASSWORD` are forbidden by `credentials.py`.
-- `_SECRET_KEYS` set in `models.py` recursively rejects credential leakage in profiles, commands, and reports.
-- Browser UI must never collect or persist exchange/API credentials.
+## 2. API auth and project-scope gate — currently BLOCKING
 
-Guard: Any PR that adds bare credential key names or removes gitignore entries must be rejected.
+Every `/api/*` FastAPI route except health/build liveness endpoints must do all of the following:
 
-## 3. Reconciliation boundary
+1. Accept bearer authorization.
+2. Call `require_context(authorization)`.
+3. Return `401` when auth is absent/invalid.
+4. Pass `UserProjectContext` into package/repository calls that read or mutate scoped data.
+5. Return `403` or an empty scoped list for wrong-project access.
 
-- `reconciliation_lookback_mins` must be ≥ 60 at the model level (enforced: `Field(ge=60)`).
-- `reconciliation_startup_delay_secs` must not be reduced below 10.
-- `open_check_lookback_mins` must not be reduced below 60.
-- Reconciliation must remain enabled for all execution profiles.
+Known gaps as of 2026-06-08:
 
-Guard: Any PR that lowers these thresholds without explicit justification must be rejected.
+- `GET /api/strategies` does not validate auth or pass context.
+- `POST /api/strategies/{strategy_id}/approve` authenticates but does not pass context into repository mutation.
+- `POST /api/strategies/{strategy_id}/clone` authenticates but does not pass context into repository clone.
+- Several read-only `/api` catalog/config routes have an auth parameter but do not validate it; explicitly allowlist them only if the product decision is public metadata.
+- Static auth tests are insufficient because they check for an `authorization` parameter rather than runtime behavior.
 
-## 4. Adapter resolution boundary
+Guard: no production-readiness claim until runtime tests prove missing-token and wrong-project requests fail for every protected `/api` route.
 
-- Adapter resolution must be routed through `packages/adapter_registry/`, not hardcoded to Binance.
-- New adapters must be registered in the adapter registry before execution lane profiles can reference them.
-- `generic_client_config_builder` must raise a clear error when credentials are missing, not silently connect.
+## 3. Production environment policy gate — currently not fully wired
 
-Guard: Any PR that hardcodes adapter configuration outside the registry must be rejected.
+`packages/auth/policy.py` defines the required policy:
 
-## 5. Worker isolation boundary
+- `BUILDER_ENV` must be `local`, `staging`, or `production`.
+- In `staging` or `production`, `BUILDER_API_TOKEN` must exist, be at least 32 chars, and not be a known dev token.
+- `NEXT_PUBLIC_BUILDER_API_TOKEN` is forbidden in staging/production.
+- CORS origins must not be empty or wildcard in staging/production.
 
-- Native runner must not be used from the API event loop — worker process only.
-- `services/workers/` entrypoints own the runtime lifecycle.
-- The API layer must never directly import or start `TradingNode`.
+Guard: `services/api/fastapi_app.py` must call `validate_builder_env()`, `validate_production_token()`, and `validate_cors_config()` during startup. Do not rely only on `_register_env_dev_token()`.
 
-Guard: Any PR that imports `TradingNode` in `services/api/` must be rejected.
+## 4. Strategy repository scope gate
 
-## 6. Promotion evidence boundary
+All strategy repositories must preserve and enforce `user_id`/`project_id` scope for:
 
-- Default `allow_legacy_fixture_refs` to `False` in production paths.
-- Require `strict_evidence=True` for all non-dev promotion requests.
-- Never set gate compatibility by fiat.
-- Never fabricate evidence refs that were not produced/stored.
-- Final/production-candidate movement requires validation, backtest, no-lookahead, risk, gate-compatibility, runtime-boundary, and manual approval evidence.
+- save/create
+- list
+- detail
+- update draft
+- create version
+- approve/update status
+- clone
 
-Guard: Any PR that bypasses evidence requirements in production paths must be rejected.
+Guard: Postgres strategy storage must include scope columns or equivalent scoped ownership metadata. In-memory and Postgres repositories must have the same context semantics.
 
-## 7. Terminal/UX boundary
+## 5. NautilusTrader evidence gate
 
-The normal terminal is not a shell.
+Builder may produce and store:
 
-Allowed commands: `help`, `status`, `show config`, `show validation`, `show metrics`, `tail logs`, `request cancel`
+- StrategySpec drafts and versions
+- validation reports
+- compile metadata/artifacts
+- backtest jobs/results/manifests
+- evidence refs and promotion gate decisions
 
-Forbidden: shell, package install, network tools, process/container control, environment dumps, secrets, exchange credentials, direct worker memory mutation.
+Builder must not claim it produces adapter-compliance evidence unless an actual adapter suite produced it. For NT adapter readiness claims, require:
 
-Guard: Any PR that adds shell-like commands to the terminal must be rejected.
+- DataTester evidence for claimed data adapter behavior.
+- ExecTester evidence for claimed execution adapter behavior.
+- Reconciliation reports for claimed live execution readiness.
+- Adapter guide capability matrix for venue-specific behavior.
 
-## 8. Model naming boundary
+Guard: UI/docs must distinguish `passed_inferred` from artifact-backed evidence. Do not mark compile/replay/promotion as production-ready from lifecycle status alone.
 
-Do not name Pydantic models with `Test` prefix unless they are actual pytest test classes.
+## 6. TradingNode / LiveNode wording gate
 
-- `WorkflowJobRecord` (renamed from `TestJobRecord`)
-- `WorkflowResultRecord` (renamed from `TestResultRecord`)
+- Python `nautilus_trader.live.node.TradingNode` examples in Builder are integration-specific/paper sandbox contracts.
+- Rust-backed `nautilus_trader.live.LiveNode` is the current/future Rust v2 path for new Rust-backed PyO3 adapter work.
+- Builder does not currently run Rust `LiveNode`.
 
-Guard: Add a linter/hook that flags Pydantic model classes starting with `Test`.
+Guard: reject docs that present Builder's Python TradingNode contract as universal Nautilus live production readiness.
 
-## 9. Verification gate before readiness claims
+## 7. Daedalus boundary gate
+
+Daedalus is the execution authority and owns:
+
+- approved-intent `TradeAction` generation/handling
+- order submission surface
+- `ExecutionReport` source of execution truth
+- Telegram delivery runtime
+- EvoMap/LangChain/LangGraph decision/advisory lanes
+- custom adapter runtime evidence
+
+Builder may reference Daedalus only through documented handoff/evidence contracts. Builder must not import or edit Daedalus internals from this repo.
+
+Guard: no direct `Nautilus-Daedalus` runtime imports in Builder packages/services.
+
+## 8. aiogram-dialog / Telegram gate
+
+Builder must not add `aiogram` or `aiogram-dialog` dependencies. Telegram dialog/menu ownership remains in Daedalus (`nautilus_runtime/live/telegram_gateway/`). Builder may emit/record notification configuration contracts only after explicit design and tests.
+
+Guard: reject Builder-side aiogram/aiogram-dialog runtime dependencies.
+
+## 9. AI advisory gate
+
+Builder AI output is advisory-only:
+
+- Provider endpoint comes from operator env/config, never model output.
+- LLM output must pass StrategySpec validation before acceptance.
+- No AI output may auto-apply live strategy rules or execution authority.
+- Prompt/audit persistence must redact secrets before production use.
+
+Guard: treat all model output and user prompt text as untrusted input.
+
+## 10. Postgres identifier gate
+
+Every schema/table identifier interpolated into SQL must be validated with a strict identifier helper before use. Parameter binding protects values, not identifiers.
+
+Guard: constructors and migrations must reject unsafe schema/table names. Do not interpolate operator-controlled identifiers raw.
+
+## 11. Fixture/demo evidence gate
+
+Fixture and demo data are allowed only when explicitly labelled and disabled by default in production:
+
+- `BUILDER_ALLOW_FIXTURE_FALLBACK` must remain off by default.
+- `res_001` fallback must be fixture/dev-only.
+- Demo compile hashes must not be presented as real artifact checksums.
+- Seed scripts must not hide unexpected failures.
+
+Guard: reject any PR that silently converts demo/fixture evidence into production evidence.
+
+## 12. Worker isolation gate
+
+Native Nautilus runners must not run from the API event loop. They belong in backend worker processes or explicit CLI/operator paths.
+
+Guard: `services/api/` must not directly start a native `TradingNode`; worker entrypoints own runtime lifecycle.
+
+## 13. Verification gate before readiness claims
+
+Minimum backend gate:
 
 ```bash
-python3 -m compileall -q packages services tests
-python3 -m pytest tests/ -q --tb=line        # Must pass: 442+
-cd apps/web && npx tsc --noEmit               # Must be clean
-cd apps/web && npx vitest run                 # Must pass: 44+ (4 skipped OK)
-cd apps/web && npm run build                  # Must succeed
+python3 -m compileall -q packages services tests scripts
+python3 -m pytest tests/ -q --tb=line
 ```
 
-Playwright E2E required for frontend-readiness claims:
+Frontend readiness gate when UI claims change:
+
 ```bash
-cd apps/web && npx playwright install chromium && npm run test:e2e
+cd apps/web && npx tsc --noEmit
+cd apps/web && npx vitest run
+cd apps/web && npm run build
 ```
 
-Guard: No readiness claim without fresh evidence from all commands above.
+Runtime/live-readiness claims also require NT evidence refs (DataTester/ExecTester/reconciliation) and Daedalus execution-boundary confirmation.
 
-## 10. UI design boundary
+## 14. Legacy/deprecation closure schedule
 
-- `DESIGN.md` is the current design source of truth.
-- Preserve the three primary sections: Strategy Builder, Backtest Center, Execution Lane.
-- Browser UI must not collect or persist exchange/API credentials.
-- Navigation labels keep product vocabulary first; demo IDs remain route examples.
+| Item | Status on 2026-06-08 | Deadline | Guard |
+|---|---|---:|---|
+| `storage_config.py` legacy schema alias | OPEN | 2026-07-01 | Remove after cutoff; no new callers. |
+| `PostgresWorkflowRepository` alias | OPEN | 2026-07-01 | Prefer `SqliteWorkflowRepository`; remove alias after cutoff. |
+| Backtest legacy hash derivation | OPEN | 2026-07-01 | Keep disabled by default; remove env escape after cutoff. |
+| `allow_legacy_fixture_refs` | OPEN | 2026-07-01 | Strict evidence for non-dev promotions. |
+| `res_001` fixture fallback | WATCH | 2026-07-01 | Production flag must stay off. |
+| `NEXT_PUBLIC_BUILDER_API_TOKEN` local mode | WATCH | n/a | Forbid in staging/production startup. |
 
-Guard: Any PR that changes the three-section structure or adds credential collection UI must be rejected.
+## 15. Current review blockers
 
-## 11. DataTester/ExecTester boundary
+Do not claim merge-ready/production-ready until these are fixed:
 
-Builder gates on evidence refs but does not produce DataTester/ExecTester evidence. This is by design:
+1. H-01: strategy list auth/project leak.
+2. H-02: approve/clone cross-project mutation.
+3. H-03: production auth/CORS policy not wired into FastAPI startup.
+4. H-04: route auth tests are static/insufficient.
 
-- Builder produces compile artifacts, validation reports, and backtest results.
-- Adapter test evidence comes from the adapter's own test suite or Daedalus.
-- Builder's execution lane correctly requires these refs to be non-blank before allowing commands.
-- Document this boundary explicitly in architecture docs.
+See `findings.md` for file/line evidence and concrete fixes.
 
-Guard: Any PR that claims Builder produces DataTester/ExecTester evidence must be rejected.
+## 16. Master reconciliation — catalog-backed Nautilus replay
 
-## 12. AI provider boundary
-
-- OpenAI-compatible provider uses `urllib.request` with configurable timeout — no third-party HTTP dependency.
-- Provider endpoint is operator-configured via env vars (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`).
-- Never derive endpoint URL from model output.
-- Always validate LLM output through `validate_strategy_spec()` before acceptance.
-- No certificate pinning currently — acceptable for operator-configured endpoints but should be documented.
-
-Guard: Any PR that adds third-party HTTP dependencies to the AI provider must be rejected.
-
-## 13. Security scan gate
-
-Must remain clean:
-- No hardcoded secrets in production code
-- No blocking I/O in hot paths
-- No `submit_order`, `TradeAction`, `close_position` in builder-side code
-- No `eval()`, `exec()`, `subprocess`, `os.system`, `time.sleep` in production code
-- Credential keys are venue-prefixed and forbidden-key-filtered
-- Artifact URIs are path-traversal-safe
-
-Guard: Run AST scan as CI gate. Reject any PR that introduces forbidden patterns.
-
-## 14. Catalog-backed replay reconciliation
-
-- `catalog_backed_replay_smoke` must remain runnable with `CATALOG_BACKED_REPLAY_SMOKE_MODE` env variable support.
-- synthetic historical quote ticks must exercise the full BacktestNode pipeline.
-- This is a wiring and data-flow check — not full trading-production readiness.
-- Master reconciliation — catalog-backed Nautilus replay evidence must appear in all three review docs (structure, findings, handguard).
-
-## 15. NT version alignment gate
-
-- Builder must track Daedalus's `nautilus_trader` version within 2 minor releases.
-- Current: Builder=1.227.0, Daedalus=1.227.0 → **aligned** (H1 FIXED).
-- Upgrade path: verify adapter config builder compatibility at each version step.
-- Upgrade complete: 1.223.0 → 1.227.0, `testnet` → `environment` param, 442 tests passing.
-
-## 16. Daedalus Telegram integration boundary
-
-- Daedalus owns the aiogram-dialog Telegram gateway entirely.
-- Builder has no Telegram dependency and must not add one.
-- Strategy lifecycle events in Builder can be surfaced via Daedalus's signal delivery dialog, but only through Daedalus's `nautilus_runtime/live/telegram_gateway/` path.
-- Builder → Daedalus notification contract: optional `notification_config` in execution profiles (not yet implemented).
-
-Guard: Any PR that adds aiogram/aiogram-dialog dependencies to Builder must be rejected.
-
-## 17. Fixture fallback gate (H2 fix)
-
-- `workflow_result_payload` gates fixture fallback behind `BUILDER_ALLOW_FIXTURE_FALLBACK` env var.
-- Default behavior (env var unset): returns 404 for `res_001` with no real data.
-- Only returns fixture data when env var is explicitly `1`, `true`, or `yes`.
-- Production must never set this env var.
-
-Guard: Any PR that re-enables fixture fallback by default must be rejected.
-
-## 18. Adapter credential enforcement (H3 fix)
-
-- `generic_client_config_builder` raises `ValueError` when no venue-prefixed credentials are found.
-- Silent empty-config connections are no longer possible.
-- All adapters must provide `{VENUE}_*` prefixed credential keys with non-empty values.
-
-Guard: Any PR that removes the `_require_non_blank_credentials` check must be rejected.
-
-## 19. Runtime label extensibility (M3 fix)
-
-- `runtime_label` is `str` with a validator accepting `python_live_integration_specific` and `rust_live_node`.
-- New labels must be added to `_KNOWN_RUNTIME_LABELS` in `nautilus_runtime.py`.
-- Default remains `python_live_integration_specific`.
-
-Guard: Any PR that removes the validator or adds labels without updating the known set must be rejected.
-
-## 20. Legacy/deprecation closure schedule
-
-| Item | Deadline | Action |
-|------|----------|--------|
-| `storage_config.py` legacy alias | 2026-07-01 | Remove, add tracking issue |
-| `backtest_jobs.py` legacy hash | 2026-07-01 | Remove, add tracking issue |
-| `allow_legacy_fixture_refs` | 2026-07-01 | Add hard cutoff with env flag |
-| `res_001` fixture fallback | 2026-07-01 | Default `allow_fixture_fallback=False` in production |
-| `PostgresWorkflowRepository` alias | 2026-07-01 | Rename to SqliteWorkflowRepository |
-
-Guard: After 2026-07-01, any PR that re-enables legacy paths without env flag must be rejected.
-
-## 21. Production deployment gate (S5)
-
-- `_register_env_dev_token` rejects known dev tokens (`dev-token`, `test-token`, `changeme`) when `APP_ENV=production`.
-- Custom tokens work in all environments.
-- `docker-compose.yml` uses `${POSTGRES_PASSWORD:-builder_dev}` for env var override.
-- Postgres port bound to `127.0.0.1:5432:5432` (localhost only).
-- Tests: `tests/api/test_production_safety.py` (5 tests).
-
-Guard: Any PR that removes the `_UNSAFE_DEV_TOKENS` check or reverts port/password hardening must be rejected.
-
-## 22. Onboarding boundary (S12-S18)
-
-The repo must maintain the developer onboarding experience:
-
-- `.env.example` must document all docker-compose and application env vars.
-- `scripts/run_dev.sh` must start the development environment.
-- `scripts/run_tests.sh` must run the verification gate.
-- `DEVELOPMENT.md` must be the single source for onboarding instructions.
-- `docs/examples/` must contain runnable demo scripts exercising the full pipeline.
-- `doc/strategy_dev_guide.md` must document the strategy lifecycle.
-- Adapter discovery must support drop-in registration via `@register_adapter`.
-- `# @param` convention must be parseable by `packages/ai_builder/param_parser.py`.
-
-Guard: Any PR that removes onboarding files, scripts, or demo examples without replacement must be rejected.
-
-## 23. Docker zero-config boundary (S18)
-
-`docker compose up -d` must start a working application:
-
-- All services have health checks.
-- API depends on postgres being healthy.
-- Web depends on API being healthy.
-- Postgres port bound to 127.0.0.1 only.
-- `.env.example` covers all compose env vars.
-- Demo strategies seeded on first startup.
-
-Guard: Any PR that removes health checks or reverts port/password hardening must be rejected.
-
-## 24. End-to-end pipeline boundary (S20-S22)
-
-The `scripts/run_backtest.py` script chains all Builder seams into a single flow:
-
-- Must accept `--spec <path>` pointing to a valid StrategySpec JSON file.
-- Must validate, compile, and run backtest in sequence.
-- Must always set `execution_authority=False`.
-- Must support `--json` for machine-readable output.
-- Must fail cleanly for invalid or missing spec files.
-- Example spec files must exist in `docs/examples/specs/`.
-
-Guard: Any PR that removes `scripts/run_backtest.py` or example spec files without replacement must be rejected.
-
----
-
-## 25. BUILDER_ENV validation gate (H2)
-
-Startup must validate the `BUILDER_ENV` environment variable:
-- Allowed values: `local`, `staging`, `production`.
-- Empty or unset defaults to `local`.
-- Unknown values raise `ValueError` at startup.
-
-In `staging` or `production`:
-- `BUILDER_API_TOKEN` must exist, be ≥32 chars, and not be a known dev token.
-- `NEXT_PUBLIC_BUILDER_API_TOKEN` must not be set.
-- CORS origins must not be empty or wildcard (`*`).
-
-Guard: Any PR that weakens `validate_production_token` or `validate_cors_config` checks must be rejected.
-
-## 26. Promotion mode enforcement gate (H3)
-
-Promotion modes are limited to:
-- `shadow_only`
-- `signal_preview_only`
-- `paper_replay_candidate`
-
-Forbidden modes (will raise `ForbiddenPromotionMode`):
-- `live_trade_authority`
-- `direct_trade_action_authority`
-- `direct_submit_order_authority`
-
-`PromotionLedgerEntry` enforces `execution_authority: Literal[False]`.
-
-Guard: Any PR that adds `live_trade_authority` to `AllowedPromotionMode` or changes `Literal[False]` must be rejected.
-
-## 27. Immutable audit event gate (H3)
-
-`AuditEvent` model is frozen (immutable after creation). Every mutation must write an audit event.
-
-Guard: Any PR that removes `frozen=True` from `AuditEvent` or skips audit event creation for mutations must be rejected.
-
-## 28. Static scan gate (H4)
-
-Generated strategy artifacts must pass `scan_generated_artifact()` before promotion.
-
-Forbidden in generated code:
-- `submit_order(`, `TradeAction`, `eval(`, `exec(`, `subprocess`, `socket`, HTTP requests
-- `execution_authority = True`
-
-Required in generated code:
-- `execution_authority = False`
-
-Guard: Any PR that removes scan patterns or makes the scan non-blocking must be rejected.
-
-## 29. Health endpoint gate (H4)
-
-The API must expose:
-- `GET /health/live` — process liveness
-- `GET /health/ready` — readiness (DB, storage, migration state)
-- `GET /health/build` — build version and commit SHA
-
-Guard: Any PR that removes health endpoints must be rejected.
-
-## 30. Repository hygiene gate (H1)
-
-`scripts/check_repo_hygiene.sh` must pass in CI.
-
-Forbidden committed paths:
-- `node_modules/`, `.vite/`, `.vitest/`, `.next/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`, `.venv/`
-
-Guard: Any PR that disables the repo-hygiene CI job or removes the guard script must be rejected.
-
----
-
-## 31. Promotion ledger authority gate (P1-1)
-
-`PromotionLedgerRepository.record_promotion()` enforces:
-- All promotions have `execution_authority=False`.
-- Forbidden promotion modes (`live_trade_authority`, `direct_trade_action_authority`, `direct_submit_order_authority`) are rejected.
-- `paper_replay_candidate` requires `approved_by`.
-- Missing evidence fields (compiler_hash, dataset_hash, replay_report_hash, artifact_hash) fail closed.
-- Transaction boundary: validate → write ledger → write audit event → return.
-
-Guard: Any PR that changes `execution_authority` to `True` or removes evidence validation must be rejected.
-
-## 32. Artifact store immutability gate (P1-2)
-
-`S3ArtifactStore` enforces:
-- Content-addressed keys: `artifacts/{type}/{sha256}/{filename}` — immutable by key.
-- Checksum verified after write and before read.
-- `execution_authority=false` in all artifact metadata.
-- S3 secrets are never exposed in artifact records or API responses.
-
-Guard: Any PR that removes checksum verification or exposes S3 secrets to frontend must be rejected.
-
-## 33. Artifact backend factory gate (P1-2)
-
-`create_artifact_store()` enforces:
-- `BUILDER_ARTIFACT_BACKEND=local` (default) for development.
-- `BUILDER_ARTIFACT_BACKEND=s3` for production requires `BUILDER_S3_BUCKET`.
-- Unknown backend values raise `ValueError` at startup.
-
-Guard: Any PR that adds a new backend without implementing `ArtifactStoreProtocol` must be rejected.
-
-## 34. Microstructure spec authority gate (P1-4)
-
-`StrategySpecMicrostructureV1` enforces:
-- `output_mode: Literal["signal_preview_only"]` — cannot be changed to any other value.
-- `execution_authority: Literal[False]` — always False, Pydantic rejects True.
-- `schema_version: Literal["microstructure_v1"]` — cannot be confused with classic specs.
-- Source health validation: `validate_source_health()` fails closed for missing/stale required features.
-- No executable orders are generated from microstructure specs.
-
-Guard: Any PR that changes `output_mode` or `execution_authority` away from locked values must be rejected.
-
-## 35. Replay determinism gate (P1-3)
-
-`generate_fixture()` and `generate_dataset_report()` enforce:
-- Same `FixtureSpec` (same seed, same config) always produces the same fixture hash.
-- `determinism_verified=True` in `ReplayDatasetReport` proves hash equality.
-- `credentials_used=False`, `live_trading_enabled=False`, `execution_authority=False` locked.
-- OHLC consistency validated for bar fixtures.
-- Timestamps must be strictly monotonically increasing.
-
-Guard: Any PR that introduces non-determinism into fixture generation must be rejected.
-
-## 36. Postgres audit event gate (P2-2)
-
-`PostgresAuditEventRepository` enforces:
-- Every mutation creates an audit event in `builder.audit_events`.
-- `make_audit_writer_from_pool()` creates a middleware-compatible writer.
-- Writer fails gracefully when Postgres is unavailable (dev mode).
-- Query interface supports actor_id, project_id, resource_type filters.
-
-Guard: Any PR that removes audit event writing for mutations must be rejected.
-
-## 37. Docker compose profile gate (P2-1)
-
-- `docker-compose.yml` is for local development only.
-- `docker-compose.staging.yml` requires: strong tokens, Postgres, Redis, MinIO, no wildcard CORS.
-- `docker-compose.production.yml` requires: all of staging plus password-protected Redis, restart policies, network isolation, no NEXT_PUBLIC tokens.
-- Production compose fails fast on missing required env vars (`${VAR:?message}`).
-
-Guard: Any PR that removes health checks, restart policies, or password requirements from production compose must be rejected.
-
-## 38. Light theme design system gate (UI-1)
-
-The Nautilus Builder frontend must use a light SaaS quant dashboard design system.
-
-Enforcement:
-- CSS custom properties under `:root` use `--nb-*` prefix for light theme tokens.
-- `BuilderThemeProvider` uses `theme.defaultAlgorithm` (light), not `theme.darkAlgorithm`.
-- All AntD component overrides in globals.css target the light color scheme.
-- Legacy `--builder-*` CSS aliases remain for backwards compatibility but map to light values.
-
-Guard: Any PR that reverts to dark theme or removes `--nb-*` light tokens must be rejected unless explicitly approved for a dark-mode toggle feature.
-
-## 39. Builder-only banner gate (UI-9)
-
-Every page in the Nautilus Builder UI must display a Builder-only safety banner.
-
-Enforcement:
-- `BuilderSafetyBanner` is rendered in the shell above main content.
-- Banner states: "This UI creates and reviews strategy drafts, validation results, compiler artifacts, replay evidence, and promotion requests. It does not submit live orders."
-- Banner is always visible, not dismissible.
-
-Guard: Any PR that removes the safety banner or makes it dismissible must be rejected.
-
-## 40. Frontend design system component gate
-
-New frontend pages and components must use the design system primitives.
-
-Required for new pages:
-- Use `PageHeader` component with title, subtitle, and icon.
-- Use `DashboardCard` instead of raw AntD `Card` for content sections.
-- Use `MetricCard` for numeric summary displays.
-
-Required for new reusable components:
-- Follow the `nb-*` CSS class naming convention.
-- Use CSS custom properties from globals.css, not hardcoded color values.
-- Support light theme by default.
-
-Guard: Any PR that introduces new pages without using design system components must be flagged for review.
-
-## 41. Root shell must be BuilderShell (light) gate
-
-The root layout must use `BuilderShell` (light sidebar, nb-* CSS) as the primary app shell.
-
-Enforcement:
-- `apps/web/app/layout.tsx` must import and render `BuilderShell`.
-- `OperatorAppShell` is deprecated and delegates to `BuilderShell`.
-- The app must not render a dark-themed AntD `Layout.Sider` as the root shell.
-
-Guard: Any PR that reverts layout.tsx to use OperatorAppShell as the primary shell must be rejected.
-
-## 21. Manifest grid layout boundary (UIP fix)
-
-- `BacktestLaunchPanel.tsx` must use `manifest-form-grid` and `manifest-form-field` CSS classes for run manifest fields.
-- Manifest preview must use `manifest-preview` CSS class.
-- Compile hash field must use `hash-field` CSS class.
-- Layout blocks must use `manifest-section` CSS class, not nested Card/Row/Col.
-- No regression to AntD Card/Row/Col layout for manifest form.
-- Evidence-only safety copy (`may_submit_order: false`, `browser_credentials: false`, authority block) must remain visible.
-
-Guard: Any PR that removes manifest-form-grid, manifest-preview, or hash-field classes from BacktestLaunchPanel must be rejected.
-
-## 22. Builder-owned database boundary (DB sprint)
-
-- Builder DB: `nautilus_builder` (user: `builder`)
-- Runtime DB: `nautilus_daedalus_db` (user: `nd_runtime`)
-- Builder must not write to runtime DB
-- Builder may only read runtime data through: read-only API, read-only replica, exported artifact, dataset index, promotion handoff package
-- Dev compose (`docker-compose.dev.yml`) must bind Postgres to `127.0.0.1:5432` only
-- `.env.demo.example` must not contain `NEXT_PUBLIC_BUILDER_API_TOKEN`
-
-Guard: Any PR that adds Builder writes to the runtime DB must be rejected.
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` / `catalog_backed_replay_smoke` must remain a smoke-only gate. It writes synthetic historical quote ticks into a catalog and exercises NautilusTrader BacktestNode replay wiring. It is **not full trading-production readiness**, and it does not satisfy DataTester, ExecTester, adapter reconciliation, or live execution evidence requirements.

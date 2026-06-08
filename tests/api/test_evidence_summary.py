@@ -107,3 +107,133 @@ def test_evidence_summary_does_not_invent_evidence(repo: InMemoryStrategyReposit
     # Audit should only have the created event
     created_events = [e for e in result["audit"] if e["kind"] == "created"]
     assert len(created_events) == 1
+
+
+def test_evidence_summary_uses_public_service_methods_not_private_internals(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """Verify evidence summary never directly accesses _jobs_by_id."""
+    bt_service = BacktestJobService()
+    version_id = "demo_validated_v001"
+    job = bt_service.create_job({
+        "strategy_spec_version_id": version_id,
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "BTCUSDT-PERP",
+        "compile_hash": "b" * 64,
+        "validation_report_id": "vr_pub_test",
+        "data_range": "2025-01-01:2025-06-01",
+    })
+    bt_service.transition_job(job.job_id, "SUCCEEDED", result_artifact_refs={"report": "r.json"})
+
+    # Verify public methods return correct data
+    listed = bt_service.list_jobs_for_strategy(version_id)
+    assert len(listed) == 1
+    assert listed[0].job_id == job.job_id
+
+    latest = bt_service.get_latest_job_for_strategy(version_id)
+    assert latest is not None
+    assert latest.job_id == job.job_id
+
+    # Evidence summary should produce same result using public methods
+    payload = strategy_evidence_summary_payload(repo, "demo_validated", backtest_job_service=bt_service)
+    result = payload.json()
+    assert result["replay"]["status"] == "passed"
+    assert len(result["replay"]["jobs"]) == 1
+    assert result["compile"]["hash"] == "b" * 64
+
+
+def test_list_jobs_for_strategy_empty_when_no_jobs(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """list_jobs_for_strategy returns empty list when no jobs exist."""
+    bt_service = BacktestJobService()
+    assert bt_service.list_jobs_for_strategy("nonexistent_version") == []
+    assert bt_service.get_latest_job_for_strategy("nonexistent_version") is None
+
+
+def test_list_jobs_for_strategy_returns_ordered_jobs(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """list_jobs_for_strategy returns jobs in creation order."""
+    bt_service = BacktestJobService()
+    version_id = "demo_validated_v001"
+
+    job_a = bt_service.create_job({
+        "strategy_spec_version_id": version_id,
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "BTCUSDT-PERP",
+        "compile_hash": "c" * 64,
+        "validation_report_id": "vr_ord_1",
+        "data_range": "2025-01-01:2025-06-01",
+    })
+
+    # Second job with slightly different payload to get a different key
+    job_b = bt_service.create_job({
+        "strategy_spec_version_id": version_id,
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "ETHUSDT-PERP",
+        "compile_hash": "d" * 64,
+        "validation_report_id": "vr_ord_2",
+        "data_range": "2025-01-01:2025-06-01",
+    })
+
+    jobs = bt_service.list_jobs_for_strategy(version_id)
+    assert len(jobs) == 2
+    assert jobs[0].job_id == job_a.job_id
+    assert jobs[1].job_id == job_b.job_id
+
+    latest = bt_service.get_latest_job_for_strategy(version_id)
+    assert latest is not None
+    assert latest.job_id == job_b.job_id
+
+
+def test_missing_jobs_produce_replay_missing_status(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """When no backtest jobs exist, replay.status is missing."""
+    payload = strategy_evidence_summary_payload(repo, "demo_draft")
+    result = payload.json()
+    assert result["replay"]["status"] == "missing"
+    assert result["replay"]["jobs"] == []
+
+
+def test_failed_jobs_produce_replay_failed_status(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """When a backtest job failed, replay.status is failed."""
+    bt_service = BacktestJobService()
+    version_id = "demo_validated_v001"
+    job = bt_service.create_job({
+        "strategy_spec_version_id": version_id,
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "BTCUSDT-PERP",
+        "compile_hash": "e" * 64,
+        "validation_report_id": "vr_fail",
+        "data_range": "2025-01-01:2025-06-01",
+    })
+    bt_service.transition_job(job.job_id, "FAILED")
+
+    payload = strategy_evidence_summary_payload(repo, "demo_validated", backtest_job_service=bt_service)
+    result = payload.json()
+    assert result["replay"]["status"] == "failed"
+
+
+def test_passed_jobs_produce_replay_passed_status(
+    repo: InMemoryStrategyRepository,
+) -> None:
+    """When a backtest job succeeded, replay.status is passed."""
+    bt_service = BacktestJobService()
+    version_id = "demo_validated_v001"
+    job = bt_service.create_job({
+        "strategy_spec_version_id": version_id,
+        "adapter_profile_id": "BINANCE_PERP",
+        "instrument_id": "BTCUSDT-PERP",
+        "compile_hash": "f" * 64,
+        "validation_report_id": "vr_pass",
+        "data_range": "2025-01-01:2025-06-01",
+    })
+    bt_service.transition_job(job.job_id, "SUCCEEDED", result_artifact_refs={"report": "r.json"})
+
+    payload = strategy_evidence_summary_payload(repo, "demo_validated", backtest_job_service=bt_service)
+    result = payload.json()
+    assert result["replay"]["status"] == "passed"

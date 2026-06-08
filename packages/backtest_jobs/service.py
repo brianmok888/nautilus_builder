@@ -131,6 +131,21 @@ class BacktestJobService:
         self._jobs_by_key[self._make_key(self._payload_from_job(updated))] = updated
         return updated
 
+
+    # ── Public query methods (used by evidence summary) ──────────
+
+    def list_jobs_for_strategy(self, strategy_version_id: str) -> list[BacktestJob]:
+        """Return all backtest jobs for a strategy version, ordered by creation time."""
+        return sorted(
+            [j for j in self._jobs_by_id.values() if j.strategy_spec_version_id == strategy_version_id],
+            key=lambda j: j.created_at,
+        )
+
+    def get_latest_job_for_strategy(self, strategy_version_id: str) -> BacktestJob | None:
+        """Return the most recent backtest job for a strategy version, or None."""
+        jobs = self.list_jobs_for_strategy(strategy_version_id)
+        return jobs[-1] if jobs else None
+
     def _payload_from_job(self, job: BacktestJob) -> dict[str, str]:
         return {
             "strategy_spec_version_id": job.strategy_spec_version_id,

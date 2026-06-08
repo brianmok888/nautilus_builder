@@ -42,6 +42,9 @@ This creates all Builder-owned tables under the `builder` schema.
 
 ## Step 3 — Seed Demo Data
 
+This single command seeds both demo strategies **and** demo evidence
+(backtest jobs, replay results, promotion states):
+
 ```bash
 export BUILDER_DATABASE_URL="postgresql://builder:builder_dev@localhost:5432/nautilus_builder"
 uv run python scripts/seed_builder_demo_data.py
@@ -57,6 +60,15 @@ This creates 8 demo strategies covering every lifecycle state:
 6. `demo_replay_passed` — Replay succeeded
 7. `demo_promotion_requested` — Promotion requested
 8. `demo_promotion_ready` — Promotion ready / approved
+
+And seeds demo backtest evidence for strategies that have replay jobs:
+- `demo_compiled` — job created (compile evidence, no replay result)
+- `demo_replay_failed` — job failed
+- `demo_replay_passed` — job succeeded with report artifacts
+- `demo_promotion_requested` — job succeeded, promotion context
+- `demo_promotion_ready` — job succeeded, approved status
+
+The seed is **idempotent**: running it twice will not duplicate records.
 
 ## Step 4 — Start API
 
@@ -130,6 +142,9 @@ docker exec -it nautilus-builder-postgres psql -U builder -d nautilus_builder
 
 -- Demo strategies
 SELECT strategy_id, status, updated_at FROM builder.strategies ORDER BY strategy_id;
+
+-- Demo backtest jobs
+SELECT job_id, strategy_spec_version_id, stage, status FROM builder.backtest_jobs ORDER BY created_at;
 
 -- Migrations applied
 SELECT version, name, applied_at FROM builder.schema_migrations ORDER BY version;

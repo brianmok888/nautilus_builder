@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Seed Postgres with demo strategies covering every lifecycle status.
+"""Seed Postgres with demo strategies and backtest evidence.
 
-Creates 8 demo strategies in the Builder-owned Postgres database.
+Creates 8 demo strategies covering every lifecycle status, plus demo
+backtest jobs with realistic lifecycle states (failed, passed, promotion-ready).
+
 Idempotent: re-running will not duplicate records.
 
 Builder-only safety: no live execution, no trade actions, no submit_order.
@@ -23,6 +25,8 @@ from packages.postgres.connection import connect  # noqa: E402
 from packages.postgres.migrations import apply_migrations  # noqa: E402
 from packages.postgres.seed import seed_default_market_data  # noqa: E402
 from packages.postgres.strategy_repository import PostgresStrategyRepository  # noqa: E402
+from packages.postgres.backtest_job_repository import PostgresBacktestJobRepository  # noqa: E402
+from packages.backtest_jobs.postgres_service import PostgresBacktestJobService  # noqa: E402
 from packages.strategy_spec.demo_seed import _DEMO_STRATEGIES  # noqa: E402
 from packages.strategy_spec.models import (  # noqa: E402
     DataRange,
@@ -35,6 +39,7 @@ from packages.strategy_spec.models import (  # noqa: E402
     RuleClause,
     StrategySpec,
 )
+from scripts.seed_demo_evidence import seed_demo_evidence  # noqa: E402
 
 
 def seed_demo_strategies_pg(conn: object, schema: str = "builder") -> list[str]:
@@ -82,6 +87,22 @@ def seed_demo_strategies_pg(conn: object, schema: str = "builder") -> list[str]:
     return seeded
 
 
+def seed_demo_evidence_pg(
+    conn: object,
+    schema: str = "builder",
+) -> dict[str, str]:
+    """Seed demo backtest evidence into Postgres using the same seed_demo_evidence logic.
+
+    Returns a mapping of strategy_id -> job_id (or "" if no job created).
+    """
+    repo = PostgresStrategyRepository(conn, schema=schema)
+    bt_repo = PostgresBacktestJobRepository(conn, schema=schema)
+    bt_service = PostgresBacktestJobService(bt_repo)
+
+    result = seed_demo_evidence(repo, bt_service)
+    return result
+
+
 def main() -> int:
     dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
     if not dsn:
@@ -105,9 +126,19 @@ def main() -> int:
         for sid in seeded:
             print(f"  {sid}")
 
+        evidence = seed_demo_evidence_pg(conn, schema="builder")
+        if evidence:
+            print(f"Seeded {len(evidence)} demo backtest jobs:")
+            for strategy_id, job_id in evidence.items():
+                print(f"  {strategy_id}: {job_id or '(no job)'}")
+
         row = conn.execute("SELECT COUNT(*) FROM builder.strategies").fetchone()
         count = row[0] if row else 0
         print(f"\nTotal strategies in DB: {count}")
+
+        bt_row = conn.execute("SELECT COUNT(*) FROM builder.backtest_jobs").fetchone()
+        bt_count = bt_row[0] if bt_row else 0
+        print(f"Total backtest jobs in DB: {bt_count}")
 
     finally:
         conn.close()

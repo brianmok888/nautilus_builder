@@ -162,3 +162,30 @@ uv run python scripts/seed_demo_evidence.py
 uv run python scripts/seed_demo_evidence.py
 # Expected: same output, no duplicate records
 ```
+
+## Demo Seed Consistency
+
+The single seed command creates demo strategies **and** demo evidence:
+
+```bash
+export BUILDER_DATABASE_URL="postgresql://builder:builder_dev@localhost:5432/nautilus_builder"
+uv run python scripts/seed_builder_demo_data.py
+```
+
+Then verify evidence summary examples for the seeded strategies:
+
+```bash
+AUTH="Authorization: Bearer replace-with-strong-demo-token"
+BASE="http://localhost:8000"
+
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_compiled/evidence-summary" | python3 -m json.tool
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_replay_passed/evidence-summary" | python3 -m json.tool
+curl -s -H "$AUTH" "$BASE/api/strategies/demo_strategy_promotion_ready/evidence-summary" | python3 -m json.tool
+```
+
+Run twice to verify idempotency (no duplicate records):
+
+```bash
+uv run python scripts/seed_builder_demo_data.py
+uv run python scripts/seed_builder_demo_data.py
+```

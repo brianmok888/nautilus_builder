@@ -1,7 +1,7 @@
 """Read-only strategy evidence summary endpoint.
 
-Aggregates existing evidence from in-memory stores into a single response
-that the frontend can use for lifecycle/evidence/audit UI.
+Aggregates existing evidence from strategy records and backtest job services
+into a single response that the frontend can use for lifecycle/evidence/audit UI.
 
 This endpoint is strictly read-only. It does not change validation,
 compile, replay, or promotion behavior. It only exposes existing records.
@@ -65,36 +65,35 @@ def strategy_evidence_summary_payload(
         "hash": None,
         "artifactId": None,
     }
-    # Compile hash is derivable from the spec hash if a backtest job exists.
 
-    # Replay/backtest evidence — look for backtest jobs linked to this strategy version.
-    # The BacktestJobService stores jobs by content hash, but we can scan _jobs_by_id
-    # for jobs matching strategy_spec_version_id. This is read-only aggregation.
+    # Replay/backtest evidence — use public service methods.
+    # No direct access to _jobs_by_id or other private internals.
     replay_jobs: list[dict[str, Any]] = []
     replay_evidence: dict[str, Any] = {"status": "missing", "jobs": []}
     if backtest_job_service is not None and strategy_version_id:
-        for job in backtest_job_service._jobs_by_id.values():  # noqa: SLF001 — read-only aggregation
-            if job.strategy_spec_version_id == strategy_version_id:
-                job_dict: dict[str, Any] = {
-                    "jobId": job.job_id,
-                    "status": _normalize_replay_status(job.stage, job.status),
-                    "stage": job.stage,
-                    "lifecycleStatus": job.status,
-                    "createdAt": job.created_at,
-                    "updatedAt": job.updated_at,
-                    "compileHash": job.compile_hash,
-                    "compileArtifactId": job.compile_artifact_id,
-                    "resultArtifactRefs": dict(job.result_artifact_refs),
-                    "datasetId": job.dataset_id,
+        # Use public method: list_jobs_for_strategy
+        strategy_jobs = backtest_job_service.list_jobs_for_strategy(strategy_version_id)
+        for job in strategy_jobs:
+            job_dict: dict[str, Any] = {
+                "jobId": job.job_id,
+                "status": _normalize_replay_status(job.stage, job.status),
+                "stage": job.stage,
+                "lifecycleStatus": job.status,
+                "createdAt": job.created_at,
+                "updatedAt": job.updated_at,
+                "compileHash": job.compile_hash,
+                "compileArtifactId": job.compile_artifact_id,
+                "resultArtifactRefs": dict(job.result_artifact_refs),
+                "datasetId": job.dataset_id,
+            }
+            replay_jobs.append(job_dict)
+            # Enrich compile evidence with the hash from the backtest job
+            if job.compile_hash and compile_evidence["status"] == "missing":
+                compile_evidence = {
+                    "status": "passed",
+                    "hash": job.compile_hash,
+                    "artifactId": job.compile_artifact_id,
                 }
-                replay_jobs.append(job_dict)
-                # Enrich compile evidence with the hash from the backtest job
-                if job.compile_hash and compile_evidence["status"] == "missing":
-                    compile_evidence = {
-                        "status": "passed",
-                        "hash": job.compile_hash,
-                        "artifactId": job.compile_artifact_id,
-                    }
         replay_evidence["jobs"] = replay_jobs
         if replay_jobs:
             # Determine overall replay status from the latest job.
