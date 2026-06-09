@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nautilus-builder-api = "services.api.dev_server:main"
+nautilus-builder-api = "services.api.fastapi_cli:main"
 nautilus-builder-execution-worker = "services.workers.execution_lane_worker:main"
 nautilus-builder-backend-check = "services.backend_runtime:main"
 

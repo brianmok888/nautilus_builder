@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Any
+from typing import Any, Callable, Protocol
 
 from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import AuthTokenService, InvalidAuthTokenError, ProjectScopeError, UserProjectContext
 from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token, validate_rate_limit_config
-from packages.auth.audit_middleware import AuditMiddleware, RequestIdMiddleware
+from packages.auth.audit_middleware import AuditMiddleware, AuthContextMiddleware, RequestIdMiddleware
 from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.auth.redis_rate_limit import RedisRateLimiter
 from packages.backtest_jobs.service import BacktestJobService
@@ -40,6 +40,11 @@ from services.api.routes.workflow_results import (
     workflow_result_suggestions_payload,
 )
 
+
+
+class _RateLimiterProtocol(Protocol):
+    def is_allowed(self, key: str) -> bool:
+        ...
 
 
 class _PgWorkflowAdapter:
@@ -106,6 +111,8 @@ def create_fastapi_app(
     execution_lane_service: ExecutionLaneService | None = None,
     llm_config_service: LlmConfigService | None = None,
     runtime_event_service: RuntimeEventService | None = None,
+    rate_limiter: _RateLimiterProtocol | None = None,
+    audit_writer: Callable[[dict[str, Any]], None] | None = None,
 ):
     from fastapi import FastAPI, Header
     from fastapi.responses import JSONResponse
@@ -176,17 +183,21 @@ def create_fastapi_app(
     app.add_middleware(RequestIdMiddleware)
 
     # Audit middleware: logs mutations to audit_events
-    _audit_writer = _build_audit_writer(_pg_conn)
+    _audit_writer = audit_writer or _build_audit_writer(_pg_conn)
     app.add_middleware(AuditMiddleware, audit_writer=_audit_writer)
+    app.add_middleware(AuthContextMiddleware, auth_token_service=auth_token_service)
 
     # --- Rate limiter backend selection ---
     _rate_backend = (os.environ.get("BUILDER_RATE_LIMIT_BACKEND") or "memory").strip().lower()
-    if _rate_backend == "redis":
+    if rate_limiter is not None:
+        _rate_limiter = rate_limiter
+    elif _rate_backend == "redis":
         _redis_url = os.environ.get("BUILDER_REDIS_URL", "redis://localhost:6379/0").strip()
         _rate_limiter = RedisRateLimiter(
             max_requests=int(os.environ.get("BUILDER_RATE_LIMIT", "100")),
             window_seconds=60,
             redis_url=_redis_url,
+            fail_closed=_strictest_configured_env() == BuilderEnvironment.PRODUCTION,
         )
     else:
         _rate_limiter = InMemoryRateLimiter(
@@ -211,7 +222,18 @@ def create_fastapi_app(
             )
 
     def require_context(authorization: str | None) -> tuple[UserProjectContext | None, ApiResponse | None]:
-        return _context_from_authorization(authorization, auth_token_service)
+        context, auth_error = _context_from_authorization(authorization, auth_token_service)
+        if auth_error is not None or context is None:
+            return context, auth_error
+        if not _rate_limiter.is_allowed(_rate_limit_key(context)):
+            return None, ApiResponse(
+                {
+                    "error": "rate_limited",
+                    "details": "API rate limit exceeded for authenticated Builder context",
+                },
+                status_code=429,
+            )
+        return context, None
 
     @app.get("/health")
     def health() -> dict[str, object]:
@@ -789,6 +811,10 @@ def _context_from_authorization(
         return None, ApiResponse({"error": "invalid_auth_token", "details": str(exc)}, status_code=401)
 
 
+def _rate_limit_key(context: UserProjectContext) -> str:
+    return f"{context.user_id}:{context.project_id}"
+
+
 _UNSAFE_DEV_TOKENS = {"dev-token", "test-token", "changeme"}
 
 
@@ -893,11 +919,12 @@ def _build_audit_writer(pg_conn: Any) -> Any:
             try:
                 pg_conn.execute(
                     """INSERT INTO builder.audit_events
-                       (request_id, actor_id, action, resource_type, resource_id, status, created_at)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                       (request_id, actor_id, project_id, action, resource_type, resource_id, status, created_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         event.get("request_id"),
-                        event.get("actor_id"),
+                        event.get("actor_id") or "unauthenticated",
+                        event.get("project_id") or "unknown",
                         event.get("action", event.get("method", "unknown")),
                         event.get("resource_type", "unknown"),
                         event.get("resource_id"),
@@ -907,6 +934,7 @@ def _build_audit_writer(pg_conn: Any) -> Any:
                 )
             except Exception as exc:
                 _log.error("audit_pg_write_failed error=%s event=%s", exc, event.get("request_id"))
+                raise
 
         return _pg_audit_writer
 

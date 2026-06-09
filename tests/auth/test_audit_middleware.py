@@ -138,6 +138,20 @@ class TestAuditMiddleware:
         event = audit_writer.call_args[0][0]
         assert event["method"] == "POST"
 
+    def test_audit_writer_failure_returns_deterministic_error(self):
+        from fastapi.testclient import TestClient
+
+        def broken_audit_writer(event: dict) -> None:
+            raise RuntimeError("database unavailable")
+
+        app = self._make_app(audit_writer=broken_audit_writer)
+        client = TestClient(app)
+
+        response = client.post("/api/test")
+
+        assert response.status_code == 500
+        assert response.json()["error"] == "audit_write_failed"
+
 
 class TestRequestIdMiddleware:
     """Request ID middleware adds X-Request-ID to all responses."""

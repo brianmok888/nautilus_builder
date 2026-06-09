@@ -4,11 +4,11 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — the clean-route/Overview UI closeout remains verified for local Builder-only UX, but this follow-up review found critical credential-packaging and runtime-safety gaps. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
+**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-2 closed credential packaging/browser entry plus API exposure, rate-limit enforcement, and audit-attribution gaps. Artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI: `Overview` routes to `/` and renders `BuilderOverview`, while `Strategy Builder`, `Backtest Center`, and `Execution Lane` route to `/builder`, `/backtests`, and `/execution` respectively. The query-tab surface is no longer present in the web source scan.
+**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-2 close credential/API-rate-limit/audit-attribution blockers. Remaining production/security blockers are artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening.
 
 ### Current inventory snapshot
 
@@ -38,7 +38,7 @@
 
 ### Segment 1 closure snapshot
 
-Credential/package safety is now closed for browser/API and Docker packaging. Remaining open blockers start at API exposure/rate limiting/audit, then artifact readiness, LLM persistence, frontend runtime-action ownership, and safety scan hardening.
+Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Remaining open blockers are artifact readiness, LLM persistence, frontend runtime-action ownership, and safety scan hardening.
 
 Verification:
 
@@ -50,13 +50,27 @@ cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFe
 # 2 files passed; 14 passed, 2 skipped
 ```
 
+### Segment 2 closure snapshot
+
+API exposure, rate-limit enforcement, and audit attribution are now closed for the reviewed blocker scope. The packaged `nautilus-builder-api` entrypoint targets authenticated FastAPI, the dependency-free dev server refuses non-loopback hosts unless explicitly unsafe, protected `/api/*` route handlers call the configured limiter after auth, Redis limiter logs redact credentials and fail closed in production, and FastAPI audit events receive authenticated actor/project attribution.
+
+Verification:
+
+```bash
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_redis_rate_limit_security.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/postgres/test_audit_event_hardening.py tests/api/test_security_hardening.py tests/auth/test_rate_limit.py tests/auth/test_token_context.py -q
+# 117 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py services/api/fastapi_cli.py packages/auth/audit_middleware.py packages/auth/context_middleware.py packages/auth/redis_rate_limit.py packages/postgres/audit_event_repository.py packages/postgres/migrations.py packages/postgres/promotion_ledger_repository.py tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/auth/test_redis_rate_limit_security.py tests/postgres/test_audit_event_hardening.py
+# pass
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
 | **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |
 | **CLOSED/WATCH** | Builder UI/API accepts raw venue credentials and persists them to `.env.execution.local`. | Segment 1: Settings no longer mounts `CredentialSlotBootstrap`; frontend API has no credential-slot helper; HTTP route returns `credential_slot_http_disabled`. | Browser/API credential entry closed. Backend-only/CLI secret provisioning remains a future design item. |
-| **HIGH** | Installed `nautilus-builder-api` entrypoint exposes the dependency-free dev server without auth. | `pyproject.toml:19-20`; `services/api/dev_server.py:39-44`; `services/api/app.py:57-125`. | Running the packaged command on a non-loopback host can expose mutating API routes without bearer auth/scope/rate-limit checks. |
-| **HIGH** | Rate limiter is instantiated but not enforced. | `services/api/fastapi_app.py:182-195`; no production call to `_rate_limiter.is_allowed(...)`; `packages/auth/redis_rate_limit.py:56-73`. | Production can claim Redis rate limiting while protected routes bypass it; Redis outages fail open if wired later. |
-| **HIGH** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | `packages/auth/audit_middleware.py:64-77`; no code sets `request.state.actor_id`/`project_id`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py:891-910`. | Mutations can succeed without durable actor/project audit evidence. |
+| **CLOSED** | Installed `nautilus-builder-api` entrypoint exposes the dependency-free dev server without auth. | Segment 2: `pyproject.toml` now points to `services.api.fastapi_cli:main`; `services/api/dev_server.py` validates loopback-only unless `--unsafe-allow-non-loopback` is explicit. | Packaged API startup now uses authenticated FastAPI; dependency-free dev server exposure is guarded. |
+| **CLOSED** | Rate limiter is instantiated but not enforced. | Segment 2: `create_fastapi_app(..., rate_limiter=...)` and protected `require_context()` now call `is_allowed()` after auth; Redis warnings redact credentials and production Redis outages fail closed. | Protected `/api/*` route handlers now enforce the configured limiter before returning data or mutations. |
+| **CLOSED** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | Segment 2: `AuthContextMiddleware` sets request actor/project for valid bearer tokens and the Postgres audit writer includes `project_id`. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling. | Mutations now carry authenticated actor/project attribution into audit events, and successful mutations fail closed if audit persistence fails. |
 | **MEDIUM** | FastAPI ignores the artifact-store factory/env and still reports artifact readiness. | `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `docs/verification/local-verification-checklist.md:30`. | Local demo backtest runs/promotions can fail despite `BUILDER_ARTIFACT_ROOT` docs, and readiness can be misleading. |
 | **MEDIUM** | Postgres LLM config saves are disabled by a reset variable. | `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`. | Config is loaded from Postgres but subsequent saves pass `None`, causing restart drift. |
 
@@ -269,7 +283,7 @@ python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_s
 # pass
 ```
 
-Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review is blocked until the credential, rate-limit, audit, artifact-store, and runtime-action findings are closed.
+Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review is blocked until the artifact-store, LLM persistence, runtime-action, and safety-scan findings are closed.
 
 ## Master reconciliation — findings closure implementation
 

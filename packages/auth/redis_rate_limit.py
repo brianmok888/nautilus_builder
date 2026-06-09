@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,12 @@ class RedisRateLimiter:
         max_requests: int = 100,
         window_seconds: int = 60,
         redis_url: str = "redis://localhost:6379/0",
+        fail_closed: bool = False,
     ) -> None:
         self._max_requests = max_requests
         self._window_seconds = window_seconds
         self._redis_url = redis_url
+        self._fail_closed = fail_closed
         self._redis: Any = self._connect(redis_url)
 
     def _connect(self, redis_url: str) -> Any:
@@ -41,9 +44,10 @@ class RedisRateLimiter:
         except Exception as exc:
             logger.warning(
                 "rate_limit_redis_unavailable url=%s error=%s "
-                "falling_back_to_open",
-                redis_url,
+                "falling_back_to_%s",
+                _redact_redis_url(redis_url),
                 exc,
+                "closed" if self._fail_closed else "open",
             )
             return None
 
@@ -51,10 +55,10 @@ class RedisRateLimiter:
         """Check if a request from key is within rate limits.
 
         Returns True if allowed, False if rate limited.
-        Fails open (returns True) if Redis is unavailable.
+        Fails open by default and closed when configured for production.
         """
         if self._redis is None:
-            return True
+            return not self._fail_closed
 
         now = time.time()
         window_key = f"rate_limit:{key}:{int(now // self._window_seconds)}"
@@ -66,8 +70,18 @@ class RedisRateLimiter:
             return count <= self._max_requests
         except Exception as exc:
             logger.warning(
-                "rate_limit_fallback_open key=%s error=%s",
+                "rate_limit_fallback_%s key=%s error=%s",
+                "closed" if self._fail_closed else "open",
                 key,
                 exc,
             )
-            return True
+            return not self._fail_closed
+
+
+def _redact_redis_url(redis_url: str) -> str:
+    parsed = urlsplit(redis_url)
+    if "@" not in parsed.netloc:
+        return redis_url
+    host = parsed.hostname or ""
+    port = f":{parsed.port}" if parsed.port is not None else ""
+    return urlunsplit((parsed.scheme, f"***@{host}{port}", parsed.path, parsed.query, parsed.fragment))

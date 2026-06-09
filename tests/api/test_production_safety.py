@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
 import sys
 import types
+from unittest.mock import patch
 
 import pytest
 
@@ -270,3 +270,25 @@ def test_fastapi_startup_accepts_strong_production_policy(monkeypatch, tmp_path)
     app = create_fastapi_app()
 
     assert app.title == "Nautilus Builder API"
+
+
+def test_packaged_api_entrypoint_uses_authenticated_fastapi_cli() -> None:
+    pyproject = open("pyproject.toml").read()
+
+    assert 'nautilus-builder-api = "services.api.fastapi_cli:main"' in pyproject
+    assert 'nautilus-builder-api = "services.api.dev_server:main"' not in pyproject
+
+
+def test_dependency_free_dev_server_rejects_non_loopback_without_unsafe_flag() -> None:
+    from services.api.dev_server import validate_dev_server_bind
+
+    with pytest.raises(ValueError, match="non-loopback"):
+        validate_dev_server_bind("0.0.0.0", unsafe_allow_non_loopback=False)
+
+
+def test_dependency_free_dev_server_allows_loopback_and_explicit_unsafe_flag() -> None:
+    from services.api.dev_server import validate_dev_server_bind
+
+    validate_dev_server_bind("127.0.0.1", unsafe_allow_non_loopback=False)
+    validate_dev_server_bind("localhost", unsafe_allow_non_loopback=False)
+    validate_dev_server_bind("0.0.0.0", unsafe_allow_non_loopback=True)

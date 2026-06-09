@@ -5,6 +5,8 @@ before implementation exists.
 """
 from __future__ import annotations
 
+import sys
+import types
 from unittest.mock import MagicMock
 
 
@@ -73,6 +75,30 @@ class TestRedisRateLimiter:
 
         # Should NOT raise, should return True (fail open)
         assert limiter.is_allowed("client_1") is True
+
+    def test_redacts_redis_url_credentials_in_warning(self, monkeypatch, caplog):
+        from packages.auth.redis_rate_limit import RedisRateLimiter
+
+        class FakeRedisFactory:
+            @staticmethod
+            def from_url(redis_url: str, socket_connect_timeout: int):
+                raise ConnectionError("Connection refused")
+
+        monkeypatch.setitem(sys.modules, "redis", types.SimpleNamespace(Redis=FakeRedisFactory))
+        caplog.set_level("WARNING")
+
+        RedisRateLimiter(redis_url="redis://:secret-password@redis.internal:6379/0")
+
+        assert "secret-password" not in caplog.text
+        assert "redis://***@redis.internal:6379/0" in caplog.text
+
+    def test_fails_closed_when_configured_for_production(self):
+        from packages.auth.redis_rate_limit import RedisRateLimiter
+
+        limiter = RedisRateLimiter(redis_url="redis://redis:6379/0", fail_closed=True)
+        limiter._redis = None
+
+        assert limiter.is_allowed("client_1") is False
 
     def test_uses_sliding_window_key_format(self):
         """Redis key includes the window bucket for sliding window semantics."""

@@ -15,7 +15,9 @@ from typing import Any, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
+
+from packages.auth.service import AuthTokenService, InvalidAuthTokenError
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 self._audit_writer(event)
             except Exception as exc:
                 logger.error("audit_write_failed error=%s event=%s", exc, event.get("request_id"))
+                if 200 <= response.status_code < 400:
+                    return JSONResponse(
+                        {
+                            "error": "audit_write_failed",
+                            "details": "Mutation audit event could not be persisted",
+                        },
+                        status_code=500,
+                    )
 
         return response
 
@@ -63,18 +73,45 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
     def _build_event(self, request: Request, response: Response) -> dict:
         """Build audit event dict from request and response."""
-        request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
+        request_id = (
+            getattr(request.state, "request_id", None)
+            or request.headers.get("x-request-id")
+            or response.headers.get("x-request-id")
+            or str(uuid.uuid4())
+        )
         return {
             "request_id": request_id,
             "route": request.url.path,
             "method": request.method,
             "status_code": response.status_code,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "actor_id": getattr(request.state, "actor_id", None),
-            "project_id": getattr(request.state, "project_id", None),
+            "actor_id": getattr(request.state, "actor_id", None) or "unauthenticated",
+            "project_id": getattr(request.state, "project_id", None) or "unknown",
             "resource_type": _extract_resource_type(request.url.path),
             "resource_id": _extract_resource_id(request.url.path),
         }
+
+
+class AuthContextMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: Any, auth_token_service: AuthTokenService) -> None:
+        super().__init__(app)
+        self._auth_token_service = auth_token_service
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request.state.actor_id = "unauthenticated"
+        request.state.project_id = "unknown"
+        authorization = request.headers.get("authorization")
+        if authorization is not None:
+            scheme, _, token = authorization.partition(" ")
+            if scheme.lower() == "bearer" and token.strip():
+                try:
+                    context = self._auth_token_service.verify_token(token.strip())
+                except InvalidAuthTokenError:
+                    return await call_next(request)
+                request.state.actor_id = context.user_id
+                request.state.project_id = context.project_id
+                request.state.role = context.role
+        return await call_next(request)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -86,6 +123,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        request.state.request_id = request_id
         response = await call_next(request)
         response.headers["x-request-id"] = request_id
         return response

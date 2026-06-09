@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import types
 
+import pytest
+
 
 class _FakeFastAPI:
     def __init__(self, *, title: str, version: str) -> None:
@@ -127,6 +129,85 @@ def test_fastapi_bootstrap_preserves_error_status_codes(monkeypatch) -> None:
 
     assert missing.status_code == 404
     assert rejected.status_code == 422
+
+
+def test_fastapi_mutation_audit_includes_authenticated_actor_and_project() -> None:
+    from fastapi.testclient import TestClient
+    from packages.auth import AuthTokenService
+
+    from services.api.fastapi_app import create_fastapi_app
+
+    events: list[dict[str, object]] = []
+    auth = AuthTokenService()
+    token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+    app = create_fastapi_app(auth_token_service=auth, audit_writer=events.append)
+
+    response = TestClient(app).post(
+        "/api/ai-builder/draft",
+        headers={"Authorization": f"Bearer {token.token}"},
+        json={"prompt": "Draft EMA RSI"},
+    )
+
+    assert response.status_code == 200
+    assert events[-1]["actor_id"] == "user_123"
+    assert events[-1]["project_id"] == "project_alpha"
+
+
+def test_postgres_audit_writer_persists_project_id() -> None:
+    from services.api.fastapi_app import _build_audit_writer
+
+    class FakePostgresConnection:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[object, ...]]] = []
+
+        def execute(self, query: str, params: tuple[object, ...]) -> None:
+            self.calls.append((query, params))
+
+    connection = FakePostgresConnection()
+    writer = _build_audit_writer(connection)
+
+    writer(
+        {
+            "request_id": "req_123",
+            "actor_id": "user_123",
+            "project_id": "project_alpha",
+            "method": "POST",
+            "route": "/api/strategies",
+            "resource_type": "strategies",
+            "resource_id": "strategy_001",
+            "status_code": 201,
+            "created_at": "2026-06-08T00:00:00+00:00",
+        }
+    )
+
+    query, params = connection.calls[0]
+    assert "project_id" in query
+    assert "project_alpha" in params
+
+
+def test_postgres_audit_writer_raises_when_persistence_fails() -> None:
+    from services.api.fastapi_app import _build_audit_writer
+
+    class BrokenPostgresConnection:
+        def execute(self, query: str, params: tuple[object, ...]) -> None:
+            raise RuntimeError("audit table unavailable")
+
+    writer = _build_audit_writer(BrokenPostgresConnection())
+
+    with pytest.raises(RuntimeError, match="audit table unavailable"):
+        writer(
+            {
+                "request_id": "req_123",
+                "actor_id": "user_123",
+                "project_id": "project_alpha",
+                "method": "POST",
+                "route": "/api/strategies",
+                "resource_type": "strategies",
+                "resource_id": "strategy_001",
+                "status_code": 201,
+                "created_at": "2026-06-08T00:00:00+00:00",
+            }
+        )
 
 
 

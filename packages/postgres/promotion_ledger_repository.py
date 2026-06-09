@@ -194,11 +194,12 @@ class PromotionLedgerRepository:
             # Write to audit_events
             tx.execute(
                 f"INSERT INTO {self._table('audit_events')} "
-                f"(request_id, actor_id, action, resource_type, resource_id, status) "
-                f"VALUES (%s, %s, %s, %s, %s, %s)",
+                f"(request_id, actor_id, project_id, action, resource_type, resource_id, status) "
+                f"VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (
                     request["request_id"],
                     request["actor_id"],
+                    request["project_id"],
                     "promotion",
                     "promotion_ledger",
                     promotion_id,

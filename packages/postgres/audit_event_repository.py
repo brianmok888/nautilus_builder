@@ -46,6 +46,8 @@ class PostgresAuditEventRepository:
 
         event_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc).isoformat()
+        stored_actor_id = actor_id or "unauthenticated"
+        stored_project_id = project_id or "unknown"
 
         async with self._pool.acquire() as conn:
             await conn.execute(
@@ -58,8 +60,8 @@ class PostgresAuditEventRepository:
                 """,
                 event_id,
                 request_id,
-                actor_id,
-                project_id,
+                stored_actor_id,
+                stored_project_id,
                 action,
                 resource_type,
                 resource_id,
@@ -147,8 +149,8 @@ def make_audit_writer_from_pool(pool: Any) -> Callable[[dict], None]:
             loop.create_task(
                 repo.write_audit_event(
                     request_id=event.get("request_id", ""),
-                    actor_id=event.get("actor_id"),
-                    project_id=event.get("project_id"),
+                    actor_id=event.get("actor_id") or "unauthenticated",
+                    project_id=event.get("project_id") or "unknown",
                     action=f"{event.get('method', '')} {event.get('route', '')}".strip(),
                     resource_type=event.get("resource_type", "unknown"),
                     resource_id=event.get("resource_id"),

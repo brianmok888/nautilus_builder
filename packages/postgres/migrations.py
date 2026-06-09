@@ -368,3 +368,22 @@ MIGRATIONS.append(
         """,
     )
 )
+
+
+MIGRATIONS.append(
+    Migration(
+        version=6,
+        name="audit_events_project_id_not_null",
+        up="""
+        ALTER TABLE {schema}.audit_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'unknown';
+        UPDATE {schema}.audit_events SET project_id = 'unknown' WHERE project_id IS NULL;
+        ALTER TABLE {schema}.audit_events ALTER COLUMN project_id SET DEFAULT 'unknown';
+        ALTER TABLE {schema}.audit_events ALTER COLUMN project_id SET NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_audit_events_project_id ON {schema}.audit_events (project_id);
+        """,
+        down="""
+        ALTER TABLE {schema}.audit_events ALTER COLUMN project_id DROP NOT NULL;
+        ALTER TABLE {schema}.audit_events ALTER COLUMN project_id DROP DEFAULT;
+        """,
+    )
+)

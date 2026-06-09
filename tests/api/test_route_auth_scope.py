@@ -123,6 +123,15 @@ def _response_status(response: Any) -> int:
     return 200
 
 
+class DenyAllRateLimiter:
+    def __init__(self) -> None:
+        self.keys: list[str] = []
+
+    def is_allowed(self, key: str) -> bool:
+        self.keys.append(key)
+        return False
+
+
 class TestRouteAuthScope:
     def test_health_endpoints_are_public(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _install_fake_fastapi(monkeypatch)
@@ -160,6 +169,23 @@ class TestRouteAuthScope:
                 failures.append(f"{route_key[0]} {route_key[1]} -> {status}")
 
         assert failures == []
+
+    def test_protected_api_routes_enforce_rate_limit_after_auth(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _install_fake_fastapi(monkeypatch)
+
+        from packages.auth import AuthTokenService
+        from services.api.fastapi_app import create_fastapi_app
+
+        auth = AuthTokenService()
+        token = auth.issue_token(user_id="user_123", project_id="project_alpha")
+        limiter = DenyAllRateLimiter()
+        app = create_fastapi_app(auth_token_service=auth, rate_limiter=limiter)
+
+        response = app.routes[("GET", "/api/adapters")](authorization=f"Bearer {token.token}")
+
+        assert response.status_code == 429
+        assert response.json()["error"] == "rate_limited"
+        assert limiter.keys == ["user_123:project_alpha"]
 
     def test_docker_compose_no_dev_token_default(self) -> None:
         compose = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text()

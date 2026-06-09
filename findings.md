@@ -7,20 +7,20 @@
 
 ## Executive summary
 
-**Final recommendation:** **REQUEST CHANGES** for production/security readiness. The previous Builder-only route/hash UI closeout remains locally verified, but the current review found critical credential and runtime safety gaps.
-**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until credential, rate-limit, audit, artifact-store, and web-auth findings are closed.
+**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-2 close credential/package safety, packaged API exposure, rate-limit enforcement, and audit attribution; artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open.
+**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until artifact-store, LLM persistence, frontend runtime-action ownership, and safety-scan findings are closed.
 **Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified, but this inventory-first review found critical credential and runtime-hardening gaps. The review intentionally did **not** edit backend/UI code; it records prioritized findings for follow-up closure.
+**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-2 close credential/API/rate-limit/audit-attribution blockers, while artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open.
 
 ### Current top-priority findings
 
 
 ### Segment 1 closure — credential/package safety (2026-06-08)
 
-**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Production/security readiness remains **REQUEST CHANGES** because API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan blockers still need closure.
+**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Production/security readiness remains **REQUEST CHANGES** because artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan blockers still need closure.
 
 **Evidence:**
 
@@ -33,6 +33,22 @@ cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFe
 ```
 
 **Changes:** `.dockerignore` now excludes `.env*` and local state, `Dockerfile.api` no longer copies `.env.execution.local`, Settings no longer mounts `CredentialSlotBootstrap`, the frontend API client no longer exposes credential-slot posting, and the FastAPI credential-slot route returns `credential_slot_http_disabled` without writing `.env.execution.local`.
+
+### Segment 2 closure — API exposure, rate limits, and audit attribution (2026-06-08)
+
+**Status:** CLOSED for packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction/production fail-closed behavior, and authenticated audit actor/project attribution. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling.
+
+**Evidence:**
+
+```bash
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_redis_rate_limit_security.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/postgres/test_audit_event_hardening.py tests/api/test_security_hardening.py tests/auth/test_rate_limit.py tests/auth/test_token_context.py -q
+# 117 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py services/api/fastapi_cli.py packages/auth/audit_middleware.py packages/auth/context_middleware.py packages/auth/redis_rate_limit.py packages/postgres/audit_event_repository.py packages/postgres/migrations.py packages/postgres/promotion_ledger_repository.py tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/auth/test_redis_rate_limit_security.py tests/postgres/test_audit_event_hardening.py
+# pass
+```
+
+**Changes:** `nautilus-builder-api` now starts `services.api.fastapi_cli:main`, the dependency-free dev server rejects non-loopback hosts unless explicitly unsafe, protected FastAPI routes enforce the configured limiter after bearer auth, Redis limiter warnings redact credentials and fail closed in production mode, `AuthContextMiddleware` attaches actor/project to request state, and Postgres audit inserts include `project_id`.
 
 #### C-01 — Docker API image can include local exchange credentials
 
@@ -50,27 +66,24 @@ cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFe
 
 #### H-01 — Packaged `nautilus-builder-api` starts an unauthenticated dev server
 
-- **Severity:** HIGH
-- **Files:** `pyproject.toml:19-20`; `services/api/dev_server.py:39-44`; `services/api/app.py:57-125`.
-- **Issue:** The installed console script points to the dependency-free dev server, which accepts arbitrary host binding and exposes mutating routes without bearer auth/scope/rate-limit/CORS policy.
-- **Risk:** `nautilus-builder-api --host 0.0.0.0` can expose unauthenticated local/dev mutation surfaces, including credential slots and execution-lane commands.
-- **Fix:** Move the console script to an authenticated FastAPI entrypoint, or force loopback-only unless an explicit unsafe dev flag is passed and clearly logged.
+- **Status:** CLOSED in Segment 2 (2026-06-08)
+- **Severity:** Previously HIGH
+- **Files:** `pyproject.toml:19-20`; `services/api/dev_server.py`; `services/api/fastapi_cli.py`; `services/api/app.py:57-125`.
+- **Closure:** The installed console script now points to authenticated FastAPI via `services.api.fastapi_cli:main`. The dependency-free dev server remains available only as a local development helper and rejects non-loopback host binding unless `--unsafe-allow-non-loopback` is explicit.
 
 #### H-02 — Rate limiting is configured but not enforced
 
-- **Severity:** HIGH
-- **Files:** `services/api/fastapi_app.py:182-195`; `packages/auth/redis_rate_limit.py:42-46`, `56-73`; `docker-compose.production.yml:69-70`.
-- **Issue:** `_rate_limiter` is instantiated but no route or middleware calls `_rate_limiter.is_allowed(...)`. Redis limiter logs the configured URL and fails open when unavailable.
-- **Risk:** Production can claim Redis-backed rate limiting while all requests bypass it; if wired later, outage behavior can still disable rate limiting and may leak Redis credentials through logs.
-- **Fix:** Add FastAPI middleware/dependency around protected routes, redact Redis URLs, and fail closed or fall back to a strict local limiter in production.
+- **Status:** CLOSED in Segment 2 (2026-06-08)
+- **Severity:** Previously HIGH
+- **Files:** `services/api/fastapi_app.py`; `packages/auth/redis_rate_limit.py`; `docker-compose.production.yml:69-70`.
+- **Closure:** Protected FastAPI route handlers now enforce the configured limiter through `require_context()` after bearer auth. Redis limiter warnings redact credential-bearing URLs, and production Redis outage behavior fails closed instead of allowing traffic open.
 
 #### H-03 — Mutation audit events are not attributable and may fail silently
 
-- **Severity:** HIGH
-- **Files:** `packages/auth/audit_middleware.py:64-77`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py:891-910`.
-- **Issue:** Audit middleware reads `request.state.actor_id`/`project_id`, but no production auth path writes those values. Postgres schema requires `actor_id TEXT NOT NULL`; the writer inserts a possibly-null actor and omits project, then swallows insert failures into logs.
-- **Risk:** Mutating requests can succeed without durable actor/project audit evidence.
-- **Fix:** Attach `UserProjectContext` to request state in an auth middleware/dependency, persist `project_id`, and fail closed or return a controlled error when audit writes fail for critical mutations.
+- **Status:** CLOSED in Segment 2 (2026-06-08)
+- **Severity:** Previously HIGH
+- **Files:** `packages/auth/audit_middleware.py`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py`.
+- **Closure:** `AuthContextMiddleware` attaches authenticated `actor_id`/`project_id`/role to request state for valid bearer tokens, and the Postgres audit writer now persists `project_id`. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling.
 
 #### H-04 — Frontend can construct execution-lane order-intent/worker actions
 

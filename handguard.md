@@ -2,20 +2,20 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** REQUEST CHANGES for production/security readiness. Segment 1 closed Docker credential packaging and browser/API credential entry, but runtime-safety findings remain open. Production/live trading readiness is not claimed.
+**Current state:** REQUEST CHANGES for production/security readiness. Segments 1-2 closed Docker credential packaging, browser/API credential entry, packaged API exposure, protected-route rate limiting, and audit actor/project attribution. Artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open. Production/live trading readiness is not claimed.
 
 ## 0. Current review gate — 2026-06-08 post-route standardization
 
-**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified, but the following guard violations are open and must be treated as blockers for any production or live-readiness claim.
+**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified; Segment 2 closes API exposure/rate-limit/audit-attribution guards, while artifact readiness, LLM persistence, frontend action ownership, and safety scan remain blockers for any production or live-readiness claim.
 
 ### Immediate blocker guards
 
 1. **Credential packaging guard — CLOSED Segment 1:** Docker builds must never copy `.env.execution.local` or any `.env*` secret file into an image or remote build context. Current evidence: `Dockerfile.api` no longer copies env files and `.dockerignore` excludes `.env*`; rotate any real keys that existed before closure.
 2. **Browser credential guard — CLOSED Segment 1:** Builder UI must not collect raw venue credentials. Current evidence: Settings no longer imports `CredentialSlotBootstrap`, the frontend API client no longer exposes `/api/execution-lane/credential-slots`, and HTTP credential-slot writes return `credential_slot_http_disabled`. Future secret provisioning must be backend-only or CLI/admin-only.
 3. **Paper/runtime credential guard:** Paper sessions must not require live venue credentials or construct live venue data/exec clients from browser-provided secrets. Current evidence: `packages/execution_lane/sessions.py:218-232`, `packages/execution_lane/adapter_config_builders.py:31-70`.
-4. **Dev server exposure guard:** `nautilus-builder-api` must not start an unauthenticated mutating API on non-loopback hosts. Current evidence: `pyproject.toml:19-20`, `services/api/dev_server.py:39-44`, `services/api/app.py:57-125`.
-5. **Rate-limit enforcement guard:** A configured limiter must be enforced by middleware/dependency before readiness claims. Current evidence: `services/api/fastapi_app.py:182-195` constructs a limiter but no route calls it.
-6. **Audit attribution guard:** Mutations must persist actor/project attribution and must not silently drop audit failures. Current evidence: `packages/auth/audit_middleware.py:64-77`, `packages/postgres/migrations.py:199-210`, `services/api/fastapi_app.py:891-910`.
+4. **Dev server exposure guard — CLOSED Segment 2:** `nautilus-builder-api` must not start an unauthenticated mutating API on non-loopback hosts. Current evidence: the console script now targets `services.api.fastapi_cli:main`, and `services/api/dev_server.py` rejects non-loopback binds unless explicitly unsafe.
+5. **Rate-limit enforcement guard — CLOSED Segment 2:** A configured limiter must be enforced by middleware/dependency before readiness claims. Current evidence: protected FastAPI `require_context()` calls now enforce `is_allowed()` after auth, Redis URL logs are redacted, and production Redis outage behavior fails closed.
+6. **Audit attribution guard — CLOSED Segment 2:** Mutations must persist actor/project attribution. Current evidence: `AuthContextMiddleware` attaches valid bearer actor/project to request state and Postgres audit inserts include `project_id`. Successful mutations fail closed if audit persistence fails, while already-failed mutations keep their original error response.
 7. **Artifact readiness guard:** FastAPI startup/readiness must initialize and report an actual artifact store from env/factory before BacktestNode/promotion readiness claims. Current evidence: `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`.
 8. **LLM config persistence guard:** Postgres-backed config saves must preserve `_pg_config_repo`; do not reset it to `None` after loading. Current evidence: `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`.
 9. **Frontend action-ownership guard:** The web UI may request/observe backend plans; it must not be the authority constructing risk-approved order intents or runtime worker/session actions. Current evidence: `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-372`, `539-552`.
@@ -35,6 +35,16 @@ python3 -m pytest tests/test_dockerfile_safety.py tests/api/test_fastapi_app.py:
 
 cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFeaturePanel.test.tsx
 # 2 files passed; 14 passed, 2 skipped
+```
+
+### Segment 2 verification evidence
+
+```bash
+python3 -m pytest tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_redis_rate_limit_security.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/postgres/test_audit_event_hardening.py tests/api/test_security_hardening.py tests/auth/test_rate_limit.py tests/auth/test_token_context.py -q
+# 117 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py services/api/fastapi_cli.py packages/auth/audit_middleware.py packages/auth/context_middleware.py packages/auth/redis_rate_limit.py packages/postgres/audit_event_repository.py packages/postgres/migrations.py packages/postgres/promotion_ledger_repository.py tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/auth/test_redis_rate_limit_security.py tests/postgres/test_audit_event_hardening.py
+# pass
 ```
 
 ### Current positive guard evidence
