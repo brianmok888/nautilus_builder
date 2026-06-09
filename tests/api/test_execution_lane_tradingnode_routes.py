@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from packages.execution_lane import ExecutionLaneService
 from services.api.app import create_app
 
 
@@ -109,11 +110,10 @@ def test_execution_lane_worker_run_once_route_fails_closed_without_queued_comman
     assert response.json()["error"] == "execution_lane_command_not_available"
 
 
-def test_execution_lane_session_start_and_stop_routes_return_lifecycle() -> None:
-    app = create_app()
-    slot_response = app.post(
-        "/api/execution-lane/credential-slots",
-        json={
+def test_execution_lane_session_start_and_stop_routes_return_lifecycle(tmp_path) -> None:
+    service = ExecutionLaneService(credential_env_dir=tmp_path)
+    slot = service.create_credential_slot(
+        {
             "tenant_id": "tenant_a",
             "project_id": "project_alpha",
             "runtime_profile_id": "rp_paper_tradingnode",
@@ -122,9 +122,9 @@ def test_execution_lane_session_start_and_stop_routes_return_lifecycle() -> None
             "lane_mode": "paper",
             "requested_by": "ops_user",
             "credential_values": {"BINANCE_API_KEY": "test-binance-key", "BINANCE_API_SECRET": "test-binance-secret"},
-        },
+        }
     )
-    slot_ref = slot_response.json()["credential_slot_ref"]
+    app = create_app(execution_lane_service=service)
     app.post(
         "/api/execution-lane/profiles",
         json={
@@ -138,7 +138,7 @@ def test_execution_lane_session_start_and_stop_routes_return_lifecycle() -> None
             "adapter_id": "BINANCE_PERP",
             "venue": "BINANCE",
             "venue_account_id": "SIM-BINANCE-001",
-            "credential_slot_ref": slot_ref,
+            "credential_slot_ref": slot.credential_slot_ref,
             "consumes_stream": "builder.execution.commands.paper.project_alpha.binance",
         },
     )

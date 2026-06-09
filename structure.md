@@ -118,6 +118,26 @@ git diff --check
 # pass
 ```
 
+### Final reconciliation snapshot
+
+The stale test-contract failures found by the full backend suite are reconciled with the closed Builder-only guard behavior. Browser/API credential-slot bootstrap tests now expect `credential_slot_http_disabled`, TradingNode session lifecycle coverage uses backend-owned credential-slot provisioning, the packaged API entrypoint test expects authenticated FastAPI, Docker onboarding tests forbid image-created local credential env files, and source-level UI tests assert `CredentialSlotBootstrap.tsx` is absent.
+
+Verification:
+
+```bash
+python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
+# 979 passed, 1 skipped, 1 warning
+
+cd apps/web && npm run typecheck
+# pass
+
+cd apps/web && npm test
+# Test Files 33 passed, 1 skipped; Tests 131 passed, 4 skipped
+
+cd apps/web && npm run build
+# pass
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
 | **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |

@@ -89,6 +89,25 @@ git diff --check
 # pass
 ```
 
+### Final reconciliation verification evidence
+
+```bash
+python3 -m pytest tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_tradingnode_routes.py::test_execution_lane_session_start_and_stop_routes_return_lifecycle tests/integration/test_headless_backend_runtime.py::test_pyproject_exposes_headless_backend_entrypoints tests/onboarding/test_docker_zero_config.py::TestDockerfiles::test_api_dockerfile_does_not_create_or_copy_local_credential_env_file tests/web/test_sectioned_operator_ui.py::test_execution_config_section_keeps_feature_flags_read_only_and_secret_free -q
+# 6 passed
+
+python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
+# 979 passed, 1 skipped, 1 warning
+
+cd apps/web && npm run typecheck
+# pass
+
+cd apps/web && npm test
+# Test Files 33 passed, 1 skipped; Tests 131 passed, 4 skipped
+
+cd apps/web && npm run build
+# pass
+```
+
 ### Current positive guard evidence
 
 - No direct production Builder `submit_order(` or authoritative `TradeAction(` construction was found in the focused source scan.

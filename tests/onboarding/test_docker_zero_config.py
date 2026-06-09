@@ -63,9 +63,11 @@ class TestDockerfiles:
     def test_api_dockerfile_exists(self):
         assert DOCKERFILE_API.is_file()
 
-    def test_api_dockerfile_creates_env_file(self):
+    def test_api_dockerfile_does_not_create_or_copy_local_credential_env_file(self):
         content = DOCKERFILE_API.read_text()
-        assert "touch .env.execution.local" in content
+        assert ".env.execution.local" not in content
+        assert "COPY .env" not in content
+        assert "touch .env" not in content
 
     def test_api_dockerfile_has_healthcheck(self):
         content = DOCKERFILE_API.read_text()

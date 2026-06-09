@@ -20,7 +20,7 @@ def test_pyproject_exposes_headless_backend_entrypoints() -> None:
 
     scripts = pyproject["project"]["scripts"]
 
-    assert scripts["nautilus-builder-api"] == "services.api.dev_server:main"
+    assert scripts["nautilus-builder-api"] == "services.api.fastapi_cli:main"
     assert scripts["nautilus-builder-execution-worker"] == "services.workers.execution_lane_worker:main"
     assert scripts["nautilus-builder-backend-check"] == "services.backend_runtime:main"
 

@@ -104,7 +104,7 @@ def test_results_research_section_has_metrics_charts_and_research_placeholders()
 
 def test_execution_config_section_keeps_feature_flags_read_only_and_secret_free() -> None:
     config = _read("components/config/ExecutionLaneFeaturePanel.tsx")
-    cred_bootstrap = _read("components/config/CredentialSlotBootstrap.tsx")
+    cred_bootstrap_path = WEB / "components" / "config" / "CredentialSlotBootstrap.tsx"
 
     for token in (
         "Execution Lane",
@@ -115,6 +115,7 @@ def test_execution_config_section_keeps_feature_flags_read_only_and_secret_free(
         "server-side credential slot only",
     ):
         assert token in config
-    assert "Input.Password" in cred_bootstrap
+    assert not cred_bootstrap_path.exists()
+    assert "Input.Password" not in config
     assert "credential_slot_ref" in config
     assert "NEXT_PUBLIC" not in config
