@@ -23,7 +23,7 @@ from typing import Any
 
 def create_artifact_store(
     *,
-    local_root: str = ".artifacts",
+    local_root: str | None = None,
 ) -> Any:
     """Create the appropriate artifact store based on environment config.
 
@@ -38,15 +38,15 @@ def create_artifact_store(
         Either LocalJsonArtifactStore or S3ArtifactStore.
     """
     backend = os.environ.get("BUILDER_ARTIFACT_BACKEND", "local").strip().lower()
+    configured_local_root = local_root or os.environ.get("BUILDER_ARTIFACT_ROOT", ".artifacts").strip() or ".artifacts"
 
     if backend == "s3":
         return _create_s3_store()
-    elif backend == "local":
-        return _create_local_store(root=local_root)
-    else:
-        raise ValueError(
-            f"Unknown BUILDER_ARTIFACT_BACKEND: '{backend}'. Must be 'local' or 's3'."
-        )
+    if backend == "local":
+        return _create_local_store(root=configured_local_root)
+    raise ValueError(
+        f"Unknown BUILDER_ARTIFACT_BACKEND: '{backend}'. Must be 'local' or 's3'."
+    )
 
 
 def _create_s3_store() -> Any:

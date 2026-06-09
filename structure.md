@@ -4,23 +4,23 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-2 closed credential packaging/browser entry plus API exposure, rate-limit enforcement, and audit-attribution gaps. Artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
+**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-3 closed credential packaging/browser entry, API exposure, rate-limit enforcement, audit-attribution, artifact-readiness, and LLM-persistence gaps. Frontend runtime-action ownership and safety-scan hardening remain open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-2 close credential/API-rate-limit/audit-attribution blockers. Remaining production/security blockers are artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening.
+**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-3 close credential/API-rate-limit/audit-attribution plus artifact-readiness/LLM-persistence blockers. Remaining production/security blockers are frontend runtime-action ownership and safety-scan hardening.
 
 ### Current inventory snapshot
 
 | Area | Current tracked files | Notes |
 |---|---:|---|
-| `packages/` | 137 | Domain layer, including execution-lane, artifact store, auth, Postgres, AI builder, and backtest packages. |
-| `services/` | 25 | FastAPI factory, dependency-free dev API, route adapters, and workers. |
-| `apps/web/` | 127 | Next/React/AntD UI; clean path lanes are present. |
-| `tests/` | 182 | Backend/frontend contract and regression tests. |
+| `packages/` | 138 | Domain layer, including execution-lane, artifact store, auth, Postgres, AI builder, and backtest packages. |
+| `services/` | 26 | FastAPI factory, dependency-free dev API, route adapters, and workers. |
+| `apps/web/` | 126 | Next/React/AntD UI; clean path lanes are present. |
+| `tests/` | 187 | Backend/frontend contract and regression tests. |
 | `scripts/` | 8 | Local/dev/demo scripts and safety scan. |
 | `doc/` | 13 | Source-truth product and hardguard docs. |
-| `docs/` | 63 | Derived runbooks and verification docs. |
+| `docs/` | 65 | Derived runbooks and verification docs. |
 
 ### Current UI route map
 
@@ -38,7 +38,7 @@
 
 ### Segment 1 closure snapshot
 
-Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Remaining open blockers are artifact readiness, LLM persistence, frontend runtime-action ownership, and safety scan hardening.
+Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact-store startup/readiness wiring and Postgres LLM config persistence. Remaining open blockers are frontend runtime-action ownership and safety scan hardening.
 
 Verification:
 
@@ -64,6 +64,23 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 # pass
 ```
 
+### Segment 3 closure snapshot
+
+Artifact readiness and LLM config persistence are now closed for the reviewed blocker scope. FastAPI creates a default artifact store from `BUILDER_ARTIFACT_BACKEND`/`BUILDER_ARTIFACT_ROOT` when none is injected, `/health/ready` reports artifact-store factory failures instead of unconditional readiness, and Postgres-backed LLM config saves preserve the loaded config repository so changes persist.
+
+Verification:
+
+```bash
+python3 -m pytest tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py tests/artifact_store/test_s3_artifact_store.py tests/api/test_fastapi_app.py tests/api/test_route_auth_scope.py tests/api/test_llm_config_routes.py -q
+# 49 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q packages/artifact_store/factory.py services/api/fastapi_app.py tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py
+# pass
+
+git diff --check
+# pass
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
 | **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |
@@ -71,8 +88,8 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 | **CLOSED** | Installed `nautilus-builder-api` entrypoint exposes the dependency-free dev server without auth. | Segment 2: `pyproject.toml` now points to `services.api.fastapi_cli:main`; `services/api/dev_server.py` validates loopback-only unless `--unsafe-allow-non-loopback` is explicit. | Packaged API startup now uses authenticated FastAPI; dependency-free dev server exposure is guarded. |
 | **CLOSED** | Rate limiter is instantiated but not enforced. | Segment 2: `create_fastapi_app(..., rate_limiter=...)` and protected `require_context()` now call `is_allowed()` after auth; Redis warnings redact credentials and production Redis outages fail closed. | Protected `/api/*` route handlers now enforce the configured limiter before returning data or mutations. |
 | **CLOSED** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | Segment 2: `AuthContextMiddleware` sets request actor/project for valid bearer tokens and the Postgres audit writer includes `project_id`. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling. | Mutations now carry authenticated actor/project attribution into audit events, and successful mutations fail closed if audit persistence fails. |
-| **MEDIUM** | FastAPI ignores the artifact-store factory/env and still reports artifact readiness. | `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `docs/verification/local-verification-checklist.md:30`. | Local demo backtest runs/promotions can fail despite `BUILDER_ARTIFACT_ROOT` docs, and readiness can be misleading. |
-| **MEDIUM** | Postgres LLM config saves are disabled by a reset variable. | `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`. | Config is loaded from Postgres but subsequent saves pass `None`, causing restart drift. |
+| **CLOSED** | FastAPI ignored the artifact-store factory/env and still reported artifact readiness. | Segment 3: `create_fastapi_app()` now initializes the default artifact store from factory/env, `create_artifact_store()` honors `BUILDER_ARTIFACT_ROOT`, and `/health/ready` reports factory failure. | Local demo backtest/promotion startup now has an initialized artifact store or an explicit readiness failure. |
+| **CLOSED** | Postgres LLM config saves were disabled by a reset variable. | Segment 3: `_pg_config_repo` is preserved after startup and passed to `save_llm_config_payload()` when Postgres is configured. | Config saves now persist through the Postgres config repository instead of drifting after restart. |
 
 ### Official/reference alignment notes
 
@@ -95,17 +112,17 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 
 ## Repository shape (current tracked surface)
 
-`git ls-files packages services apps/web tests scripts doc docs` reports **542 tracked files** across the review surface:
+Current tracked-plus-new review surface reports **563 files** across the review surface:
 
 | Area | Tracked files | Role |
 |---|---:|---|
-| `packages/` | 136 | Canonical Python domain layer: strategy specs, validation, compiler, backtests, execution lane, auth, AI builder, stores, Postgres seams. |
-| `services/` | 25 | FastAPI and lightweight API adapter layers plus backend worker stubs. |
-| `apps/web/` | 121 | Next.js 15 / React 19 / Ant Design 6 operator UI. Must remain observational and backend-driven. |
-| `tests/` | 178 | Contract and regression suite. Several tests currently encode known auth-scope gaps. |
+| `packages/` | 138 | Canonical Python domain layer: strategy specs, validation, compiler, backtests, execution lane, auth, AI builder, stores, Postgres seams. |
+| `services/` | 26 | FastAPI and lightweight API adapter layers plus backend worker stubs. |
+| `apps/web/` | 126 | Next.js 15 / React 19 / Ant Design 6 operator UI. Must remain observational and backend-driven. |
+| `tests/` | 187 | Contract and regression suite. Several tests currently encode known auth-scope gaps. |
 | `scripts/` | 8 | Local/dev/demo orchestration and seed scripts. |
 | `doc/` | 13 | Product/runtime source truth. |
-| `docs/` | 61 | Derived runbooks, implementation artifacts, deployment/verification docs. |
+| `docs/` | 65 | Derived runbooks, implementation artifacts, deployment/verification docs. |
 
 ## Boundary model
 

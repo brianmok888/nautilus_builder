@@ -6,7 +6,7 @@ from typing import Any, Callable, Protocol
 
 from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
 from packages.ai_builder.service import AiBuilderService
-from packages.artifact_store import LocalJsonArtifactStore
+from packages.artifact_store import LocalJsonArtifactStore, create_artifact_store
 from packages.auth import AuthTokenService, InvalidAuthTokenError, ProjectScopeError, UserProjectContext
 from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token, validate_rate_limit_config
 from packages.auth.audit_middleware import AuditMiddleware, AuthContextMiddleware, RequestIdMiddleware
@@ -128,6 +128,7 @@ def create_fastapi_app(
     _pg_dsn = os.environ.get("BUILDER_DATABASE_URL", "").strip()
     _pg_conn = None
     _pg_adapter_repo = None
+    _pg_config_repo = None
     if _pg_dsn:
         from packages.postgres import connect_pool, apply_migrations, PostgresStrategyRepository, PostgresAdapterRepository, PostgresBacktestJobRepository, PostgresConfigRepository, PostgresWorkflowResultRepository, seed_default_market_data
         _pg_conn = connect_pool(_pg_dsn)
@@ -170,10 +171,17 @@ def create_fastapi_app(
     auth_token_service = auth_token_service or AuthTokenService()
     _register_env_dev_token(auth_token_service)
     catalog_dataset_registry = catalog_dataset_registry or CatalogDatasetRegistryService()
+    artifact_store_status = "ok"
+    artifact_store_error: str | None = None
+    if artifact_store is None:
+        try:
+            artifact_store = create_artifact_store()
+        except (ImportError, OSError, ValueError) as exc:
+            artifact_store_status = "error"
+            artifact_store_error = str(exc)
     ai_builder_service = AiBuilderService.from_env(store=_default_ai_audit_store(ai_audit_store))
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
-    _pg_config_repo = None
     runtime_event_service = runtime_event_service or RuntimeEventService()
     app = FastAPI(title="Nautilus Builder API", version="0.1.0")
 
@@ -245,7 +253,13 @@ def create_fastapi_app(
 
     @app.get("/health/ready")
     def health_ready() -> dict[str, object]:
-        return {"ready": True, "checks": {"database": "ok" if _pg_dsn else "not_configured", "artifact_store": "ok"}}
+        checks: dict[str, str] = {
+            "database": "ok" if _pg_dsn else "not_configured",
+            "artifact_store": artifact_store_status,
+        }
+        if artifact_store_error is not None:
+            checks["artifact_store_error"] = artifact_store_error
+        return {"ready": artifact_store_status == "ok", "checks": checks}
 
     @app.get("/health/build")
     def health_build() -> dict[str, object]:

@@ -7,20 +7,20 @@
 
 ## Executive summary
 
-**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-2 close credential/package safety, packaged API exposure, rate-limit enforcement, and audit attribution; artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open.
-**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until artifact-store, LLM persistence, frontend runtime-action ownership, and safety-scan findings are closed.
+**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-3 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, and LLM persistence; frontend runtime-action ownership and safety-scan hardening remain open.
+**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until frontend runtime-action ownership and safety-scan findings are closed.
 **Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-2 close credential/API/rate-limit/audit-attribution blockers, while artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open.
+**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-3 close credential/API/rate-limit/audit-attribution plus artifact-readiness/LLM-persistence blockers, while frontend runtime-action ownership and safety-scan hardening remain open.
 
 ### Current top-priority findings
 
 
 ### Segment 1 closure — credential/package safety (2026-06-08)
 
-**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Production/security readiness remains **REQUEST CHANGES** because artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan blockers still need closure.
+**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence. Production/security readiness remains **REQUEST CHANGES** because frontend runtime-action ownership and safety-scan blockers still need closure.
 
 **Evidence:**
 
@@ -49,6 +49,25 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 ```
 
 **Changes:** `nautilus-builder-api` now starts `services.api.fastapi_cli:main`, the dependency-free dev server rejects non-loopback hosts unless explicitly unsafe, protected FastAPI routes enforce the configured limiter after bearer auth, Redis limiter warnings redact credentials and fail closed in production mode, `AuthContextMiddleware` attaches actor/project to request state, and Postgres audit inserts include `project_id`.
+
+### Segment 3 closure — artifact readiness and LLM persistence (2026-06-08)
+
+**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Production/security readiness remains **REQUEST CHANGES** because frontend runtime-action ownership and safety-scan blockers still need closure.
+
+**Evidence:**
+
+```bash
+python3 -m pytest tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py tests/artifact_store/test_s3_artifact_store.py tests/api/test_fastapi_app.py tests/api/test_route_auth_scope.py tests/api/test_llm_config_routes.py -q
+# 49 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q packages/artifact_store/factory.py services/api/fastapi_app.py tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py
+# pass
+
+git diff --check
+# pass
+```
+
+**Changes:** `create_artifact_store()` now honors `BUILDER_ARTIFACT_ROOT` for the local backend, FastAPI initializes a default artifact store from the factory when none is injected, `/health/ready` reports artifact-store factory errors instead of unconditional readiness, and `_pg_config_repo` is preserved so `POST /api/config/llm` persists through the Postgres config repository.
 
 #### C-01 — Docker API image can include local exchange credentials
 
@@ -95,19 +114,21 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 
 #### M-01 — Artifact-store env/factory is not wired into FastAPI startup
 
-- **Severity:** MEDIUM
+- **Status:** CLOSED in Segment 3 (2026-06-08)
+- **Severity:** Previously MEDIUM
 - **Files:** `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `services/api/routes/backtest_execution.py:193-198`; `docs/verification/local-verification-checklist.md:30`.
 - **Issue:** `create_fastapi_app()` accepts `artifact_store` but does not create one from `BUILDER_ARTIFACT_ROOT`/`BUILDER_ARTIFACT_BACKEND`; `/health/ready` still reports `artifact_store: ok`.
 - **Risk:** Local BacktestNode runs and strict promotion can fail with `artifact store is required` even when runbooks export artifact env variables.
-- **Fix:** Build the artifact store from the factory during app startup, honor `BUILDER_ARTIFACT_ROOT`, and make readiness reflect actual store initialization.
+- **Closure:** FastAPI now builds the artifact store from the factory during app startup when one is not injected, the local factory honors `BUILDER_ARTIFACT_ROOT`, and readiness reports factory failure as `ready=false`.
 
 #### M-02 — Postgres LLM config saves do not persist after startup
 
-- **Severity:** MEDIUM
+- **Status:** CLOSED in Segment 3 (2026-06-08)
+- **Severity:** Previously MEDIUM
 - **Files:** `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`.
 - **Issue:** `_pg_config_repo` is created and used to load config, then reset to `None`, so `save_llm_config_payload(..., pg_config_repo=_pg_config_repo if _pg_conn else None)` never persists saves.
 - **Risk:** UI says config saved but restart can revert to old/default config.
-- **Fix:** Preserve the Postgres config repo variable and add a restart/persistence regression test.
+- **Closure:** `_pg_config_repo` is initialized before the Postgres branch and no longer reset after startup, so LLM config saves call `PostgresConfigRepository.set("llm_config", ...)` when Postgres is configured.
 
 #### M-03 — Direct frontend fetches bypass the canonical API client
 

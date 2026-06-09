@@ -2,11 +2,11 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** REQUEST CHANGES for production/security readiness. Segments 1-2 closed Docker credential packaging, browser/API credential entry, packaged API exposure, protected-route rate limiting, and audit actor/project attribution. Artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening remain open. Production/live trading readiness is not claimed.
+**Current state:** REQUEST CHANGES for production/security readiness. Segments 1-3 closed Docker credential packaging, browser/API credential entry, packaged API exposure, protected-route rate limiting, audit actor/project attribution, artifact readiness, and LLM persistence. Frontend runtime-action ownership and safety-scan hardening remain open. Production/live trading readiness is not claimed.
 
 ## 0. Current review gate — 2026-06-08 post-route standardization
 
-**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified; Segment 2 closes API exposure/rate-limit/audit-attribution guards, while artifact readiness, LLM persistence, frontend action ownership, and safety scan remain blockers for any production or live-readiness claim.
+**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified; Segment 3 closes artifact readiness and LLM persistence, while frontend action ownership and safety scan remain blockers for any production or live-readiness claim.
 
 ### Immediate blocker guards
 
@@ -16,8 +16,8 @@
 4. **Dev server exposure guard — CLOSED Segment 2:** `nautilus-builder-api` must not start an unauthenticated mutating API on non-loopback hosts. Current evidence: the console script now targets `services.api.fastapi_cli:main`, and `services/api/dev_server.py` rejects non-loopback binds unless explicitly unsafe.
 5. **Rate-limit enforcement guard — CLOSED Segment 2:** A configured limiter must be enforced by middleware/dependency before readiness claims. Current evidence: protected FastAPI `require_context()` calls now enforce `is_allowed()` after auth, Redis URL logs are redacted, and production Redis outage behavior fails closed.
 6. **Audit attribution guard — CLOSED Segment 2:** Mutations must persist actor/project attribution. Current evidence: `AuthContextMiddleware` attaches valid bearer actor/project to request state and Postgres audit inserts include `project_id`. Successful mutations fail closed if audit persistence fails, while already-failed mutations keep their original error response.
-7. **Artifact readiness guard:** FastAPI startup/readiness must initialize and report an actual artifact store from env/factory before BacktestNode/promotion readiness claims. Current evidence: `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`.
-8. **LLM config persistence guard:** Postgres-backed config saves must preserve `_pg_config_repo`; do not reset it to `None` after loading. Current evidence: `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`.
+7. **Artifact readiness guard — CLOSED Segment 3:** FastAPI startup/readiness initializes a default artifact store from env/factory before BacktestNode/promotion readiness claims. Current evidence: `create_fastapi_app()` calls `create_artifact_store()` when no store is injected, `create_artifact_store()` honors `BUILDER_ARTIFACT_ROOT`, and `/health/ready` reports factory errors as not ready.
+8. **LLM config persistence guard — CLOSED Segment 3:** Postgres-backed config saves preserve `_pg_config_repo` after loading. Current evidence: `_pg_config_repo` is initialized before the Postgres branch and passed to `save_llm_config_payload()` when `_pg_conn` is configured.
 9. **Frontend action-ownership guard:** The web UI may request/observe backend plans; it must not be the authority constructing risk-approved order intents or runtime worker/session actions. Current evidence: `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-372`, `539-552`.
 10. **Safety scan guard:** `scripts/check_forbidden_authority.sh` must scan production directories by default rather than allowlisting `packages/`, `services/`, and `apps/web`.
 
@@ -44,6 +44,19 @@ python3 -m pytest tests/api/test_production_safety.py tests/api/test_route_auth_
 # 117 passed, 1 skipped, 1 warning
 
 python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py services/api/fastapi_cli.py packages/auth/audit_middleware.py packages/auth/context_middleware.py packages/auth/redis_rate_limit.py packages/postgres/audit_event_repository.py packages/postgres/migrations.py packages/postgres/promotion_ledger_repository.py tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/auth/test_redis_rate_limit_security.py tests/postgres/test_audit_event_hardening.py
+# pass
+```
+
+### Segment 3 verification evidence
+
+```bash
+python3 -m pytest tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py tests/artifact_store/test_s3_artifact_store.py tests/api/test_fastapi_app.py tests/api/test_route_auth_scope.py tests/api/test_llm_config_routes.py -q
+# 49 passed, 1 skipped, 1 warning
+
+python3 -m compileall -q packages/artifact_store/factory.py services/api/fastapi_app.py tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py
+# pass
+
+git diff --check
 # pass
 ```
 
