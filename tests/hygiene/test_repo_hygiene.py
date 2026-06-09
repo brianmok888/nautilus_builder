@@ -60,6 +60,21 @@ def test_forbidden_authority_script_exists_and_executable():
     assert os.access(script_path, os.X_OK), f"Authority scan script not executable: {script_path}"
 
 
+def test_forbidden_authority_script_scans_production_dirs_by_default():
+    script_path = os.path.join(REPO_ROOT, "scripts", "check_forbidden_authority.sh")
+    with open(script_path) as f:
+        content = f.read()
+
+    assert "SCAN_PATHS=(" in content
+    assert '"packages"' in content
+    assert '"services"' in content
+    assert '"apps/web"' in content
+    assert '"packages/"' not in content
+    assert '"services/"' not in content
+    assert '"apps/web/"' not in content
+    assert "git grep -n -F" in content
+
+
 def test_hygiene_script_passes():
     result = subprocess.run(
         ["bash", "scripts/check_repo_hygiene.sh"],

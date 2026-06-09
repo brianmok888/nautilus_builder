@@ -2,11 +2,11 @@
 
 **Review date:** 2026-06-08
 **Purpose:** Runtime and review invariants for Nautilus Builder. These are hard boundaries, not suggestions.
-**Current state:** REQUEST CHANGES for production/security readiness. Segments 1-4 closed Docker credential packaging, browser/API credential entry, packaged API exposure, protected-route rate limiting, audit actor/project attribution, artifact readiness, LLM persistence, and frontend runtime-action ownership. Safety-scan hardening remains open. Production/live trading readiness is not claimed.
+**Current state:** CLOSED for the user-listed Builder security blockers; WATCH for production/live readiness. Segments 1-5 closed Docker credential packaging, browser/API credential entry, packaged API exposure, protected-route rate limiting, audit actor/project attribution, artifact readiness, LLM persistence, frontend runtime-action ownership, and safety-scan hardening. Production/live trading readiness is not claimed.
 
 ## 0. Current review gate — 2026-06-08 post-route standardization
 
-**Gate verdict:** **REQUEST CHANGES** before production/security readiness. The clean-route/Overview UX closeout is verified; Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership, while safety scan remains the blocker for any production or live-readiness claim.
+**Gate verdict:** **CLOSED for the reviewed Builder-only blocker set; WATCH before any production/live-readiness claim.** The clean-route/Overview UX closeout is verified; Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership; Segment 5 closes safety-scan production-path coverage.
 
 ### Immediate blocker guards
 
@@ -19,7 +19,7 @@
 7. **Artifact readiness guard — CLOSED Segment 3:** FastAPI startup/readiness initializes a default artifact store from env/factory before BacktestNode/promotion readiness claims. Current evidence: `create_fastapi_app()` calls `create_artifact_store()` when no store is injected, `create_artifact_store()` honors `BUILDER_ARTIFACT_ROOT`, and `/health/ready` reports factory errors as not ready.
 8. **LLM config persistence guard — CLOSED Segment 3:** Postgres-backed config saves preserve `_pg_config_repo` after loading. Current evidence: `_pg_config_repo` is initialized before the Postgres branch and passed to `save_llm_config_payload()` when `_pg_conn` is configured.
 9. **Frontend action-ownership guard — CLOSED Segment 4:** The web UI may request/observe backend plans; it must not be the authority constructing risk-approved order intents or runtime worker/session actions. Current evidence: `ExecutionLaneFeaturePanel` only registers profile visibility and fetches runtime plans; `apps/web/lib/api.ts` no longer exports command, worker, or paper-session action helpers.
-10. **Safety scan guard:** `scripts/check_forbidden_authority.sh` must scan production directories by default rather than allowlisting `packages/`, `services/`, and `apps/web`.
+10. **Safety scan guard — CLOSED Segment 5:** `scripts/check_forbidden_authority.sh` must scan production directories by default rather than allowlisting `packages/`, `services/`, and `apps/web`. Current evidence: the script scans `packages`, `services`, and `apps/web`, excludes frontend tests/specs by path, uses fixed-string grep, and allows only exact-line false positives.
 
 ### Current web-route guard
 
@@ -71,6 +71,19 @@ cd apps/web && npm run typecheck
 
 python3 -m pytest tests/web/test_execution_lane_ui_contract.py -q
 # 1 passed
+
+git diff --check
+# pass
+```
+
+### Segment 5 verification evidence
+
+```bash
+python3 -m pytest tests/hygiene/test_repo_hygiene.py -q
+# 11 passed
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
 
 git diff --check
 # pass
@@ -309,6 +322,28 @@ python3 -m pytest tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.
 # 91 passed, 1 skipped, 1 warning (Starlette/httpx deprecation from testclient)
 
 python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_scope.py
+# pass
+```
+
+Remaining work: final git/remote checks.
+
+
+## Segment 5 reconciliation — forbidden-authority safety scan
+
+**Completed:** 2026-06-08
+
+Implemented and verified production-path coverage for the forbidden-authority scan. The scan no longer allowlists production directories after matches; it searches `packages`, `services`, and `apps/web` by default, excludes frontend tests/specs, uses fixed-string matching for authority literals, and keeps false-positive exceptions to exact lines.
+
+Verification evidence:
+
+```bash
+python3 -m pytest tests/hygiene/test_repo_hygiene.py -q
+# 11 passed
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
+
+git diff --check
 # pass
 ```
 

@@ -4,11 +4,11 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-4 closed credential packaging/browser entry, API exposure, rate-limit enforcement, audit-attribution, artifact-readiness, LLM-persistence, and frontend runtime-action ownership gaps. Safety-scan hardening remains open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
+**Current verdict:** **CLOSED FOR THE USER-LISTED BUILDER SECURITY BLOCKERS; WATCH FOR PRODUCTION/LIVE READINESS** — Segments 1-5 closed credential packaging/browser entry, API exposure, rate-limit enforcement, audit-attribution, artifact-readiness, LLM-persistence, frontend runtime-action ownership, and safety-scan hardening gaps. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-4 close credential/API-rate-limit/audit-attribution, artifact-readiness/LLM-persistence, and frontend runtime-action ownership blockers. Remaining production/security blocker is safety-scan hardening.
+**Review result:** **CLOSED for the reviewed Builder-only blocker set; COMMENT/WATCH for production or live-readiness claims.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-5 close credential/API-rate-limit/audit-attribution, artifact-readiness/LLM-persistence, frontend runtime-action ownership, and safety-scan hardening blockers.
 
 ### Current inventory snapshot
 
@@ -38,7 +38,7 @@
 
 ### Segment 1 closure snapshot
 
-Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact-store startup/readiness wiring and Postgres LLM config persistence. Segment 4 closes frontend runtime-action ownership. Remaining open blocker is safety scan hardening.
+Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact-store startup/readiness wiring and Postgres LLM config persistence. Segment 4 closes frontend runtime-action ownership. Segment 5 closes safety-scan hardening by scanning production paths by default.
 
 Verification:
 
@@ -101,6 +101,23 @@ git diff --check
 # pass
 ```
 
+### Segment 5 closure snapshot
+
+Forbidden-authority safety-scan hardening is now closed for the reviewed blocker scope. The safety script scans production `packages`, `services`, and `apps/web` paths by default, excludes frontend test/spec files by path, uses fixed-string grep for authority literals, and keeps false positives constrained to exact-line allowlist entries.
+
+Verification:
+
+```bash
+python3 -m pytest tests/hygiene/test_repo_hygiene.py -q
+# 11 passed
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
+
+git diff --check
+# pass
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
 | **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |
@@ -111,6 +128,7 @@ git diff --check
 | **CLOSED** | FastAPI ignored the artifact-store factory/env and still reported artifact readiness. | Segment 3: `create_fastapi_app()` now initializes the default artifact store from factory/env, `create_artifact_store()` honors `BUILDER_ARTIFACT_ROOT`, and `/health/ready` reports factory failure. | Local demo backtest/promotion startup now has an initialized artifact store or an explicit readiness failure. |
 | **CLOSED** | Postgres LLM config saves were disabled by a reset variable. | Segment 3: `_pg_config_repo` is preserved after startup and passed to `save_llm_config_payload()` when Postgres is configured. | Config saves now persist through the Postgres config repository instead of drifting after restart. |
 | **CLOSED** | Frontend constructed execution-lane command/risk/worker/session actions. | Segment 4: `ExecutionLaneFeaturePanel` now only registers profile visibility and fetches runtime plans; `apps/web/lib/api.ts` no longer exports command, worker, or session action helpers. | Browser UI is observe/request-only for execution lane runtime plans; backend remains the action owner. |
+| **CLOSED** | Forbidden-authority scan allowlisted production code directories. | Segment 5: `scripts/check_forbidden_authority.sh` now scans `packages`, `services`, and `apps/web` production paths by default and fixed-string matches authority literals. | Safety scans no longer give green status while skipping production code. |
 
 ### Official/reference alignment notes
 
@@ -321,13 +339,13 @@ python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_s
 # pass
 ```
 
-Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review remains blocked only until safety-scan hardening is closed.
+Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum closes the user-listed safety-scan blocker while preserving the warning that production/live readiness still requires separate evidence and approval.
 
 ## Master reconciliation — findings closure implementation
 
 **Updated:** 2026-06-08
 
-Master reconciliation verifies the completed Segment 1-4 closure plus follow-up review fixes as a whole. The current diff now covers API auth/scope, production startup policy, durable AI audit-store policy, Postgres identifier/evidence semantics, runtime route auth coverage, execution-lane project scoping, local-only web token proxying, and required ledger/runbook updates.
+Master reconciliation verifies the completed Segment 1-5 closure plus follow-up review fixes as a whole. The current diff now covers API auth/scope, production startup policy, durable AI audit-store policy, Postgres identifier/evidence semantics, runtime route auth coverage, execution-lane project scoping, local-only web token proxying, safety-scan production-path coverage, and required ledger/runbook updates.
 
 Verification evidence:
 
@@ -357,7 +375,7 @@ python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/te
 # 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
 ```
 
-Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier findings-closure branch. Current stop condition for this addendum is narrower: publish the review artifact only after git/remote checks are clean; do not treat the push as production/security readiness approval.
+Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier findings-closure branch. Current stop condition for this addendum is narrower: publish the blocker closure only after git/remote checks are clean; do not treat the push as production/live-readiness approval.
 
 ## Final closeout scope warning
 

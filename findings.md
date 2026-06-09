@@ -7,20 +7,20 @@
 
 ## Executive summary
 
-**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-4 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, and frontend runtime-action ownership; safety-scan hardening remains open.
-**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until the safety-scan finding is closed.
+**Final recommendation:** **CLOSED for the user-listed Builder security blockers**. Segments 1-5 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, frontend runtime-action ownership, and forbidden-authority safety-scan hardening.
+**Architectural status:** **WATCH** for production hardening and legacy cleanup; the reviewed Builder-only blocker set is closed, but production/live trading readiness remains outside this closeout.
 **Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-4 close credential/API/rate-limit/audit-attribution, artifact-readiness/LLM-persistence, and frontend runtime-action ownership blockers, while safety-scan hardening remains open.
+**Recommendation:** **CLOSED for the reviewed blocker set; WATCH before any production/live-readiness claim.** The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-5 close credential/API/rate-limit/audit-attribution, artifact-readiness/LLM-persistence, frontend runtime-action ownership, and safety-scan hardening blockers.
 
 ### Current top-priority findings
 
 
 ### Segment 1 closure — credential/package safety (2026-06-08)
 
-**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
+**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership. Segment 5 closes safety-scan hardening.
 
 **Evidence:**
 
@@ -52,7 +52,7 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 
 ### Segment 3 closure — artifact readiness and LLM persistence (2026-06-08)
 
-**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
+**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Segment 5 closes the remaining safety-scan blocker for the user-listed closure scope.
 
 **Evidence:**
 
@@ -71,7 +71,7 @@ git diff --check
 
 ### Segment 4 closure — frontend runtime-action ownership (2026-06-08)
 
-**Status:** CLOSED for browser-owned execution-lane command/risk/worker/session action construction. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
+**Status:** CLOSED for browser-owned execution-lane command/risk/worker/session action construction. Segment 5 closes the remaining safety-scan blocker for the user-listed closure scope.
 
 **Evidence:**
 
@@ -90,6 +90,25 @@ git diff --check
 ```
 
 **Changes:** `ExecutionLaneFeaturePanel` now registers backend-owned paper profile visibility and fetches runtime plans only. It no longer renders command queue, backend worker, or paper-session lifecycle controls; it no longer constructs `order_intent` or `risk_decision`; and `apps/web/lib/api.ts` no longer exports execution-lane command, worker, or session action helpers.
+
+### Segment 5 closure — forbidden-authority safety scan (2026-06-08)
+
+**Status:** CLOSED for the false-confidence safety-scan gap.
+
+**Evidence:**
+
+```bash
+python3 -m pytest tests/hygiene/test_repo_hygiene.py -q
+# 11 passed
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
+
+git diff --check
+# pass
+```
+
+**Changes:** `scripts/check_forbidden_authority.sh` now scans production `packages`, `services`, and `apps/web` paths by default, excludes frontend tests by path, uses fixed-string grep so `.submit_order` does not accidentally match `may_submit_order`, and keeps any false-positive allowlist at exact-line granularity instead of directory prefixes. `tests/hygiene/test_repo_hygiene.py` now asserts the script keeps production scan paths and fixed-string matching.
 
 #### C-01 — Docker API image can include local exchange credentials
 
@@ -163,11 +182,12 @@ git diff --check
 
 #### M-04 — Forbidden-authority scan allowlists production code directories
 
+- **Status:** CLOSED in Segment 5 (2026-06-08)
 - **Severity:** MEDIUM
 - **Files:** `scripts/check_forbidden_authority.sh:21-38`.
 - **Issue:** The safety scan allowlists `packages/`, `services/`, and `apps/web/`, so it would miss future forbidden authority in production code.
 - **Risk:** A green safety scan can provide false confidence.
-- **Fix:** Invert the scan: search production code by default, allow only policy/docs/tests/negative literals, and keep an explicit false-positive allowlist.
+- **Closure:** The scan now searches `packages`, `services`, and `apps/web` production paths by default, excludes frontend test/spec files, uses fixed-string grep, and permits only exact-line false-positive allowlist entries.
 
 ### Web UI / UX status
 
@@ -215,7 +235,8 @@ The Segment 1-4 closure and follow-up review fixes now cover:
 - execution-lane status, runtime-plan, profile, command, worker, and session routes scoped to bearer project;
 - local-only Next middleware token injection and no server token in staging/production web compose services;
 - demo seeding under the configured dev user/project scope;
-- Postgres identifier validation before dynamic SQL construction.
+- Postgres identifier validation before dynamic SQL construction;
+- forbidden-authority scanning across production `packages`, `services`, and `apps/web` paths by default.
 
 Fresh verification evidence:
 
@@ -233,7 +254,7 @@ cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --
 # 123 passed, 4 skipped
 ```
 
-Current stop condition for this addendum: focused review verification is green for publishing the review artifact after final git/remote checks, but production/security readiness remains **REQUEST CHANGES** until the blocker list above is fixed.
+Current stop condition for this addendum: focused review verification is green for publishing the blocker closure after final git/remote checks. Production/live-trading readiness remains outside this closeout and still requires separate NautilusTrader/Daedalus evidence.
 
 ## Historical severity summary — prior Segment 1-4 closure
 
@@ -416,7 +437,7 @@ The table and detailed findings below this heading are retained as prior closure
 
 ## Current diff inclusion assessment
 
-**Historical prior-closeout inclusion assessment, retained for context only.** The earlier findings-closure diff did not introduce Builder order authority or Daedalus coupling and closed the listed Segment 3/4 items. The current 2026-06-08 addendum supersedes any merge-ready implication: production/security readiness is **REQUEST CHANGES**, and git/remote checks only decide whether this review artifact can be published.
+**Historical prior-closeout inclusion assessment, retained for context only.** The earlier findings-closure diff did not introduce Builder order authority or Daedalus coupling and closed the listed Segment 3/4 items. The current 2026-06-08 addendum closes the user-listed blocker set; git/remote checks decide whether this blocker closure can be published. Production/live-readiness approval remains out of scope.
 
 ## Verification evidence
 
