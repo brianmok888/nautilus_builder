@@ -50,7 +50,7 @@ describe("ExecutionLaneFeaturePanel", () => {
     expect(screen.queryByRole("button", { name: "Save credential slot" })).not.toBeInTheDocument();
   });
 
-  it("fully wires paper TradingNode profile, runtime plan, command enqueue, and backend worker report", async () => {
+  it("requests only backend-owned profile and runtime-plan visibility from the browser", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
@@ -68,7 +68,8 @@ describe("ExecutionLaneFeaturePanel", () => {
           ui_enabled: true,
           paper_controls_enabled: true,
         });
-        expect(JSON.stringify(payload).toLowerCase()).not.toContain("api_key");
+        expect(JSON.stringify(payload)).not.toContain("order_intent");
+        expect(JSON.stringify(payload)).not.toContain("risk_decision");
         return Response.json({ ...payload, strategy_lane_coupled: false }, { status: 201 });
       }
       if (url.startsWith("/api/execution-lane/runtime-plan") && method === "GET") {
@@ -110,63 +111,26 @@ describe("ExecutionLaneFeaturePanel", () => {
           nautilus_trader_version: "1.223.0",
         });
       }
-      if (url === "/api/execution-lane/commands" && method === "POST") {
-        const payload = JSON.parse(String(init?.body));
-        expect(payload).toMatchObject({
-          runtime_profile_id: "rp_paper_tradingnode",
-          lane_mode: "paper",
-          adapter_id: "BINANCE_PERP",
-          venue: "BINANCE",
-          strategy_lineage_id: "lineage_ema_rsi",
-          strategy_version_id: "strategy_001_v004",
-          order_intent: { side: "BUY", instrument_id: "BTCUSDT-PERP.BINANCE", quantity: "0.01" },
-        });
-        expect(payload.may_submit_order).toBeUndefined();
-        return Response.json({ ...payload, command_id: "exec_cmd_paper_001", status: "QUEUED", may_submit_order: false }, { status: 201 });
-      }
-      if (url === "/api/execution-lane/worker/run-once" && method === "POST") {
-        const payload = JSON.parse(String(init?.body));
-        expect(payload).toEqual({ runtime_profile_id: "rp_paper_tradingnode", worker_id: "web_execution_worker" });
-        return Response.json(
-          {
-            report_id: "exec_report_001",
-            command_id: "exec_cmd_paper_001",
-            runtime_profile_id: "rp_paper_tradingnode",
-            tenant_id: "tenant_a",
-            project_id: "project_alpha",
-            lane_mode: "paper",
-            adapter_id: "BINANCE_PERP",
-            venue_account_id: "SIM-BINANCE-001",
-            report_type: "tradingnode_runtime_plan",
-            venue: "BINANCE",
-            instrument_id: "BTCUSDT-PERP.BINANCE",
-            strategy_lane_coupled: false,
-            payload: {
-              node_runtime: "python_trading_node",
-              runtime_label: "python_live_integration_specific",
-              may_submit_order: false,
-              browser_credentials_allowed: false,
-            },
-          },
-          { status: 202 },
-        );
-      }
-      throw new Error(`unexpected fetch ${method} ${url}`);
+      throw new Error(`unexpected browser runtime action ${method} ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<ExecutionLaneFeaturePanel />);
 
     expect(await screen.findByText("Feature visibility matrix")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Queue paper command" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run backend worker plan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Paper Session" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop / Dispose" })).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Wire paper profile" }));
     await waitFor(() => expect(screen.getByText("Runtime plan READY")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Queue paper command" }));
-    await waitFor(() => expect(screen.getByText("Command queued: exec_cmd_paper_001")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Run backend worker plan" }));
-    await waitFor(() => expect(screen.getByText("Worker report: tradingnode_runtime_plan")).toBeInTheDocument());
-
+    const requestedUrls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(requestedUrls.some((url) => url === "/api/execution-lane/commands")).toBe(false);
+    expect(requestedUrls.some((url) => url === "/api/execution-lane/worker/run-once")).toBe(false);
+    expect(requestedUrls.some((url) => url === "/api/execution-lane/sessions/start")).toBe(false);
+    expect(requestedUrls.some((url) => url.includes("/api/execution-lane/sessions/") && url.endsWith("/stop"))).toBe(false);
     expect(screen.getByText("python_live_integration_specific")).toBeInTheDocument();
     expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /submit order/i })).not.toBeInTheDocument();

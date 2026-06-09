@@ -9,11 +9,8 @@ import type {
   BacktestRunResponse,
   BacktestProfileValidation,
   DataAvailability,
-  ExecutionLaneCommand,
   ExecutionLaneProfile,
-  ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
-  ExecutionLaneSession,
   ExecutionLaneStatus,
   InstrumentSummary,
   LlmConfig,
@@ -191,58 +188,6 @@ export async function fetchExecutionLaneRuntimePlan(
   const params = new URLSearchParams({ runtime_profile_id: runtimeProfileId });
   if (commandId) params.set("command_id", commandId);
   return apiFetch<ExecutionLaneRuntimePlan>(`/api/execution-lane/runtime-plan?${params.toString()}`);
-}
-
-export async function enqueueExecutionLaneCommand(
-  payload: Record<string, unknown>,
-): Promise<ExecutionLaneCommand> {
-  return apiFetch<ExecutionLaneCommand>("/api/execution-lane/commands", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function runExecutionLaneWorkerOnce(payload: {
-  runtime_profile_id: string;
-  worker_id?: string;
-}): Promise<ExecutionLaneReport> {
-  return apiFetch<ExecutionLaneReport>("/api/execution-lane/worker/run-once", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-
-export async function startExecutionLanePaperSession(payload: {
-  runtime_profile_id: string;
-  command_id: string;
-  worker_id?: string;
-  project_id?: string;
-}): Promise<ExecutionLaneSession> {
-  return apiFetch<ExecutionLaneSession>("/api/execution-lane/sessions/start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function fetchExecutionLaneSession(
-  sessionId: string,
-): Promise<ExecutionLaneSession> {
-  return apiFetch<ExecutionLaneSession>(`/api/execution-lane/sessions/${sessionId}`);
-}
-
-export async function stopExecutionLaneSession(
-  sessionId: string,
-  payload: { worker_id?: string } = {},
-): Promise<ExecutionLaneSession> {
-  return apiFetch<ExecutionLaneSession>(`/api/execution-lane/sessions/${sessionId}/stop`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
 }
 
 export async function fetchAdapters(): Promise<AdapterSummary[]> {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { ApiError, apiFetch, runBacktestJob, startExecutionLanePaperSession, stopExecutionLaneSession } from "./api";
+import { ApiError, apiFetch, runBacktestJob } from "./api";
 
 describe("apiFetch", () => {
   afterEach(() => {
@@ -186,106 +186,16 @@ describe("apiFetch", () => {
   });
 
 
-  it("posts paper TradingNode session start and stop through backend-owned routes", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const payload = JSON.parse(String(init?.body));
-      if (url === "/api/execution-lane/sessions/start") {
-        expect(init?.method).toBe("POST");
-        expect(payload).toEqual({
-          runtime_profile_id: "rp_paper_tradingnode",
-          command_id: "exec_cmd_paper_001",
-          worker_id: "web_execution_worker",
-          project_id: "project_alpha",
-        });
-        return Response.json({
-          session_id: "exec_session_001",
-          command_id: "exec_cmd_paper_001",
-          runtime_profile_id: "rp_paper_tradingnode",
-          tenant_id: "tenant_a",
-          project_id: "project_alpha",
-          lane_mode: "paper",
-          adapter_id: "BINANCE_PERP",
-          venue: "BINANCE",
-          status: "RUNNING",
-          lifecycle_status: "RUNNING",
-          runner_mode: "contract_dry_run",
-          worker_id: "web_execution_worker",
-          started_at: "2026-05-27T00:00:00Z",
-          runtime_environment: "sandbox",
-          node_runtime: "python_trading_node",
-          runtime_label: "python_live_integration_specific",
-          future_runtime: "rust_live_node",
-          strategy_lineage_id: "lineage_ema_rsi",
-          strategy_version_id: "strategy_001_v004",
-          trade_action_id: "ta_paper_001",
-          credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
-          credential_env_keys: ["BINANCE_API_KEY", "BINANCE_API_SECRET"],
-          credential_values_resolved: true,
-          tradingnode_config: { config_type: "TradingNodeConfig" },
-          attached_strategy: { strategy_version_id: "strategy_001_v004", may_submit_order: false },
-          lifecycle_events: [{ status: "RUNNING", message: "started", timestamp: "2026-05-27T00:00:00Z", session_id: "exec_session_001" }],
-          browser_credentials_allowed: false,
-          credential_inputs_allowed: false,
-          strategy_lane_coupled: false,
-          live_trading_enabled: false,
-          execution_authority: false,
-          may_submit_order: false,
-        }, { status: 202 });
-      }
-      expect(url).toBe("/api/execution-lane/sessions/exec_session_001/stop");
-      expect(init?.method).toBe("POST");
-      expect(payload).toEqual({ worker_id: "web_execution_worker" });
-      return Response.json({
-        session_id: "exec_session_001",
-        command_id: "exec_cmd_paper_001",
-        runtime_profile_id: "rp_paper_tradingnode",
-        tenant_id: "tenant_a",
-        project_id: "project_alpha",
-        lane_mode: "paper",
-        adapter_id: "BINANCE_PERP",
-        venue: "BINANCE",
-        status: "DISPOSED",
-        lifecycle_status: "DISPOSED",
-        runner_mode: "contract_dry_run",
-        worker_id: "web_execution_worker",
-        started_at: "2026-05-27T00:00:00Z",
-        stopped_at: "2026-05-27T00:01:00Z",
-        disposed_at: "2026-05-27T00:01:00Z",
-        runtime_environment: "sandbox",
-        node_runtime: "python_trading_node",
-        runtime_label: "python_live_integration_specific",
-        future_runtime: "rust_live_node",
-        strategy_lineage_id: "lineage_ema_rsi",
-        strategy_version_id: "strategy_001_v004",
-        trade_action_id: "ta_paper_001",
-        credential_slot_ref: "credslot://local-env/project_alpha/rp_paper_tradingnode/binance",
-        credential_env_keys: ["BINANCE_API_KEY", "BINANCE_API_SECRET"],
-        credential_values_resolved: true,
-        tradingnode_config: { config_type: "TradingNodeConfig" },
-        attached_strategy: { strategy_version_id: "strategy_001_v004", may_submit_order: false },
-        lifecycle_events: [{ status: "DISPOSED", message: "disposed", timestamp: "2026-05-27T00:01:00Z", session_id: "exec_session_001" }],
-        browser_credentials_allowed: false,
-        credential_inputs_allowed: false,
-        strategy_lane_coupled: false,
-        live_trading_enabled: false,
-        execution_authority: false,
-        may_submit_order: false,
-      }, { status: 202 });
-    });
-    vi.stubGlobal("fetch", fetchMock);
+  it("does not expose browser runtime-action helpers", () => {
+    const apiSource = readFileSync("lib/api.ts", "utf8");
 
-    const started = await startExecutionLanePaperSession({
-      runtime_profile_id: "rp_paper_tradingnode",
-      command_id: "exec_cmd_paper_001",
-      worker_id: "web_execution_worker",
-      project_id: "project_alpha",
-    });
-    expect(started.lifecycle_status).toBe("RUNNING");
-    expect(started.tradingnode_config.config_type).toBe("TradingNodeConfig");
-    await expect(stopExecutionLaneSession("exec_session_001", { worker_id: "web_execution_worker" })).resolves.toMatchObject({
-      lifecycle_status: "DISPOSED",
-    });
+    expect(apiSource).not.toContain("enqueueExecutionLaneCommand");
+    expect(apiSource).not.toContain("runExecutionLaneWorkerOnce");
+    expect(apiSource).not.toContain("startExecutionLanePaperSession");
+    expect(apiSource).not.toContain("stopExecutionLaneSession");
+    expect(apiSource).not.toContain("/api/execution-lane/commands");
+    expect(apiSource).not.toContain("/api/execution-lane/worker/run-once");
+    expect(apiSource).not.toContain("/api/execution-lane/sessions/start");
   });
 
 });

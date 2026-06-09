@@ -34,18 +34,25 @@ def test_execution_page_exposes_execution_lane_venue_feature_panel() -> None:
     assert "/api/execution-lane/credential-slots" not in api
     assert "ExecutionLaneStatus" in types
     assert "ExecutionLaneProfile" in types
-    assert "ExecutionLaneCommand" in types
+    assert "ExecutionLaneCommand" not in types
     assert "ExecutionLaneRuntimePlan" in types
-    assert "ExecutionLaneReport" in types
+    assert "ExecutionLaneSession" not in types
+    assert "ExecutionLaneReport" not in types
     assert "fetchExecutionLaneStatus" in api
     assert "registerExecutionLaneProfile" in api
     assert "fetchExecutionLaneRuntimePlan" in api
-    assert "enqueueExecutionLaneCommand" in api
-    assert "runExecutionLaneWorkerOnce" in api
+    assert "order_intent" not in component
+    assert "risk_decision" not in component
+    assert "startExecutionLanePaperSession" not in api
+    assert "stopExecutionLaneSession" not in api
+    assert "/api/execution-lane/commands" not in api
+    assert "/api/execution-lane/sessions/start" not in api
+    assert "enqueueExecutionLaneCommand" not in api
+    assert "runExecutionLaneWorkerOnce" not in api
     assert "Wire paper profile" in component
-    assert "Queue paper command" in component
-    assert "Run backend worker plan" in component
+    assert "Queue paper command" not in component
+    assert "Run backend worker plan" not in component
     assert "Runtime plan" in component
-    assert "Worker report" in component
+    assert "Worker report" not in component
     assert "paper sandbox only" in component
-    assert "/api/execution-lane/worker/run-once" in api
+    assert "/api/execution-lane/worker/run-once" not in api

@@ -11,26 +11,18 @@ import {
   Form,
   Input,
   Row,
-  Select,
   Space,
   Switch,
   Tag,
   Typography,
 } from "antd";
 import {
-  enqueueExecutionLaneCommand,
   fetchExecutionLaneRuntimePlan,
   fetchExecutionLaneStatus,
   registerExecutionLaneProfile,
-  runExecutionLaneWorkerOnce,
-  startExecutionLanePaperSession,
-  stopExecutionLaneSession,
 } from "../../lib/api";
 import type {
-  ExecutionLaneCommand,
-  ExecutionLaneReport,
   ExecutionLaneRuntimePlan,
-  ExecutionLaneSession,
   ExecutionLaneStatus,
 } from "../../lib/types";
 
@@ -57,7 +49,7 @@ const fallbackStatus: ExecutionLaneStatus = {
   may_submit_order: false,
 };
 
-type PaperWireDraft = {
+type PaperProfileDraft = {
   tenant_id: string;
   project_id: string;
   runtime_profile_id: string;
@@ -65,14 +57,9 @@ type PaperWireDraft = {
   adapter_id: string;
   venue: string;
   venue_account_id: string;
-  instrument_id: string;
-  side: "BUY" | "SELL";
-  quantity: string;
-  strategy_lineage_id: string;
-  strategy_version_id: string;
 };
 
-const defaultWireDraft: PaperWireDraft = {
+const defaultProfileDraft: PaperProfileDraft = {
   tenant_id: "tenant_a",
   project_id: "project_alpha",
   runtime_profile_id: "rp_paper_tradingnode",
@@ -80,23 +67,18 @@ const defaultWireDraft: PaperWireDraft = {
   adapter_id: "BINANCE_PERP",
   venue: "BINANCE",
   venue_account_id: "SIM-BINANCE-001",
-  instrument_id: "BTCUSDT-PERP.BINANCE",
-  side: "BUY",
-  quantity: "0.01",
-  strategy_lineage_id: "lineage_ema_rsi",
-  strategy_version_id: "strategy_001_v004",
 };
 
 function boolText(value: boolean): string {
   return value ? "true" : "false";
 }
 
-function streamName(draft: PaperWireDraft): string {
+function streamName(draft: PaperProfileDraft): string {
   return `builder.execution.commands.paper.${draft.project_id}.${draft.venue.toLowerCase()}`;
 }
 
-function profilePayload(draft: PaperWireDraft): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
+function profilePayload(draft: PaperProfileDraft): Record<string, unknown> {
+  return {
     tenant_id: draft.tenant_id,
     project_id: draft.project_id,
     runtime_profile_id: draft.runtime_profile_id,
@@ -112,55 +94,15 @@ function profilePayload(draft: PaperWireDraft): Record<string, unknown> {
     live_controls_enabled: false,
     consumes_stream: streamName(draft),
   };
-  return payload;
-}
-
-function commandPayload(draft: PaperWireDraft): Record<string, unknown> {
-  return {
-    tenant_id: draft.tenant_id,
-    project_id: draft.project_id,
-    runtime_profile_id: draft.runtime_profile_id,
-    lane_mode: "paper",
-    adapter_id: draft.adapter_id,
-    venue: draft.venue,
-    venue_account_id: draft.venue_account_id,
-    trade_action_id: `ta_${draft.runtime_profile_id}`,
-    source_event_id: `gate_evt_${draft.runtime_profile_id}`,
-    idempotency_key: `gate_evt_${draft.runtime_profile_id}:ta_${draft.runtime_profile_id}`,
-    strategy_lineage_id: draft.strategy_lineage_id,
-    strategy_version_id: draft.strategy_version_id,
-    order_intent: {
-      side: draft.side,
-      instrument_id: draft.instrument_id,
-      quantity: draft.quantity,
-    },
-    risk_decision: {
-      status: "approved",
-      risk_profile_id: "risk_paper_default",
-    },
-  };
 }
 
 export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_id: string; strategy_lineage_id?: string } | null }) {
   const [status, setStatus] = useState<ExecutionLaneStatus>(fallbackStatus);
-  const [wireDraft, setWireDraft] = useState<PaperWireDraft>(defaultWireDraft);
-
-  // Auto-fill strategy fields when strategy is loaded from execution lane
-  useEffect(() => {
-    if (!strategy) return;
-    setWireDraft((prev) => ({
-      ...prev,
-      strategy_lineage_id: strategy.strategy_lineage_id ?? prev.strategy_lineage_id,
-      strategy_version_id: strategy.strategy_id ?? prev.strategy_version_id,
-    }));
-  }, [strategy]);
+  const [profileDraft, setProfileDraft] = useState<PaperProfileDraft>(defaultProfileDraft);
   const [runtimePlan, setRuntimePlan] = useState<ExecutionLaneRuntimePlan | null>(null);
-  const [command, setCommand] = useState<ExecutionLaneCommand | null>(null);
-  const [workerReport, setWorkerReport] = useState<ExecutionLaneReport | null>(null);
-  const [session, setSession] = useState<ExecutionLaneSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [action, setAction] = useState<"profile" | "command" | "worker" | "start-session" | "stop-session" | null>(null);
+  const [action, setAction] = useState<"profile" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,16 +130,17 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
 
   const features = status.ui_features ?? fallbackStatus.ui_features;
   const bindings = status.venue_bindings ?? [];
-  const profilePreview = useMemo(() => profilePayload(wireDraft), [wireDraft]);
-  const commandPreview = useMemo(() => commandPayload(wireDraft), [wireDraft]);
+  const profilePreview = useMemo(() => profilePayload(profileDraft), [profileDraft]);
   const preview = useMemo(
     () => ({
       mode: status.mode,
       venue_bindings: bindings,
       ui_features: features,
+      selected_strategy_id: strategy?.strategy_id ?? null,
       strategy_lane_coupled: status.strategy_lane_coupled,
       may_submit_order: status.may_submit_order,
       credential_policy: "server-side credential slot only",
+      browser_runtime_actions: "disabled",
       runtime_plan: runtimePlan
         ? {
             readiness_status: runtimePlan.readiness_status,
@@ -207,23 +150,16 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
             may_submit_order: runtimePlan.may_submit_order,
           }
         : null,
-      command_id: command?.command_id ?? null,
-      worker_report_id: workerReport?.report_id ?? null,
-      session_id: session?.session_id ?? null,
-      session_status: session?.lifecycle_status ?? null,
     }),
-    [bindings, command, features, runtimePlan, session, status.may_submit_order, status.mode, status.strategy_lane_coupled, workerReport],
+    [bindings, features, runtimePlan, status.may_submit_order, status.mode, status.strategy_lane_coupled, strategy?.strategy_id],
   );
 
-  function updateWireField<K extends keyof PaperWireDraft>(field: K, value: PaperWireDraft[K]) {
-    setWireDraft((current) => ({ ...current, [field]: value }));
+  function updateProfileField<K extends keyof PaperProfileDraft>(field: K, value: PaperProfileDraft[K]) {
+    setProfileDraft((current) => ({ ...current, [field]: value }));
     setRuntimePlan(null);
-    setCommand(null);
-    setWorkerReport(null);
-    setSession(null);
   }
 
-  async function refreshStatus(runtimeProfileId = wireDraft.runtime_profile_id) {
+  async function refreshStatus(runtimeProfileId = profileDraft.runtime_profile_id) {
     const next = await fetchExecutionLaneStatus(runtimeProfileId);
     setStatus(next);
   }
@@ -231,96 +167,17 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
   async function onWireProfile() {
     setAction("profile");
     setError(null);
-    setWorkerReport(null);
-    setSession(null);
     try {
       await registerExecutionLaneProfile(profilePreview);
-      const plan = await fetchExecutionLaneRuntimePlan(wireDraft.runtime_profile_id);
+      const plan = await fetchExecutionLaneRuntimePlan(profileDraft.runtime_profile_id);
       setRuntimePlan(plan);
-      await refreshStatus(wireDraft.runtime_profile_id);
+      await refreshStatus(profileDraft.runtime_profile_id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setAction(null);
     }
   }
-
-  async function onQueueCommand() {
-    setAction("command");
-    setError(null);
-    setWorkerReport(null);
-    setSession(null);
-    try {
-      const queued = await enqueueExecutionLaneCommand(commandPreview);
-      setCommand(queued);
-      const plan = await fetchExecutionLaneRuntimePlan(wireDraft.runtime_profile_id, queued.command_id);
-      setRuntimePlan(plan);
-      await refreshStatus(wireDraft.runtime_profile_id);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setAction(null);
-    }
-  }
-
-  async function onRunWorkerPlan() {
-    setAction("worker");
-    setError(null);
-    try {
-      const report = await runExecutionLaneWorkerOnce({
-        runtime_profile_id: wireDraft.runtime_profile_id,
-        worker_id: "web_execution_worker",
-      });
-      setWorkerReport(report);
-      await refreshStatus(wireDraft.runtime_profile_id);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setAction(null);
-    }
-  }
-
-
-
-  async function onStartPaperSession() {
-    if (!command?.command_id) return;
-    setAction("start-session");
-    setError(null);
-    try {
-      const started = await startExecutionLanePaperSession({
-        runtime_profile_id: wireDraft.runtime_profile_id,
-        command_id: command.command_id,
-        worker_id: "web_execution_worker",
-        project_id: wireDraft.project_id,
-      });
-      setSession(started);
-      await refreshStatus(wireDraft.runtime_profile_id);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setAction(null);
-    }
-  }
-
-  async function onStopPaperSession() {
-    if (!session?.session_id) return;
-    setAction("stop-session");
-    setError(null);
-    try {
-      const stopped = await stopExecutionLaneSession(session.session_id, { worker_id: "web_execution_worker" });
-      setSession(stopped);
-      await refreshStatus(wireDraft.runtime_profile_id);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setAction(null);
-    }
-  }
-
-  const canQueue = Boolean(runtimePlan && runtimePlan.readiness_status === "READY");
-  const canRunWorker = Boolean(command?.command_id);
-  const canStartPaperSession = false;
-  const canStopPaperSession = Boolean(session?.session_id && session.lifecycle_status === "RUNNING");
 
   return (
     <section className="panel config-panel" aria-label="execution lane feature configuration">
@@ -337,7 +194,7 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
           showIcon
           type="warning"
           title="Execution lane feature flags are backend-owned"
-          description="The UI can wire paper TradingNode plans through backend contracts, but venue credentials and order authority stay server-side behind risk, reconciliation, manual approval, and credential-slot gates."
+          description="The UI can request backend-owned paper TradingNode profile visibility and runtime plans, but command construction, worker/session lifecycle, venue credentials, and order authority stay server-side behind risk, reconciliation, manual approval, and credential-slot gates."
         />
 
         <Card title="Venue binding" loading={loading}>
@@ -390,70 +247,38 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
           </Row>
         </Card>
 
-
-
-        <Card title="Paper TradingNode wire" size="small">
+        <Card title="Paper TradingNode visibility wire" size="small">
           <Typography.Paragraph type="secondary">
-            Full web wire: save a paper runtime profile, fetch the guarded TradingNode runtime plan,
-            enqueue a paper command, then ask the backend worker seam to emit a runtime-plan report.
-            The browser does not receive shell access, raw credentials, or live order authority.
+            Web wire: save a paper runtime profile and fetch the guarded TradingNode runtime plan.
+            Backend services own command creation, worker execution, and session lifecycle; the browser only requests and observes.
           </Typography.Paragraph>
           <Form layout="vertical" className="form-grid">
             <Form.Item label="Runtime profile ID">
               <Input
                 aria-label="Runtime profile ID"
-                value={wireDraft.runtime_profile_id}
-                onChange={(event) => updateWireField("runtime_profile_id", event.target.value)}
+                value={profileDraft.runtime_profile_id}
+                onChange={(event) => updateProfileField("runtime_profile_id", event.target.value)}
               />
             </Form.Item>
             <Form.Item label="Adapter ID">
               <Input
                 aria-label="Execution adapter ID"
-                value={wireDraft.adapter_id}
-                onChange={(event) => updateWireField("adapter_id", event.target.value)}
+                value={profileDraft.adapter_id}
+                onChange={(event) => updateProfileField("adapter_id", event.target.value)}
               />
             </Form.Item>
             <Form.Item label="Venue">
               <Input
                 aria-label="Execution venue"
-                value={wireDraft.venue}
-                onChange={(event) => updateWireField("venue", event.target.value)}
+                value={profileDraft.venue}
+                onChange={(event) => updateProfileField("venue", event.target.value)}
               />
             </Form.Item>
             <Form.Item label="Venue account">
               <Input
                 aria-label="Venue account"
-                value={wireDraft.venue_account_id}
-                onChange={(event) => updateWireField("venue_account_id", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Instrument">
-              <Input
-                aria-label="Execution instrument"
-                value={wireDraft.instrument_id}
-                onChange={(event) => updateWireField("instrument_id", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Side">
-              <Select
-                aria-label="Execution side"
-                value={wireDraft.side}
-                options={[{ value: "BUY", label: "BUY" }, { value: "SELL", label: "SELL" }]}
-                onChange={(value) => updateWireField("side", value)}
-              />
-            </Form.Item>
-            <Form.Item label="Quantity">
-              <Input
-                aria-label="Execution quantity"
-                value={wireDraft.quantity}
-                onChange={(event) => updateWireField("quantity", event.target.value)}
-              />
-            </Form.Item>
-            <Form.Item label="Strategy version">
-              <Input
-                aria-label="Execution strategy version"
-                value={wireDraft.strategy_version_id}
-                onChange={(event) => updateWireField("strategy_version_id", event.target.value)}
+                value={profileDraft.venue_account_id}
+                onChange={(event) => updateProfileField("venue_account_id", event.target.value)}
               />
             </Form.Item>
           </Form>
@@ -461,20 +286,9 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
             <Button type="primary" loading={action === "profile"} onClick={onWireProfile}>
               Wire paper profile
             </Button>
-            <Button disabled={!canQueue} loading={action === "command"} onClick={onQueueCommand}>
-              Queue paper command
-            </Button>
-            <Button disabled={!canRunWorker} loading={action === "worker"} onClick={onRunWorkerPlan}>
-              Run backend worker plan
-            </Button>
-            <Button disabled={!canStartPaperSession} loading={action === "start-session"} onClick={onStartPaperSession}>
-              Start Paper Session
-            </Button>
-            <Button danger disabled={!canStopPaperSession} loading={action === "stop-session"} onClick={onStopPaperSession}>
-              Stop / Dispose
-            </Button>
             <Tag color="green">paper sandbox only</Tag>
-            <Tag color="gold">backend worker only</Tag>
+            <Tag color="gold">backend action owner</Tag>
+            <Tag color="blue">browser observe-only</Tag>
           </Space>
         </Card>
 
@@ -505,60 +319,6 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
           </Card>
         ) : null}
 
-        {command ? (
-          <Alert
-            showIcon
-            type="success"
-            title={`Command queued: ${command.command_id}`}
-            description="The command is queued for the backend execution-lane worker; the browser still cannot start a venue process or submit orders."
-          />
-        ) : null}
-
-
-
-        {session ? (
-          <Card title={`Paper session: ${session.lifecycle_status}`} size="small" aria-label="execution paper session">
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={12}>
-                <Space orientation="vertical" size={4}>
-                  <Typography.Text>session_id: {session.session_id}</Typography.Text>
-                  <Typography.Text>runner_mode: {session.runner_mode}</Typography.Text>
-                  <Typography.Text>runtime_environment: {session.runtime_environment}</Typography.Text>
-                  <Typography.Text>credential_slot_ref: {session.credential_slot_ref}</Typography.Text>
-                  <Typography.Text>credential keys: {session.credential_env_keys.join(", ")}</Typography.Text>
-                </Space>
-              </Col>
-              <Col xs={24} md={12}>
-                <Space orientation="vertical" size={4}>
-                  <Typography.Text>config: {String(session.tradingnode_config.config_type ?? "TradingNodeConfig")}</Typography.Text>
-                  <Typography.Text>strategy version: {String(session.attached_strategy.strategy_version_id ?? session.strategy_version_id)}</Typography.Text>
-                  <Typography.Text>may submit order: {boolText(session.may_submit_order)}</Typography.Text>
-                  <Typography.Text>browser credentials allowed: {boolText(session.browser_credentials_allowed)}</Typography.Text>
-                </Space>
-              </Col>
-            </Row>
-            <Divider />
-            <Space wrap>
-              {session.lifecycle_events.map((event) => (
-                <Tag key={`${event.status}:${event.timestamp}`} color={event.status === "RUNNING" ? "green" : event.status === "DISPOSED" ? "purple" : "blue"}>
-                  {event.status}
-                </Tag>
-              ))}
-            </Space>
-          </Card>
-        ) : null}
-
-        {workerReport ? (
-          <Card title={`Worker report: ${workerReport.report_type}`} size="small" aria-label="execution worker report">
-            <Space orientation="vertical" size={4}>
-              <Typography.Text>report_id: {workerReport.report_id}</Typography.Text>
-              <Typography.Text>command_id: {workerReport.command_id}</Typography.Text>
-              <Typography.Text>instrument: {workerReport.instrument_id}</Typography.Text>
-              <Typography.Text>strategy lane coupled: {boolText(workerReport.strategy_lane_coupled)}</Typography.Text>
-            </Space>
-          </Card>
-        ) : null}
-
         <Card title="Execution lane UI">
           <Row gutter={[12, 12]}>
             <Col xs={24} md={8}>
@@ -585,8 +345,8 @@ export function ExecutionLaneFeaturePanel({ strategy }: { strategy?: { strategy_
           </Row>
           <Divider />
           <Typography.Paragraph type="secondary">
-            server-side credential slot only; profile, command, worker report, and runtime-plan payloads never
-            carry raw exchange secrets, passwords, or venue signing material.
+            server-side credential slot only; profile and runtime-plan payloads never carry raw exchange secrets,
+            passwords, or venue signing material. Browser runtime actions are disabled.
           </Typography.Paragraph>
           {error ? <Alert type="error" showIcon title="Execution lane request failed" description={error} /> : null}
         </Card>

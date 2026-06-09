@@ -4,11 +4,11 @@
 **Target repository:** `/home/mok/projects/nautilus_builder`
 **Reference repository:** `/home/mok/projects/Nautilus-Daedalus`
 **Review mode:** `$superpowers:code-review` routed through `$superpowers:nt-review` (primary) with `nt-architect`, `nt-adapters`, `nt-live`, `nt-testing`, and `aiogram-dialog-menus` as supporting boundary lenses.
-**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-3 closed credential packaging/browser entry, API exposure, rate-limit enforcement, audit-attribution, artifact-readiness, and LLM-persistence gaps. Frontend runtime-action ownership and safety-scan hardening remain open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
+**Current verdict:** **REQUEST CHANGES FOR PRODUCTION/SECURITY READINESS** — Segments 1-4 closed credential packaging/browser entry, API exposure, rate-limit enforcement, audit-attribution, artifact-readiness, LLM-persistence, and frontend runtime-action ownership gaps. Safety-scan hardening remains open. No Builder production `submit_order(` or authoritative `TradeAction(` path was found.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-3 close credential/API-rate-limit/audit-attribution plus artifact-readiness/LLM-persistence blockers. Remaining production/security blockers are frontend runtime-action ownership and safety-scan hardening.
+**Review result:** **REQUEST CHANGES for production/security readiness; COMMENT for local Builder-only UX.** The user-reported sidebar confusion is closed in the current UI, and Segments 1-4 close credential/API-rate-limit/audit-attribution, artifact-readiness/LLM-persistence, and frontend runtime-action ownership blockers. Remaining production/security blocker is safety-scan hardening.
 
 ### Current inventory snapshot
 
@@ -38,7 +38,7 @@
 
 ### Segment 1 closure snapshot
 
-Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact-store startup/readiness wiring and Postgres LLM config persistence. Remaining open blockers are frontend runtime-action ownership and safety scan hardening.
+Credential/package safety is now closed for browser/API and Docker packaging. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact-store startup/readiness wiring and Postgres LLM config persistence. Segment 4 closes frontend runtime-action ownership. Remaining open blocker is safety scan hardening.
 
 Verification:
 
@@ -81,6 +81,26 @@ git diff --check
 # pass
 ```
 
+### Segment 4 closure snapshot
+
+Frontend runtime-action ownership is now closed for the reviewed blocker scope. The Execution Lane panel can register a backend-owned paper profile and fetch a runtime plan, but it no longer constructs command payloads, risk decisions, worker run requests, or paper session start/stop requests. The frontend API client no longer exports helper functions for execution-lane command, worker, or session action endpoints.
+
+Verification:
+
+```bash
+cd apps/web && npm run test -- components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# 14 passed, 2 skipped
+
+cd apps/web && npm run typecheck
+# pass
+
+python3 -m pytest tests/web/test_execution_lane_ui_contract.py -q
+# 1 passed
+
+git diff --check
+# pass
+```
+
 | Priority | Finding | Evidence | Why it matters |
 |---|---|---|---|
 | **CLOSED** | Docker API image can bake local credential files into image layers/build context. | Segment 1: `Dockerfile.api` no longer copies `.env.execution.local`/`.env.local`; `.dockerignore` excludes `.env*` and local state. | Credential packaging path closed; rotate any pre-existing real keys. |
@@ -90,6 +110,7 @@ git diff --check
 | **CLOSED** | Mutation audit attribution is missing and Postgres audit writes can silently fail. | Segment 2: `AuthContextMiddleware` sets request actor/project for valid bearer tokens and the Postgres audit writer includes `project_id`. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling. | Mutations now carry authenticated actor/project attribution into audit events, and successful mutations fail closed if audit persistence fails. |
 | **CLOSED** | FastAPI ignored the artifact-store factory/env and still reported artifact readiness. | Segment 3: `create_fastapi_app()` now initializes the default artifact store from factory/env, `create_artifact_store()` honors `BUILDER_ARTIFACT_ROOT`, and `/health/ready` reports factory failure. | Local demo backtest/promotion startup now has an initialized artifact store or an explicit readiness failure. |
 | **CLOSED** | Postgres LLM config saves were disabled by a reset variable. | Segment 3: `_pg_config_repo` is preserved after startup and passed to `save_llm_config_payload()` when Postgres is configured. | Config saves now persist through the Postgres config repository instead of drifting after restart. |
+| **CLOSED** | Frontend constructed execution-lane command/risk/worker/session actions. | Segment 4: `ExecutionLaneFeaturePanel` now only registers profile visibility and fetches runtime plans; `apps/web/lib/api.ts` no longer exports command, worker, or session action helpers. | Browser UI is observe/request-only for execution lane runtime plans; backend remains the action owner. |
 
 ### Official/reference alignment notes
 
@@ -300,7 +321,7 @@ python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_s
 # pass
 ```
 
-Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review is blocked until the artifact-store, LLM persistence, runtime-action, and safety-scan findings are closed.
+Historical prior-closeout note: full master reconciliation, architecture review follow-up, and verification had passed for the earlier Builder-only dev-demo scope. The current 2026-06-08 addendum supersedes this for production/security readiness: the review remains blocked only until safety-scan hardening is closed.
 
 ## Master reconciliation — findings closure implementation
 

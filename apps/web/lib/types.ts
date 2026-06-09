@@ -54,27 +54,6 @@ export type ExecutionLaneProfile = {
   strategy_lane_coupled?: false;
 };
 
-export type ExecutionLaneCommand = {
-  command_id: string;
-  tenant_id: string;
-  project_id: string;
-  runtime_profile_id: string;
-  lane_mode: "paper" | "live";
-  adapter_id: string;
-  venue: string;
-  venue_account_id?: string | null;
-  trade_action_id: string;
-  source_event_id: string;
-  idempotency_key: string;
-  strategy_lineage_id: string;
-  strategy_version_id: string;
-  order_intent: Record<string, unknown>;
-  risk_decision: Record<string, unknown>;
-  status: string;
-  may_submit_order: boolean;
-  strategy_lane_coupled: false;
-};
-
 export type ExecutionLaneRuntimePlan = {
   schema_version: "execution_lane.tradingnode.v1" | string;
   tenant_id: string;
@@ -103,61 +82,6 @@ export type ExecutionLaneRuntimePlan = {
   nautilus_trader_version?: string | null;
 };
 
-
-export type ExecutionLaneSession = {
-  session_id: string;
-  command_id: string;
-  runtime_profile_id: string;
-  tenant_id: string;
-  project_id: string;
-  lane_mode: "paper" | "live" | string;
-  adapter_id: string;
-  venue: string;
-  venue_account_id?: string | null;
-  status: "INITIALIZED" | "RUNNING" | "STOPPED" | "DISPOSED" | "FAILED" | string;
-  lifecycle_status: "INITIALIZED" | "RUNNING" | "STOPPED" | "DISPOSED" | "FAILED" | string;
-  runner_mode: string;
-  worker_id: string;
-  started_at: string;
-  stopped_at?: string | null;
-  disposed_at?: string | null;
-  runtime_environment: "sandbox" | "live" | string;
-  node_runtime: string;
-  runtime_label: string;
-  future_runtime: string;
-  strategy_lineage_id: string;
-  strategy_version_id: string;
-  trade_action_id: string;
-  promotion_approval_id?: string | null;
-  credential_slot_ref: string;
-  credential_env_keys: string[];
-  credential_values_resolved: boolean;
-  tradingnode_config: Record<string, unknown>;
-  attached_strategy: Record<string, unknown>;
-  lifecycle_events: Array<{ status: string; message: string; timestamp: string; session_id: string }>;
-  browser_credentials_allowed: false;
-  credential_inputs_allowed: false;
-  strategy_lane_coupled: false;
-  live_trading_enabled: boolean;
-  execution_authority: boolean;
-  may_submit_order: boolean;
-};
-
-export type ExecutionLaneReport = {
-  report_id: string;
-  command_id: string;
-  runtime_profile_id: string;
-  tenant_id: string;
-  project_id: string;
-  lane_mode: "paper" | "live" | string;
-  adapter_id: string;
-  venue_account_id?: string | null;
-  report_type: string;
-  venue: string;
-  instrument_id: string;
-  payload: Record<string, unknown>;
-  strategy_lane_coupled: false;
-};
 
 export type BackendHealth = {
   status: string;

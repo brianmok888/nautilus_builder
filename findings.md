@@ -7,20 +7,20 @@
 
 ## Executive summary
 
-**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-3 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, and LLM persistence; frontend runtime-action ownership and safety-scan hardening remain open.
-**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until frontend runtime-action ownership and safety-scan findings are closed.
+**Final recommendation:** **REQUEST CHANGES** for production/security readiness. Segments 1-4 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, and frontend runtime-action ownership; safety-scan hardening remains open.
+**Architectural status:** **BLOCK** for production/security readiness; **WATCH** for local dev-demo only until the safety-scan finding is closed.
 **Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
 
 ## Current deep review addendum — 2026-06-08 post-route standardization
 
-**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-3 close credential/API/rate-limit/audit-attribution plus artifact-readiness/LLM-persistence blockers, while frontend runtime-action ownership and safety-scan hardening remain open.
+**Recommendation:** **REQUEST CHANGES** before any production/security readiness claim. The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-4 close credential/API/rate-limit/audit-attribution, artifact-readiness/LLM-persistence, and frontend runtime-action ownership blockers, while safety-scan hardening remains open.
 
 ### Current top-priority findings
 
 
 ### Segment 1 closure — credential/package safety (2026-06-08)
 
-**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence. Production/security readiness remains **REQUEST CHANGES** because frontend runtime-action ownership and safety-scan blockers still need closure.
+**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
 
 **Evidence:**
 
@@ -52,7 +52,7 @@ python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py 
 
 ### Segment 3 closure — artifact readiness and LLM persistence (2026-06-08)
 
-**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Production/security readiness remains **REQUEST CHANGES** because frontend runtime-action ownership and safety-scan blockers still need closure.
+**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
 
 **Evidence:**
 
@@ -68,6 +68,28 @@ git diff --check
 ```
 
 **Changes:** `create_artifact_store()` now honors `BUILDER_ARTIFACT_ROOT` for the local backend, FastAPI initializes a default artifact store from the factory when none is injected, `/health/ready` reports artifact-store factory errors instead of unconditional readiness, and `_pg_config_repo` is preserved so `POST /api/config/llm` persists through the Postgres config repository.
+
+### Segment 4 closure — frontend runtime-action ownership (2026-06-08)
+
+**Status:** CLOSED for browser-owned execution-lane command/risk/worker/session action construction. Production/security readiness remains **REQUEST CHANGES** because the safety-scan blocker still needs closure.
+
+**Evidence:**
+
+```bash
+cd apps/web && npm run test -- components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
+# 14 passed, 2 skipped
+
+cd apps/web && npm run typecheck
+# pass
+
+python3 -m pytest tests/web/test_execution_lane_ui_contract.py -q
+# 1 passed
+
+git diff --check
+# pass
+```
+
+**Changes:** `ExecutionLaneFeaturePanel` now registers backend-owned paper profile visibility and fetches runtime plans only. It no longer renders command queue, backend worker, or paper-session lifecycle controls; it no longer constructs `order_intent` or `risk_decision`; and `apps/web/lib/api.ts` no longer exports execution-lane command, worker, or session action helpers.
 
 #### C-01 — Docker API image can include local exchange credentials
 
@@ -106,11 +128,12 @@ git diff --check
 
 #### H-04 — Frontend can construct execution-lane order-intent/worker actions
 
-- **Severity:** HIGH
+- **Status:** CLOSED in Segment 4 (2026-06-08)
+- **Severity:** Previously HIGH
 - **Files:** `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-350`, `362-372`, `539-552`.
 - **Issue:** The browser constructs `order_intent` and an `approved` risk decision, queues the command, runs the backend worker once, and starts/stops paper sessions.
 - **Risk:** Backend checks keep `may_submit_order=false` today, but this weakens the architectural rule that the UI is display/advisory only and should not own runtime-action composition.
-- **Fix:** Move command/risk/order-intent creation server-side. The frontend should request/observe backend-created plans or submit a manual approval request only.
+- **Closure:** The web panel and API client now expose profile/runtime-plan request/observe behavior only. Browser code no longer constructs command/risk payloads or calls worker/session action endpoints.
 
 #### M-01 — Artifact-store env/factory is not wired into FastAPI startup
 
@@ -150,7 +173,7 @@ git diff --check
 
 - **Closed:** Overview and Strategy Builder no longer link to the same content. `Overview` uses `/` and `BuilderOverview`; Strategy Builder uses `/builder`; Backtest and Execution use `/backtests` and `/execution`.
 - **Closed:** The `?tab=` route style is gone from `apps/web` source in this review scan.
-- **WATCH:** Execution Lane copy and controls should reinforce “backend-only plan/request” rather than browser action ownership. `apps/web/components/dashboard/BuilderDashboard.tsx:52-54` still says “Paper / live TradingNode gate”; prefer “Paper / reviewed runtime gate” until a production live model exists.
+- **Closed/WATCH:** Execution Lane controls now expose backend-owned profile/runtime-plan request-observe behavior only; continue to prefer “Paper / reviewed runtime gate” wording over any production/live-readiness implication.
 - **WATCH:** Settings should not present credential bootstrap as normal web UX. Remove or isolate it behind a backend-only local operator path.
 
 ### Inventory-first semantic legacy/deprecation update
