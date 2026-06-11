@@ -455,3 +455,28 @@ Historical prior-closeout stop condition: full verification and post-implementat
 ## Production/live-readiness warning
 
 This closeout is scoped to Builder findings hardening and dev-demo verification. Live trading remains outside Builder authority. Any future production/live-trading claim still requires NautilusTrader DataTester, ExecTester, adapter reconciliation evidence, Daedalus execution-boundary confirmation, and manual operator approval.
+
+
+## Gap Closure v1 guards — 2026-06-11
+
+New guards from the gap closure:
+
+1. **Version consistency guard:** `packages/builder_metadata/version.py` is the single canonical source. `/health/build` and FastAPI `app.version` read from it. Tests fail on drift.
+
+2. **CI gate guard:** `.github/workflows/ci.yml` runs backend/safety/frontend/docker jobs on every PR. PRs fail on forbidden authority, version drift, test failures.
+
+3. **Readiness wording guard:** `tests/hygiene/test_readiness_wording.py` scans docs for unsafe live-readiness claims. `READINESS.md` provides the canonical readiness matrix.
+
+4. **StrategySpec v2 guard:** v2 models enforce `execution_authority=False`. v1 still works. Migration is tested.
+
+5. **Deterministic hash guard:** Compiler IR, risk contract, artifact bundle all produce deterministic SHA-256 hashes tested for reproducibility.
+
+6. **Evidence guard:** Evidence refs require project scoping and hash verification. Verifier enforces hash length for artifact-backed evidence.
+
+7. **Promotion gate guard:** Promotion requires typed evidence. Synthetic backtest cannot satisfy catalog requirement. Live candidate is always out of scope.
+
+8. **OpenAPI contract guard:** Snapshot test detects API path drift. All `/api/*` routes require auth.
+
+9. **Production policy guard:** Policy matrix tests verify token length, CORS, and env validation.
+
+10. **Runtime event guard:** Event types are structured and queryable. No live execution or order submission events exist.

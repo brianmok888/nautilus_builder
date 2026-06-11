@@ -400,3 +400,46 @@ Historical prior-closeout stop condition: full verification and post-implementat
 ## Final closeout scope warning
 
 This is a Builder-only findings closure. It does not implement Daedalus order-flow profile state machines, does not add live order authority, and does not prove production/live-trading readiness. NautilusTrader adapter/live readiness still requires DataTester, ExecTester, reconciliation evidence, and Daedalus execution-boundary approval.
+
+
+## Gap Closure v1 — 2026-06-11
+
+**Branch:** feat/close-builder-gaps-v1
+**Segments closed:** 15/15
+**Tests:** 1175 passed (from 979 baseline)
+
+### New packages/modules
+
+| Module | Purpose |
+|---|---|
+| `packages/builder_metadata/` | Canonical version source |
+| `packages/strategy_spec/models_v2.py` | StrategySpec v2 for ND microstructure |
+| `packages/strategy_spec/migration.py` | v1-to-v2 migration |
+| `packages/strategy_spec/schema_export.py` | JSON schema export |
+| `packages/strategy_compiler/hashing.py` | Deterministic SHA-256 hashing |
+| `packages/strategy_compiler/ir.py` | Compiled strategy IR |
+| `packages/strategy_compiler/dependency_graph.py` | Feature dependency graph |
+| `packages/strategy_compiler/risk_contract.py` | Risk contract artifact |
+| `packages/strategy_compiler/replay_manifest.py` | Replay manifest template |
+| `packages/strategy_compiler/artifact_bundle.py` | Complete artifact bundle |
+| `packages/catalog_datasets/parquet_manifest.py` | Manifest validation |
+| `packages/catalog_datasets/duckdb_probe.py` | Dataset quality probe |
+| `packages/evidence_ledger/` | Typed evidence with verification |
+| `packages/promotions/gate.py` | Evidence-based promotion gate |
+| `packages/runtime_events/event_types.py` | Structured event lineage |
+| `services/api/app_factory.py` | Canonical app factory |
+| `services/api/dependencies.py` | Shared route dependencies |
+| `services/api/settings.py` | Centralized API settings |
+| `services/api/middleware.py` | Middleware composition |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible
+
+### New CI workflow
+
+`.github/workflows/ci.yml` runs backend/safety/frontend/docker jobs on every PR.
