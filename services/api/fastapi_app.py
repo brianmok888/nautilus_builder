@@ -183,7 +183,8 @@ def create_fastapi_app(
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
     runtime_event_service = runtime_event_service or RuntimeEventService()
-    app = FastAPI(title="Nautilus Builder API", version="0.1.0")
+    from packages.builder_metadata.version import get_canonical_version as _get_canonical_version
+    app = FastAPI(title="Nautilus Builder API", version=_get_canonical_version())
 
     # --- Middleware (added in reverse execution order: last added = first executed) ---
 
@@ -263,7 +264,8 @@ def create_fastapi_app(
 
     @app.get("/health/build")
     def health_build() -> dict[str, object]:
-        return {"version": "0.4.0", "commit": os.environ.get("GIT_COMMIT_SHA", "dev"), "build_time": os.environ.get("BUILD_TIME", "unknown")}
+        from packages.builder_metadata.build_info import get_build_info as _get_build_info
+        return _get_build_info()
 
     @app.get("/api/adapters")
     def adapters(authorization: str | None = Header(default=None)) -> Any:

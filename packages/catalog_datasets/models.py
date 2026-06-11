@@ -8,6 +8,37 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from packages.auth import ScopedArtifactRef
 
+
+class DatasetFormat(str, Enum):
+    PARQUET = "parquet"
+    CSV = "csv"
+    JSON = "json"
+    DUCKDB = "duckdb"
+
+
+class DatasetManifest(BaseModel):
+    """Typed dataset manifest with SHA-256 content hash verification."""
+    model_config = ConfigDict(extra="forbid")
+
+    dataset_id: str = Field(min_length=1)
+    venue: str = Field(min_length=1)
+    instrument_id: str = Field(min_length=1)
+    timeframe: str = Field(min_length=1)
+    market_type: str | None = None
+    start_ts: str = Field(min_length=1)
+    end_ts: str = Field(min_length=1)
+    row_count: int = Field(ge=0)
+    storage_uri: str = Field(min_length=1)
+    format: DatasetFormat = DatasetFormat.PARQUET
+    schema_version: str = "dataset_manifest_v1"
+    content_sha256: str = Field(min_length=1)
+    partition_keys: list[str] = Field(default_factory=list)
+    feature_coverage: list[str] = Field(default_factory=list)
+    source_coverage: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+    producer: str = "builder"
+
+
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$")
 _FIXTURE_SOURCE_MODES = {"local_fixture", "synthetic_test_kit"}
 _MANIFEST_SOURCE_MODES = {"external_mirror_manifest", "user_fetched_manifest"}

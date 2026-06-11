@@ -629,3 +629,26 @@ python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/te
 ```
 
 Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier branch. Current addendum stop condition is publication-only after clean git/remote checks; production/security readiness remains blocked.
+
+
+## Gap Closure v1 — 2026-06-11
+
+All 15 segments of the gap closure have been implemented and verified.
+
+**Final verification:**
+- 1175 Python tests passed (from 979 baseline)
+- 131 frontend tests passed
+- Forbidden authority scan PASSED
+- Frontend typecheck and build PASS
+
+**Key closures:**
+- Version metadata now flows from canonical source
+- CI gates protect against drift
+- Readiness matrix prevents false claims
+- StrategySpec v2 supports ND microstructure strategies
+- Compiler produces deterministic artifact bundles
+- Evidence is typed, scoped, and hash-verifiable
+- Promotion gate enforces evidence requirements
+- Live-trading readiness remains OUT OF SCOPE
+
+**Builder remains Builder-only.** No live order authority introduced.
