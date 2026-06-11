@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "strategy_id": "absorption_reversal_btc_5m",
+    "lineage_id": "lineage_absorption_001",
+    "name": "Absorption Reversal BTC 5m",
+    "version": "1.0.0",
+    "schema_version": "v2",
+    "created_by": "builder_operator"
+  },
+  "market": {
+    "adapter_id": "BINANCE_PERP",
+    "venue": "BINANCE",
+    "instrument_id": "BTCUSDT-PERP.BINANCE",
+    "market_type": "perpetual",
+    "bar_type": "5-MINUTE"
+  },
+  "features": {
+    "required": [
+      "book.best_bid",
+      "book.best_ask",
+      "book.spread_bps",
+      "trades.delta",
+      "trades.delta_rate",
+      "trades.absorption_score",
+      "book.depth_top_n_usd"
+    ],
+    "optional": [
+      "trades.cvd",
+      "svp.poc",
+      "svp.vah",
+      "svp.val"
+    ],
+    "source_health": {
+      "book_age_ms_max": 500,
+      "trades_age_ms_max": 1000,
+      "stale_policy": "block_signal"
+    }
+  },
+  "conditions": {
+    "entries": [
+      {
+        "id": "absorption_signal",
+        "operator": "gte",
+        "feature": "trades.absorption_score",
+        "threshold": 0.7,
+        "sustained_for_ms": 5000
+      },
+      {
+        "id": "spread_narrow",
+        "operator": "lte",
+        "feature": "book.spread_bps",
+        "threshold": 3.0
+      }
+    ],
+    "exits": [
+      {
+        "id": "absorption_fade",
+        "operator": "lt",
+        "feature": "trades.absorption_score",
+        "threshold": 0.3
+      }
+    ]
+  },
+  "risk": {
+    "sizing": "fixed_fractional",
+    "slippage_bps_max": 5.0,
+    "spread_bps_max": 5.0,
+    "depth_usd_min": 50000,
+    "cooldown_ms": 30000
+  },
+  "evidence": {
+    "required_evidence_types": ["validation_report", "compile_artifact", "backtest_result"],
+    "replay_dataset_ref": "dataset_btcusdt_5m_binance_perp",
+    "feature_hash_required": true,
+    "policy_hash_required": true
+  },
+  "output": {
+    "mode": "signal_preview_only"
+  }
+}

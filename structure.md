@@ -443,3 +443,45 @@ This is a Builder-only findings closure. It does not implement Daedalus order-fl
 ### New CI workflow
 
 `.github/workflows/ci.yml` runs backend/safety/frontend/docker jobs on every PR.
+
+
+## Gap Closure v2 — 2026-06-11
+
+**Branch:** feat/close-builder-gaps-v2
+**Segments closed:** 17/17 (Segments 00-16)
+**Tests:** 1305 Python (from 1176 baseline) + 138 frontend (from 131)
+
+### New packages/modules added in v2
+
+| Module | Purpose |
+|---|---|
+| `packages/builder_metadata/models.py` | BuilderBuildInfo model |
+| `packages/builder_metadata/build_info.py` | Env-injected git/build metadata |
+| `packages/readiness/` | Readiness matrix with machine-readable API |
+| `packages/strategy_validation/feature_registry.py` | Canonical ND feature names |
+| `packages/strategy_validation/authority_rules.py` | Forbidden authority checks |
+| `packages/strategy_validation/source_health.py` | Feature freshness validation |
+| `packages/strategy_compiler/artifact_bundle.py` | FullArtifactBundle + CompileArtifactManifest |
+| `packages/catalog_datasets/data_alignment.py` | Timestamp/lookahead/staleness checks |
+| `packages/promotions/evidence_policy.py` | Required evidence by promotion level |
+| `packages/auth/capabilities.py` | Capability enum for RBAC |
+| `packages/object_storage/` | Local + factory backend abstraction |
+| `packages/audit/` | Structured audit event lineage |
+| `packages/observability/` | BuilderMetrics counters |
+| `services/api/routes/evidence.py` | Evidence CRUD routes |
+| `services/api/routes/readiness.py` | Readiness API route |
+| `services/api/errors.py` | ApiError standard response |
+| `services/api/dependencies.py` | Shared protocol interfaces |
+| `scripts/verify_all.sh` | Local CI parity script |
+| `scripts/authority_scan_allowlist.txt` | Managed false-positive allowlist |
+| `scripts/check_docs_consistency.py` | Docs consistency verification |
+| `apps/web/components/traceability/` | StrategyJourney + BlockingReasonPanel |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible (timestamps excluded from hash)
+- Live execution is always OUT_OF_SCOPE in readiness matrix

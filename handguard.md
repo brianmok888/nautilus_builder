@@ -480,3 +480,32 @@ New guards from the gap closure:
 9. **Production policy guard:** Policy matrix tests verify token length, CORS, and env validation.
 
 10. **Runtime event guard:** Event types are structured and queryable. No live execution or order submission events exist.
+
+
+## Gap Closure v2 guards — 2026-06-11
+
+New guards from the v2 gap closure:
+
+1. **BuilderBuildInfo guard:** `/health/build` returns typed model with env-injected git/build metadata. Tests verify version, git_commit, build_time_utc fields.
+
+2. **Readiness API guard:** GET `/api/readiness` returns machine-readable matrix. Live execution is always `out_of_scope`. Tests fail if this changes.
+
+3. **Feature registry guard:** `feature_registry.py` defines canonical ND feature names. Unknown features fail validation.
+
+4. **Authority rules guard:** `authority_rules.py` blocks forbidden output modes and authority fields in specs. Tests verify signal_preview_only passes, live_execution blocked.
+
+5. **FullArtifactBundle guard:** `CompileArtifactManifest.execution_authority` is `Literal[False]`. Cannot be set to `True`.
+
+6. **Evidence policy guard:** Promotion requires typed evidence sets. Synthetic backtest cannot satisfy catalog requirement. Live candidate always blocked.
+
+7. **Object storage guard:** `LocalObjectStorage` rejects path traversal. Factory pattern isolates backend selection.
+
+8. **Capabilities guard:** Builder has no live execution, order submission, or trade action capabilities. Operator cannot approve promotions.
+
+9. **Audit guard:** Required event types include no live execution or order submission events.
+
+10. **Metrics guard:** Metric names track validation, compile, backtest, evidence, promotion blocks. No live execution metrics.
+
+11. **Docs consistency guard:** `scripts/check_docs_consistency.py` verifies README, READINESS.md, version strings, and Builder boundary mentions.
+
+12. **Local CI parity guard:** `scripts/verify_all.sh` mirrors CI checks locally.

@@ -54,6 +54,10 @@ GENERIC_PROMOTION_EVIDENCE = {
 }
 
 
+PUBLIC_API_ROUTES: set[RouteKey] = {
+    ("GET", "/api/readiness"),
+}
+
 PROTECTED_API_ROUTE_CALLS: dict[RouteKey, RouteCall] = {
     ("GET", "/api/adapters"): lambda route: route(),
     ("GET", "/api/instruments/{adapter_id}/{query}"): lambda route: route("BINANCE_PERP", "BTC"),
@@ -89,6 +93,11 @@ PROTECTED_API_ROUTE_CALLS: dict[RouteKey, RouteCall] = {
     ("POST", "/api/strategies/{strategy_id}/approve"): lambda route: route("strategy_missing"),
     ("POST", "/api/strategies/{strategy_id}/clone"): lambda route: route("strategy_missing"),
     ("POST", "/api/ai-builder/draft"): lambda route: route({"prompt": "Draft EMA RSI"}),
+    ("POST", "/api/evidence"): lambda route: route({"evidence_id": "ev_test", "project_id": "p1", "artifact_type": "strategy_spec", "source_system": "test", "uri": "test://x"}),
+    ("GET", "/api/evidence/{evidence_id}"): lambda route: route("ev_missing"),
+    ("POST", "/api/evidence/{evidence_id}/verify"): lambda route: route("ev_missing"),
+    ("GET", "/api/evidence"): lambda route: route(),
+
     ("POST", "/api/ai-builder/apply"): lambda route: route(
         {
             "prompt": "Draft EMA RSI",
@@ -152,8 +161,12 @@ class TestRouteAuthScope:
 
         app = create_fastapi_app()
         registered_api_routes = {route for route in app.routes if route[1].startswith("/api/")}
+        expected_routes = set(PROTECTED_API_ROUTE_CALLS) | PUBLIC_API_ROUTES
 
-        assert registered_api_routes == set(PROTECTED_API_ROUTE_CALLS)
+        assert registered_api_routes == expected_routes, (
+            f"Missing from test: {registered_api_routes - expected_routes}, "
+            f"Extra in test: {expected_routes - registered_api_routes}"
+        )
 
     def test_protected_api_routes_reject_missing_auth_at_runtime(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _install_fake_fastapi(monkeypatch)

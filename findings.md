@@ -652,3 +652,35 @@ All 15 segments of the gap closure have been implemented and verified.
 - Live-trading readiness remains OUT OF SCOPE
 
 **Builder remains Builder-only.** No live order authority introduced.
+
+
+## Gap Closure v2 — 2026-06-11
+
+All 17 segments of Gap Closure v2 have been implemented and verified.
+
+**Final verification:**
+- 1305 Python tests passed (from 1176 baseline, +129)
+- 138 frontend tests passed (from 131 baseline, +7)
+- Forbidden authority scan PASSED
+- Docs consistency check PASSED
+- Frontend typecheck and build PASS
+
+**Key closures in v2:**
+- BuilderBuildInfo with env-injected git/build metadata
+- Readiness matrix with machine-readable GET /api/readiness endpoint
+- Canonical ND microstructure feature registry (50+ features)
+- Structured validation issue codes (ERR_*, WARN_*)
+- FullArtifactBundle with deterministic hash and CompileArtifactManifest
+- Data alignment checks (monotonicity, lookahead, staleness)
+- Evidence CRUD API with hash verification
+- Promotion evidence policy with blocking reason codes
+- ApiError standard response model
+- Capability enum for RBAC
+- Local object storage with path traversal protection
+- UX traceability components (StrategyJourney, BlockingReasonPanel)
+- Audit event model with 15 required event types
+- BuilderMetrics with 7 canonical metric names
+- Docs consistency check script
+- Local CI parity script (verify_all.sh)
+
+**Builder remains Builder-only.** No live order authority introduced.

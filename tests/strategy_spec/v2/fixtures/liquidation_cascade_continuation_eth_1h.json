@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "strategy_id": "liq_cascade_eth_1h",
+    "lineage_id": "lineage_cascade_001",
+    "name": "Liquidation Cascade Continuation ETH 1h",
+    "version": "1.0.0",
+    "schema_version": "v2",
+    "created_by": "builder_operator"
+  },
+  "market": {
+    "adapter_id": "BINANCE_PERP",
+    "venue": "BINANCE",
+    "instrument_id": "ETHUSDT-PERP.BINANCE",
+    "market_type": "perpetual",
+    "bar_type": "1-HOUR"
+  },
+  "features": {
+    "required": [
+      "liquidation.long_liq_notional",
+      "liquidation.short_liq_notional",
+      "liquidation.imbalance",
+      "liquidation.cluster_score",
+      "liquidation.cascade_risk",
+      "trades.delta",
+      "trades.delta_rate"
+    ],
+    "optional": [
+      "funding.rate",
+      "funding.zscore",
+      "book.depth_top_n_usd",
+      "book.pull_stack_score"
+    ],
+    "source_health": {
+      "book_age_ms_max": 2000,
+      "trades_age_ms_max": 3000,
+      "funding_age_ms_max": 60000,
+      "stale_policy": "block_signal"
+    }
+  },
+  "conditions": {
+    "entries": [
+      {
+        "id": "cascade_trigger",
+        "operator": "gte",
+        "feature": "liquidation.cascade_risk",
+        "threshold": 0.6
+      },
+      {
+        "id": "directional_imbalance",
+        "operator": "gte",
+        "feature": "liquidation.imbalance",
+        "threshold": 0.7
+      }
+    ],
+    "exits": [
+      {
+        "id": "cascade_exhaustion",
+        "operator": "lt",
+        "feature": "liquidation.cluster_score",
+        "threshold": 0.3
+      }
+    ]
+  },
+  "risk": {
+    "sizing": "fixed_fractional",
+    "slippage_bps_max": 15.0,
+    "spread_bps_max": 8.0,
+    "depth_usd_min": 50000,
+    "cooldown_ms": 120000
+  },
+  "evidence": {
+    "required_evidence_types": ["validation_report", "compile_artifact", "backtest_result"],
+    "replay_dataset_ref": "dataset_ethusdt_1h_binance_perp",
+    "feature_hash_required": true,
+    "policy_hash_required": true
+  },
+  "output": {
+    "mode": "signal_preview_only"
+  }
+}

@@ -102,3 +102,24 @@ def test_gitignore_covers_required_entries():
     required = ["__pycache__/", "node_modules/", ".pytest_cache/", ".vite/", ".vitest/", ".ruff_cache/", ".mypy_cache/", ".venv/", ".next/"]
     missing = [entry for entry in required if entry not in content]
     assert missing == [], f".gitignore missing entries: {missing}"
+
+
+def test_forbidden_authority_script_checks_expanded_patterns():
+    """v2: scan must include exchange_secret, private_key, api_secret."""
+    script_path = os.path.join(REPO_ROOT, "scripts", "check_forbidden_authority.sh")
+    with open(script_path) as f:
+        content = f.read()
+    assert '"exchange_secret"' in content
+    assert '"private_key"' in content
+    assert '"api_secret"' in content
+
+
+def test_verify_all_script_exists():
+    script_path = os.path.join(REPO_ROOT, "scripts", "verify_all.sh")
+    assert os.path.isfile(script_path), f"verify_all.sh missing: {script_path}"
+    assert os.access(script_path, os.X_OK), f"verify_all.sh not executable"
+
+
+def test_authority_allowlist_file_exists():
+    allowlist_path = os.path.join(REPO_ROOT, "scripts", "authority_scan_allowlist.txt")
+    assert os.path.isfile(allowlist_path), f"allowlist file missing: {allowlist_path}"
