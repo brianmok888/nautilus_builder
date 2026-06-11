@@ -509,3 +509,32 @@ New guards from the v2 gap closure:
 11. **Docs consistency guard:** `scripts/check_docs_consistency.py` verifies README, READINESS.md, version strings, and Builder boundary mentions.
 
 12. **Local CI parity guard:** `scripts/verify_all.sh` mirrors CI checks locally.
+
+
+## Gap Closure v3 guards — 2026-06-11
+
+New guards from the v3 closure:
+
+1. **Legacy removal guard:** `tests/hygiene/test_legacy_removal.py` verifies PostgresWorkflowRepository alias, legacy hash derivation, allow_legacy_fixture_refs, and res_001 fixture fallback are all removed from production code.
+
+2. **Prompt redaction guard:** `tests/ai_builder/test_prompt_redaction.py` verifies secrets are redacted from prompts before audit storage, and prompt hashes are preserved for forensic traceability.
+
+3. **Frontend API consistency guard:** `apiClient.ts` is deprecated. All production components use the canonical `apiFetch` from `api.ts`. Direct `fetch()` calls exist only for public endpoints (`/health`) with documented justification.
+
+4. **Readiness wording guard:** `tests/hygiene/test_readiness_wording_v3.py` scans docs for unsafe live-readiness phrases. Forbidden unless in negative context.
+
+5. **Verification harness guard:** `scripts/verify_builder.py` provides one-command verification with local/staging/production-check profiles.
+
+6. **Deprecation inventory guard:** `docs/deprecations/deprecation-inventory.md` tracks all deprecations. Currently empty (all removed).
+
+### Legacy closure complete
+
+All legacy items listed in handguard.md §14 have been removed:
+- `storage_config.py` deprecation comment — removed
+- `PostgresWorkflowRepository` alias — removed
+- Backtest legacy hash derivation — removed
+- `allow_legacy_fixture_refs` — removed
+- `res_001` fixture fallback — removed
+- `USE_LEGACY_COMPILE_HASH` env escape — removed
+- `BUILDER_ALLOW_FIXTURE_FALLBACK` env — removed
+- Legacy warning suppression in pyproject.toml — removed

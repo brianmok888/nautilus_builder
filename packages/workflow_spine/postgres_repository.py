@@ -208,18 +208,3 @@ class SqliteWorkflowRepository:
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-
-# Compatibility alias for existing callers; prefer SqliteWorkflowRepository for honest storage naming.
-# DEPRECATED: PostgresWorkflowRepository alias will be removed after 2026-07-01.
-# Use SqliteWorkflowRepository directly.
-def __getattr__(name: str) -> type:
-    if name == 'PostgresWorkflowRepository':
-        import warnings
-        warnings.warn(
-            'PostgresWorkflowRepository is deprecated; use SqliteWorkflowRepository. '
-            'The alias will be removed after 2026-07-01.',
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return SqliteWorkflowRepository
-    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')

@@ -5,26 +5,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class TestL1StorageConfigDeprecation:
-    """L1: storage_config.py has deprecation documentation."""
+    """L1: storage_config.py deprecation comments have been removed."""
 
-    def test_storage_config_mentions_deprecation(self):
+    def test_storage_config_no_deprecated_header(self):
         content = (REPO_ROOT / "packages" / "workflow_spine" / "storage_config.py").read_text()
-        assert "DEPRECATED" in content or "deprecated" in content.lower()
-
-    def test_storage_config_mentions_deadline(self):
-        content = (REPO_ROOT / "packages" / "workflow_spine" / "storage_config.py").read_text()
-        assert "2026-07-01" in content
+        lines = content.split("\n")
+        for line in lines[:5]:
+            assert "DEPRECATED" not in line
+            assert "legacy alias" not in line.lower()
 
 
 class TestL2BacktestLegacyHash:
-    """L2: Backtest legacy_hash derivation documented."""
+    """L2: Backtest legacy hash derivation has been removed."""
 
-    def test_backtest_jobs_mentions_legacy(self):
-        path = REPO_ROOT / "packages" / "backtest_jobs" / "service.py"
-        if path.exists():
-            content = path.read_text()
-            # Legacy hash should be documented
-            assert "legacy" in content.lower() or "hash" in content.lower()
+    def test_backtest_jobs_no_legacy_env_escape(self):
+        content = (REPO_ROOT / "services" / "api" / "routes" / "backtest_jobs.py").read_text()
+        assert "USE_LEGACY_COMPILE_HASH" not in content
 
 
 class TestL4AllExports:

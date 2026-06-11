@@ -21,6 +21,7 @@ export function useHealthCheck(intervalMs = 30000): HealthStatus {
     async function check() {
       const start = performance.now();
       try {
+        // /health is a public unauthenticated endpoint; direct fetch is intentional.
         const response = await fetch("/health");
         const elapsed = performance.now() - start;
         if (!mounted) return;

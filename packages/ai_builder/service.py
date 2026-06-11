@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 
 from packages.strategy_validation.validators import validate_strategy_spec
@@ -79,7 +80,8 @@ class AiBuilderService:
                 "mode": "advisory_only",
                 "stage": "draft",
                 "accepted": result.accepted,
-                "prompt": prompt,
+                "prompt": _redact_prompt(prompt)[0],
+                "prompt_hash": _redact_prompt(prompt)[1],
                 "provider": provider_metadata.get("provider", type(self._provider).__name__),
                 "provider_metadata": provider_metadata,
                 "validation_errors": result.validation_errors,
@@ -130,6 +132,24 @@ def _provider_metadata(provider: DraftProviderProtocol) -> dict[str, object]:
     if not isinstance(metadata, dict):
         return {"provider": type(provider).__name__}
     return dict(metadata)
+
+
+def _redact_prompt(prompt: str) -> tuple[str, str]:
+    """Redact secrets from prompt before audit storage. Returns (redacted_prompt, prompt_hash)."""
+    import re
+    prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    redacted = prompt
+    secret_patterns = [
+        r"(api[_-]?key[\'s]*[:=]\s*)[\w\-]{8,}",
+        r"(secret[_-]?key[\'s]*[:=]\s*)[\w\-]{8,}",
+        r"(token[\'s]*[:=]\s*)[\w\-]{8,}",
+        r"(password[\'s]*[:=]\s*)\S+",
+        r"(Bearer\s+)[\w\-\.]+",
+    ]
+    for pattern in secret_patterns:
+        redacted = re.sub(pattern, r"\1[REDACTED]", redacted, flags=re.IGNORECASE)
+    return redacted, prompt_hash
+
 
 
 def _reject_forbidden_prompt(prompt: str, *, include_forbidden_execution: bool) -> None:

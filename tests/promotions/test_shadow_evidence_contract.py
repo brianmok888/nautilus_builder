@@ -37,7 +37,7 @@ def test_shadow_request_rejects_failed_gate_compatibility() -> None:
 
 
 def test_shadow_request_carries_explicit_evidence_refs_without_fabrication() -> None:
-    request = PromotionService(allow_legacy_fixture_refs=True).create_shadow_request(
+    request = PromotionService().create_shadow_request(
         strategy_version="0.3.0-beta.1",
         compile_hash="abc123",
         gate_compatibility=True,
@@ -148,7 +148,7 @@ from services.api.routes.promotions import create_shadow_payload  # noqa: E402
 
 import warnings  # noqa: E402
 
-warnings.filterwarnings("ignore", message="allow_legacy_fixture_refs=True is deprecated", category=DeprecationWarning)
+# Legacy warning filter removed; allow_legacy_fixture_refs no longer exists
 
 
 STRICT_EVIDENCE_KEYS = (

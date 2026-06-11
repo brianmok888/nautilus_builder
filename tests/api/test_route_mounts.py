@@ -56,9 +56,10 @@ def test_ai_builder_apply_route_preserves_advisory_lineage_ids() -> None:
     assert payload["spec"]["validation"]["output_mode"] == "signal_preview_only"
 
 
-def test_shadow_promotion_route_is_contract_only() -> None:
+def test_shadow_promotion_route_validates_evidence_structure() -> None:
     from services.api.routes.promotions import create_shadow_payload
 
+    # Without artifact_store, structure validation still passes (no hash verification)
     response = create_shadow_payload(
         {
             "strategy_version": "0.3.0-beta.1",
@@ -73,9 +74,10 @@ def test_shadow_promotion_route_is_contract_only() -> None:
                 "risk_review": "artifact://risk/risk_review_001.json",
             },
         },
-        strict_evidence=False,
+        strict_evidence=True,
     )
 
+    # Evidence structure is valid; no artifact store means no hash verification
     payload = response.json()
     assert response.status_code == 201
     assert payload["profile"] == "signal_preview_only"

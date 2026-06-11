@@ -737,7 +737,6 @@ def create_fastapi_app(
                 workflow_repository,
                 result_id,
                 context=context,
-                allow_fixture_fallback=False,
             ),
             JSONResponse,
         )
@@ -762,7 +761,6 @@ def create_fastapi_app(
                 workflow_repository,
                 result_id,
                 context=context,
-                allow_fixture_fallback=False,
             ),
             JSONResponse,
         )

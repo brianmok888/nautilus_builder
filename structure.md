@@ -485,3 +485,47 @@ This is a Builder-only findings closure. It does not implement Daedalus order-fl
 - Builder does not claim live-trading readiness
 - Deterministic hashes are reproducible (timestamps excluded from hash)
 - Live execution is always OUT_OF_SCOPE in readiness matrix
+
+
+## Gap Closure v3 — 2026-06-11
+
+**Branch:** master (direct)
+**Segments closed:** All remaining findings (M-03, M-05, M-06, Segment 15, 17, 18)
+**Tests:** 1332 Python (from 1306 baseline) + 138 frontend
+
+### Closed items
+
+| Item | Description | Status |
+|---|---|---|
+| Segment 15 | Removed all legacy items: PostgresWorkflowRepository alias, backtest legacy hash, allow_legacy_fixture_refs, res_001 fixture fallback, storage_config deprecation comment | Closed |
+| M-03 | Routed all frontend API calls through canonical apiFetch; deprecated apiClient.ts; AiStrategyCopilot uses fetchAdapters | Closed |
+| M-05 | fastapi_app.py already modularized in v2 gap closure (route modules, factory, deps) | Closed |
+| M-06 | Added prompt redaction before AI audit storage; secrets scanned and replaced with [REDACTED]; prompt hash preserved | Closed |
+| Segment 17 | Created docs dirs (deployment, readiness, ci, versioning, deprecations, compatibility); added readiness-matrix.md; added readiness wording hygiene test | Closed |
+| Segment 18 | Created scripts/verify_builder.py with local/staging/production-check profiles | Closed |
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `tests/hygiene/test_legacy_removal.py` | Verifies all legacy items are removed |
+| `tests/hygiene/test_readiness_wording_v3.py` | Scans docs for unsafe readiness phrases |
+| `tests/ai_builder/test_prompt_redaction.py` | Tests prompt secret redaction |
+| `tests/system_verification/test_verify_builder_script.py` | Verifies verify_builder.py structure |
+| `scripts/verify_builder.py` | Full-system verification harness |
+| `docs/readiness/readiness-matrix.md` | Canonical readiness matrix |
+| `docs/deployment/staging-runbook.md` | Staging deployment runbook |
+| `docs/deployment/production-runbook.md` | Production deployment runbook |
+| `docs/deprecations/deprecation-inventory.md` | Deprecation inventory (all cleared) |
+| `docs/compatibility/daedalus-nt-compatibility.md` | NT/Daedalus compatibility contract |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible
+- All legacy items removed (no env escapes remain)
+- Prompt audit storage redacts secrets before persistence
+- Frontend uses canonical API client only

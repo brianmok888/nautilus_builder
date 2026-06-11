@@ -1,6 +1,6 @@
 # Nautilus Builder — Capability Readiness Matrix
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-06-11 (v3 closure)
 **Status convention:** Ready = fully implemented and tested; Partial = implemented but incomplete or not fully tested; Out of scope = not owned by Builder.
 
 | Capability | Status | Evidence required | Owner |
@@ -9,13 +9,14 @@
 | Strategy validation | Ready (dev-demo) | Validation suite, forbidden-authority scan | Builder |
 | Compile artifact | Ready (dev-demo) | Deterministic IR tests (Segment 5) | Builder |
 | Synthetic replay | Ready (dev-demo) | Local replay evidence, BacktestNode smoke | Builder |
-| Real catalog replay | Partial | Dataset manifest + replay hash (Segment 6) | Builder |
+| Real catalog replay | Partial | Dataset manifest + Parquet/DuckDB contracts; production-scale pending | Builder |
 | Promotion request | Shadow/signal-preview only | Typed evidence refs (Segments 7-8) | Builder |
 | Live execution | **Out of scope** | Daedalus/DataTester/ExecTester/reconciliation | Daedalus/external |
 | Order submission | **Forbidden** | N/A — Builder must not submit orders | Daedalus only |
-| AI advisory drafts | Ready (advisory only) | Prompt audit store, validation gate | Builder |
-| Evidence ledger | Partial | Typed evidence model and verifier (Segment 7) | Builder |
-| Production deployment | Partial | Docker compose profiles, auth hardening (Segments 10, 12) | Builder |
+| AI advisory drafts | Ready (advisory only) | Prompt audit store, validation gate, secret redaction | Builder |
+| CI enforcement | Ready | GitHub Actions with backend/safety/frontend/docker gates | Builder |
+| Evidence ledger | Ready (dev-demo) | Typed evidence, verifier, hash check, API routes | Builder |
+| Production deployment | Partial | Docker compose profiles, auth, runbooks, verification harness | Builder |
 
 ## Key Definitions
 

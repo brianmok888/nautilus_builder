@@ -60,7 +60,6 @@ def test_backtest_job_events_are_observable_without_nd_stream_ownership() -> Non
 
 
 def test_backtest_job_routes_enforce_user_project_scope_when_supplied(monkeypatch) -> None:
-    monkeypatch.setenv("USE_LEGACY_COMPILE_HASH", "true")
     app = create_app()
     created = app.post(
         "/api/backtest-jobs",
@@ -70,6 +69,7 @@ def test_backtest_job_routes_enforce_user_project_scope_when_supplied(monkeypatc
             "instrument_id": "BTCUSDT-PERP",
             "validation_report_id": "validation_001",
             "compile_artifact_id": "compile_001",
+            "compile_hash": "a" * 64,
             "created_by": "operator_001",
             "user_id": "user_123",
             "project_id": "project_alpha",

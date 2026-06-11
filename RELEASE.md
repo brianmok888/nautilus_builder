@@ -74,3 +74,18 @@ The API exposes build metadata at `GET /health/build`:
 ```
 
 Set via environment: `GIT_COMMIT_SHA` and `BUILD_TIME`.
+
+
+## v3 Gap Closure (2026-06-11)
+
+### Closed items
+- All legacy items removed (PostgresWorkflowRepository alias, backtest legacy hash, allow_legacy_fixture_refs, res_001 fixture fallback)
+- Frontend API calls routed through canonical apiFetch; apiClient.ts deprecated
+- AI prompt redaction before audit storage with secret pattern scanning
+- Documentation alignment: readiness matrix, deployment runbooks, compatibility docs, deprecation inventory
+- Full-system verification harness (scripts/verify_builder.py)
+
+### Test counts
+- 1332 Python tests (from 1306 baseline, +26)
+- 138 frontend tests (from 131 baseline, +7)
+- 0 legacy items remaining

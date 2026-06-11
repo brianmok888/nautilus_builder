@@ -11,43 +11,31 @@ def workflow_result_payload(
     result_id: str,
     *,
     context: UserProjectContext | None = None,
-    allow_fixture_fallback: bool | None = None,
 ) -> ApiResponse:
     try:
         result = repository.result(result_id, context=context)
     except ProjectScopeError as exc:
         return ApiResponse({"error": "forbidden", "message": str(exc)}, status_code=403)
     if result is None:
-        import os
-        if allow_fixture_fallback is None:
-            allow_fixture_fallback = os.environ.get("BUILDER_ALLOW_FIXTURE_FALLBACK", "").strip().lower() in ("1", "true", "yes")
-        if result_id != "res_001" or not allow_fixture_fallback:
-            return ApiResponse({"error": "result_not_found", "result_id": result_id}, status_code=404)
-        return ApiResponse(_dashboard_result_payload(result_id, fixture=True))
+        return ApiResponse({"error": "result_not_found", "result_id": result_id}, status_code=404)
     payload = result.model_dump(mode="json")
-    dashboard_payload = _dashboard_result_payload(result_id, fixture=False)
+    dashboard_payload = _dashboard_result_payload(result_id)
     dashboard_payload["metrics"] = {**dashboard_payload["metrics"], **payload.get("metrics", {})}
     dashboard_payload["artifacts"] = {**dashboard_payload["artifacts"], **payload.get("artifact_refs", {})}
     payload.update(dashboard_payload)
     return ApiResponse(payload)
 
 
-def _dashboard_result_payload(result_id: str, *, fixture: bool) -> dict[str, object]:
-    result_ref = (
-        f"fixture://backtests/{result_id}/result.json"
-        if fixture
-        else f"artifact://builder/results/{result_id}/result.json"
-    )
+def _dashboard_result_payload(result_id: str) -> dict[str, object]:
+    result_ref = f"artifact://builder/results/{result_id}/result.json"
     report_summary = build_report_summary({"trades": [], "fills": [], "logs": []}).model_dump(mode="json")
     return {
         "result_id": result_id,
-        "evidence_mode": "fixture_dev_only" if fixture else "repository_result",
-        "fixture_evidence_only": fixture,
+        "evidence_mode": "repository_result",
         "metrics": {"trade_count": 0, "fill_count": 0},
         "artifacts": {
             "result": result_ref,
             "strategy_version_id": "strategy_001_v001",
-            "evidence_mode": "fixture_dev_only" if fixture else "repository_result",
         },
         "trades": [],
         "fills": [],

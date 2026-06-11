@@ -684,3 +684,33 @@ All 17 segments of Gap Closure v2 have been implemented and verified.
 - Local CI parity script (verify_all.sh)
 
 **Builder remains Builder-only.** No live order authority introduced.
+
+
+## Gap Closure v3 — 2026-06-11
+
+**All remaining open items closed.**
+
+### Closed findings
+
+| Finding | Description | Closure |
+|---|---|---|
+| M-03 | Direct frontend fetches bypass canonical API client | Closed: AiStrategyCopilot uses fetchAdapters, apiClient.ts deprecated |
+| M-05 | Oversized modules | Closed: Already modularized in v2 gap closure |
+| M-06 | AI audit persists raw prompts without redaction | Closed: _redact_prompt() scans and replaces secrets before storage |
+| Legacy: storage_config.py | Deprecation comment | Closed: Comment removed |
+| Legacy: PostgresWorkflowRepository | Alias | Closed: Alias removed |
+| Legacy: backtest hash | Legacy env escape | Closed: Removed USE_LEGACY_COMPILE_HASH |
+| Legacy: allow_legacy_fixture_refs | Warning suppression | Closed: Removed flag and pyproject filterwarnings |
+| Legacy: res_001 fixture fallback | BUILDER_ALLOW_FIXTURE_FALLBACK | Closed: Removed fixture fallback entirely |
+
+### New segments closed
+
+| Segment | Description |
+|---|---|
+| 15 (completion) | All legacy items removed |
+| 17 | Documentation alignment, readiness badges |
+| 18 | Full-system verification harness |
+
+### Open items: NONE
+
+All findings from the original review are now closed. No remaining WATCH items.

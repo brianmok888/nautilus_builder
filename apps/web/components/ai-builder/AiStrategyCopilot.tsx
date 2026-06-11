@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Alert, Button, Form, Input, Select, Space, Steps, Typography } from "antd";
-import { generateAiDraft, applyAiDraftToBuilder, createStrategy } from "../../lib/api";
+import { generateAiDraft, applyAiDraftToBuilder, createStrategy, fetchAdapters } from "../../lib/api";
 import type { AiDraftResult, StrategyRecord } from "../../lib/types";
 
 const { Text } = Typography;
@@ -26,8 +26,7 @@ export const AiStrategyCopilot = () => {
   const [strategy, setStrategy] = useState<StrategyRecord | null>(null);
 
   useEffect(() => {
-    fetch("/api/adapters")
-      .then((r) => r.json())
+    fetchAdapters()
       .then((list) => {
         setAdapters(list);
         if (list.length > 0) setAdapterId(list[0].adapter_id);

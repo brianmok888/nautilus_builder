@@ -1,4 +1,10 @@
 /**
+ * @deprecated Use apiFetch and the typed functions from api.ts instead.
+ * This module is retained for backward compatibility only.
+ * New code must use the canonical api.ts functions.
+ */
+
+/**
  * Builder API client with error handling for 429/422/404 responses.
  * Centralises fetch logic so components don't duplicate error handling.
  */

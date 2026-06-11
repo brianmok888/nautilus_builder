@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import warnings
 
 from packages.workflow_spine import (
     AiSuggestionRecord,
@@ -102,13 +101,9 @@ def test_sqlite_workflow_repository_is_the_honest_contract_name() -> None:
     assert repository.backend == "sqlite"
 
 
-def test_postgres_workflow_repository_alias_emits_deprecation_warning() -> None:
-    """M8: PostgresWorkflowRepository alias should emit DeprecationWarning."""
+def test_postgres_workflow_repository_alias_removed() -> None:
+    """PostgresWorkflowRepository alias has been removed (Segment 15)."""
     import packages.workflow_spine.postgres_repository as pr_mod
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        alias = pr_mod.PostgresWorkflowRepository
-    assert alias is SqliteWorkflowRepository
-    assert len(caught) == 1
-    assert issubclass(caught[0].category, DeprecationWarning)
-    assert "deprecated" in str(caught[0].message).lower()
+    assert not hasattr(pr_mod, "PostgresWorkflowRepository")
+    import packages.workflow_spine as ws_mod
+    assert not hasattr(ws_mod, "PostgresWorkflowRepository")

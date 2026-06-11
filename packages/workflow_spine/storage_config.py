@@ -1,7 +1,4 @@
-# Storage config supports a legacy schema alias (without shadow_field)
-# DEPRECATED: legacy alias will be removed after 2026-07-01.
-# Tracking issue: see handguard.md §19 legacy/deprecation closure schedule.
-# All new storage configs must include shadow_field.
+# Storage configuration for Builder persistence backends.
 from __future__ import annotations
 
 import re

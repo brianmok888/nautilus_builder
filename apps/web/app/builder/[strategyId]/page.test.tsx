@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../../../lib/api", () => ({
+  fetchAdapters: () => Promise.resolve([]),
   fetchStrategies: () => Promise.resolve([]),
   fetchExecutionLaneStatus: () => Promise.resolve({
     mode: "execution_lane",

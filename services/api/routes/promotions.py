@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 
 from packages.artifact_store import LocalJsonArtifactStore
 from packages.auth import ProjectScopeError, UserProjectContext
@@ -19,19 +18,10 @@ def create_shadow_payload(
     if not isinstance(target_evidence, dict):
         return ApiResponse({"error": "promotion_evidence_missing", "details": ["evidence_refs"]}, status_code=422)
 
-    allow_legacy = not strict_evidence
-    if allow_legacy:
-        warnings.warn(
-            "allow_legacy_fixture_refs=True is deprecated; use strict evidence for all promotions",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
     try:
         request = PromotionService(
-            artifact_store=artifact_store if strict_evidence else None,
-            context=context if strict_evidence else None,
-            allow_legacy_fixture_refs=allow_legacy,
+            artifact_store=artifact_store,
+            context=context,
         ).create_shadow_request(
             strategy_version=str(payload.get("strategy_version", "")),
             compile_hash=str(payload.get("compile_hash", "")),

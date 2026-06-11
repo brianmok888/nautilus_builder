@@ -13,11 +13,9 @@ class PromotionService:
         *,
         artifact_store: LocalJsonArtifactStore | None = None,
         context: UserProjectContext | None = None,
-        allow_legacy_fixture_refs: bool = False,
     ) -> None:
         self.artifact_store = artifact_store
         self.context = context
-        self.allow_legacy_fixture_refs = allow_legacy_fixture_refs
 
     def request_builder_promotion(
         self,
@@ -121,8 +119,8 @@ class PromotionService:
             raise ValueError(f"promotion evidence missing: {', '.join(missing)}") from exc
 
         evidence_payload = evidence.model_dump(mode="json")
-        requires_artifacts = self.artifact_store is not None or self.context is not None or not self.allow_legacy_fixture_refs
-        if not requires_artifacts:
+        if self.artifact_store is None or self.context is None:
+            # Without artifact store, return evidence structure without hash verification
             return evidence_payload, {}
         if self.artifact_store is None or self.context is None:
             raise ValueError("artifact store and auth context are required for scoped promotion evidence")
