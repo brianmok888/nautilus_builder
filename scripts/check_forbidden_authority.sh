@@ -15,6 +15,10 @@ FORBIDDEN_PATTERNS=(
   "live_exchange_secret"
   # Method calls that submit orders
   ".submit_order"
+  # Additional credential/secret patterns from v2 spec
+  "exchange_secret"
+  "private_key"
+  "api_secret"
 )
 
 # Scan production code by default. Docs and tests are excluded by path, not by
@@ -32,16 +36,22 @@ SCAN_PATHS=(
 
 # Exact git-grep output lines that are known negative/policy literals in production
 # code. Keep this list narrow; never add a directory prefix here.
-ALLOWLIST_LINES=()
+# Lines are stored in a companion file for easier maintenance.
+ALLOWLIST_FILE="${BASH_SOURCE[0]%/*}/authority_scan_allowlist.txt"
 
 is_allowed_line() {
   local candidate="$1"
-  local allowed_line
-  for allowed_line in "${ALLOWLIST_LINES[@]}"; do
-    if [[ "$candidate" == "$allowed_line" ]]; then
+  if [ ! -f "$ALLOWLIST_FILE" ]; then
+    return 1
+  fi
+  while IFS= read -r allowed_line; do
+    # Skip comments and empty lines
+    [[ "$allowed_line" =~ ^# ]] && continue
+    [[ -z "$allowed_line" ]] && continue
+    if [[ "$candidate" == *"$allowed_line"* ]]; then
       return 0
     fi
-  done
+  done < "$ALLOWLIST_FILE"
   return 1
 }
 

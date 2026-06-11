@@ -29,6 +29,8 @@ from services.api.routes.market_catalog import adapters_payload, data_availabili
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
 from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.runtime_events import replay_runtime_events_payload
+from services.api.routes.readiness import readiness_payload
+
 from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
@@ -265,7 +267,13 @@ def create_fastapi_app(
     @app.get("/health/build")
     def health_build() -> dict[str, object]:
         from packages.builder_metadata.build_info import get_build_info as _get_build_info
-        return _get_build_info()
+        return _get_build_info().model_dump()
+
+
+    @app.get("/api/readiness")
+    def readiness():
+        """Return the current Builder readiness matrix."""
+        return _fastapi_response(ApiResponse(readiness_payload()), JSONResponse)
 
     @app.get("/api/adapters")
     def adapters(authorization: str | None = Header(default=None)) -> Any:

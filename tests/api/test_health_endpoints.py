@@ -27,8 +27,8 @@ class TestHealthEndpoints:
         resp = client.get("/health/build")
         body = resp.json()
         assert "version" in body
-        assert "commit" in body
-        assert "build_time" in body
+        assert "git_commit" in body
+        assert "build_time_utc" in body
 
     def test_health_build_returns_version_info(self):
         from services.api import fastapi_app

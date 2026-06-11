@@ -1751,6 +1751,23 @@
         "summary": "Promotions Shadow"
       }
     },
+    "/api/readiness": {
+      "get": {
+        "description": "Return the current Builder readiness matrix.",
+        "operationId": "readiness_api_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness"
+      }
+    },
     "/api/results": {
       "get": {
         "operationId": "list_results_api_results_get",

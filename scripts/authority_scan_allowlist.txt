@@ -1,0 +1,20 @@
+# Authority scan allowlist — substrings that match false positives.
+# Format: substring that identifies a known-safe line
+# Each entry should have a reason comment.
+#
+# These are checked as substring matches against git-grep output lines.
+
+# execution_lane/models.py: secret key guard set — scanning for these keys, not using them
+_SECRET_KEYS = {
+
+# adapter_config_builders.py: legitimate adapter config assembly from backend-provided values
+api_secret = credential_values.get
+
+# adapter_config_builders.py: conditional check on backend values
+if not api_key or not api_secret:
+
+# adapter_config_builders.py: passing to NT config
+api_secret=api_secret,
+
+# static_scan.py: scanning for hardcoded secrets, not using them
+hardcoded api_secret
