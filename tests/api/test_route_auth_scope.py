@@ -93,7 +93,12 @@ PROTECTED_API_ROUTE_CALLS: dict[RouteKey, RouteCall] = {
     ("POST", "/api/strategies/{strategy_id}/approve"): lambda route: route("strategy_missing"),
     ("POST", "/api/strategies/{strategy_id}/clone"): lambda route: route("strategy_missing"),
     ("POST", "/api/ai-builder/draft"): lambda route: route({"prompt": "Draft EMA RSI"}),
-("POST", "/api/ai-builder/apply"): lambda route: route(
+    ("POST", "/api/evidence"): lambda route: route({"evidence_id": "ev_test", "project_id": "p1", "artifact_type": "strategy_spec", "source_system": "test", "uri": "test://x"}),
+    ("GET", "/api/evidence/{evidence_id}"): lambda route: route("ev_missing"),
+    ("POST", "/api/evidence/{evidence_id}/verify"): lambda route: route("ev_missing"),
+    ("GET", "/api/evidence"): lambda route: route(),
+
+    ("POST", "/api/ai-builder/apply"): lambda route: route(
         {
             "prompt": "Draft EMA RSI",
             "ai_thread_id": "ai_thread_001",
