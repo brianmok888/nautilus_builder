@@ -1,30 +1,33 @@
 # Nautilus Builder — Capability Readiness Matrix
 
-**Last updated:** 2026-06-11 (v3 closure)
-**Status convention:** Ready = fully implemented and tested; Partial = implemented but incomplete or not fully tested; Out of scope = not owned by Builder.
+**Last updated:** 2026-06-11 (v4 closure)
+**Builder version:** 0.5.0
+**Status convention:** Ready = fully implemented and tested; Partial = implemented but incomplete; Out of scope = not owned by Builder; Blocked = requires external work.
 
-| Capability | Status | Evidence required | Owner |
+| Capability | Status | Blocking segments | Evidence required |
 |---|---|---|---|
-| Strategy authoring | Ready (dev-demo) | StrategySpec validation tests | Builder |
-| Strategy validation | Ready (dev-demo) | Validation suite, forbidden-authority scan | Builder |
-| Compile artifact | Ready (dev-demo) | Deterministic IR tests (Segment 5) | Builder |
-| Synthetic replay | Ready (dev-demo) | Local replay evidence, BacktestNode smoke | Builder |
-| Real catalog replay | Partial | Dataset manifest + Parquet/DuckDB contracts; production-scale pending | Builder |
-| Promotion request | Shadow/signal-preview only | Typed evidence refs (Segments 7-8) | Builder |
-| Live execution | **Out of scope** | Daedalus/DataTester/ExecTester/reconciliation | Daedalus/external |
-| Order submission | **Forbidden** | N/A — Builder must not submit orders | Daedalus only |
-| AI advisory drafts | Ready (advisory only) | Prompt audit store, validation gate, secret redaction | Builder |
-| CI enforcement | Ready | GitHub Actions with backend/safety/frontend/docker gates | Builder |
-| Evidence ledger | Ready (dev-demo) | Typed evidence, verifier, hash check, API routes | Builder |
-| Production deployment | Partial | Docker compose profiles, auth, runbooks, verification harness | Builder |
+| Strategy authoring | Ready (dev-demo) | — | StrategySpec validation tests |
+| Strategy validation | Ready (dev-demo) | — | Validation suite, forbidden-authority scan |
+| Strategy compiler | Partial | Deterministic IR bundle completeness | Deterministic hash tests, artifact bundle |
+| Synthetic backtest | Ready (dev-demo) | — | Local replay evidence, BacktestNode smoke |
+| Real dataset replay | Blocked | Real Parquet fixtures, production-scale replay harness | Dataset manifest, Parquet/DuckDB contracts |
+| Promotion contracts | Partial | Catalog backtest requirement | Typed evidence refs, evidence ledger |
+| Live execution | **Out of scope** | Builder must not own live execution | Daedalus/DataTester/ExecTester/reconciliation |
+| ND runtime changes | **Out of scope** | Builder must not edit Daedalus runtime | N/A |
+| AI advisory drafts | Ready (advisory only) | — | Prompt audit store, validation gate, secret redaction |
+| Production deployment | Partial | CI security/docker workflows, startup fail-closed validation | Auth enforcement, object store, service supervision |
+
+## Machine-Readable Status
+
+See `doc/readiness_status.json` for the JSON export of this matrix.
 
 ## Key Definitions
 
 - **Ready (dev-demo):** Works for local development and demo scenarios. Not production-live-trading ready.
-- **Ready (advisory only):** AI outputs are suggestions, not execution authority. Must pass deterministic validation before acceptance.
-- **Partial:** Core implementation exists but needs additional segments to close gaps.
-- **Out of scope:** This capability is intentionally not owned by Builder. It belongs to Nautilus-Daedalus or external systems.
-- **Forbidden:** Builder must never implement this capability. It violates the fundamental Builder authority boundary.
+- **Ready (advisory only):** AI outputs are suggestions, not execution authority.
+- **Partial:** Core implementation exists but needs additional work.
+- **Blocked:** Requires external work or new infrastructure.
+- **Out of scope:** Not owned by Builder. Belongs to Nautilus-Daedalus or external systems.
 
 ## Production/Live-Trading Status
 
@@ -34,9 +37,7 @@ Builder produces strategy specs, validation results, compile artifacts, backtest
 
 Live execution requires:
 - NautilusTrader DataTester evidence
-- ExecTester evidence  
+- ExecTester evidence
 - Adapter reconciliation reports
 - Daedalus execution-boundary confirmation
 - Manual operator approval
-
-None of these are within Builder's authority to produce or claim.

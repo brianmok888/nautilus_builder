@@ -1,12 +1,6 @@
 # Nautilus Builder — Release Process
 
 ## Version Scheme
-## Current Release
-
-**Version:** 0.1.0
-**Status:** Unreleased / dev-demo
-**Date:** 2026-06-11
-
 
 Semantic Versioning: `MAJOR.MINOR.PATCH`
 
@@ -14,7 +8,11 @@ Semantic Versioning: `MAJOR.MINOR.PATCH`
 - **MINOR**: New features, backward-compatible
 - **PATCH**: Bug fixes, security patches
 
-Current: **v0.5.0** (hardening sprint complete)
+## Current Release
+
+**Version:** 0.5.0
+**Status:** Unreleased / dev-demo
+**Date:** 2026-06-11
 
 ## Release Checklist
 
@@ -33,8 +31,8 @@ Current: **v0.5.0** (hardening sprint complete)
 ### Release
 
 - [ ] CI passes on the release commit
-- [ ] Tag created: `git tag -a v0.5.0 -m "Release v0.5.0"`
-- [ ] Tag pushed: `git push origin v0.5.0`
+- [ ] Tag created: `git tag -a v<CURRENT_TAG> -m "Release v<CURRENT_TAG>"`
+- [ ] Tag pushed: `git push origin v<CURRENT_TAG>`
 - [ ] Docker images pushed to registry (if applicable)
 
 ### Post-Release
@@ -49,13 +47,13 @@ Current: **v0.5.0** (hardening sprint complete)
 ## Rollback Procedure
 
 1. Identify the last known good tag: `git tag -l 'v*' | sort -V | tail -5`
-2. Checkout and redeploy: `git checkout v0.4.0`
+2. Checkout and redeploy: `git checkout v<PREVIOUS_TAG>`
 3. If database migration occurred, run manual rollback (see docs/operations.md)
 4. Verify health endpoints
 
 ## Hotfix Process
 
-1. Branch from the release tag: `git checkout -b hotfix/v0.5.1 v0.5.0`
+1. Branch from the release tag: `git checkout -b hotfix/v<NEXT_PATCH> v0.5.0`
 2. Apply minimal fix with tests
 3. Run full release checklist
 4. Tag and deploy
@@ -68,24 +66,25 @@ The API exposes build metadata at `GET /health/build`:
 ```json
 {
   "version": "0.5.0",
-  "commit": "abc123...",
+  "git_commit": "abc123...",
   "build_time": "2026-06-07T12:00:00Z"
 }
 ```
 
 Set via environment: `GIT_COMMIT_SHA` and `BUILD_TIME`.
 
+## Changelog
 
-## v3 Gap Closure (2026-06-11)
+### v0.5.0 (2026-06-11)
 
-### Closed items
-- All legacy items removed (PostgresWorkflowRepository alias, backtest legacy hash, allow_legacy_fixture_refs, res_001 fixture fallback)
-- Frontend API calls routed through canonical apiFetch; apiClient.ts deprecated
-- AI prompt redaction before audit storage with secret pattern scanning
-- Documentation alignment: readiness matrix, deployment runbooks, compatibility docs, deprecation inventory
-- Full-system verification harness (scripts/verify_builder.py)
+- Gap Closure v3: removed all legacy items, fixed M-03/M-06, added docs alignment
+- Gap Closure v2: 17 segments, readiness API, feature registry, evidence policy
+- Gap Closure v1: 15 segments, StrategySpec v2, compiler IR, evidence ledger
 
-### Test counts
-- 1332 Python tests (from 1306 baseline, +26)
-- 138 frontend tests (from 131 baseline, +7)
-- 0 legacy items remaining
+### v0.4.0 (2026-06-08)
+
+- Segment 1-5 closure: credential safety, API exposure, rate limiting, audit, artifact readiness
+
+### v0.1.0 (2026-05-22)
+
+- Initial Builder foundation

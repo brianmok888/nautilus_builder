@@ -1,0 +1,30 @@
+# Gitleaks configuration for Nautilus Builder
+# Scans for accidental secret commits
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "builder-api-token"
+description = "Builder API Token"
+regex = '''BUILDER_API_TOKEN\s*=\s*[A-Za-z0-9]{32,}'''
+tags = ["key", "builder"]
+
+[[allowlist]]
+paths = [
+    '''.env.example''',
+    '''.env.demo.example''',
+    '''.env.production.example''',
+    '''tests/''',
+    '''docs/''',
+]
+
+[[allowlist]]
+regexes = [
+    '''your[_-]?(?:secret|token|key|password)''',
+    '''change[_-]?me''',
+    '''REDACTED''',
+    '''example''',
+    '''placeholder''',
+    '''xxx+''',
+]

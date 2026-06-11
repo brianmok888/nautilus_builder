@@ -1,0 +1,25 @@
+name: Docker
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f Dockerfile.api .
+
+      - name: Validate production compose
+        run: docker compose -f docker-compose.production.yml config
+
+      - name: Validate staging compose
+        run: docker compose -f docker-compose.staging.yml config
+
+      - name: Validate dev compose
+        run: docker compose -f docker-compose.dev.yml config

@@ -1,0 +1,115 @@
+{
+  "builder_version": "0.5.0",
+  "capabilities": [
+    {
+      "capability": "strategy_authoring",
+      "status": "ready",
+      "blocking_segments": [],
+      "evidence_required": [
+        "strategy_spec_validation"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "strategy_validation",
+      "status": "ready",
+      "blocking_segments": [],
+      "evidence_required": [
+        "validation_report"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "strategy_compiler",
+      "status": "partial",
+      "blocking_segments": [
+        "full_deterministic_ir_bundle_not_yet_verified"
+      ],
+      "evidence_required": [
+        "deterministic_ir_bundle"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "synthetic_backtest",
+      "status": "ready",
+      "blocking_segments": [],
+      "evidence_required": [
+        "backtest_result"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "real_dataset_replay",
+      "status": "blocked",
+      "blocking_segments": [
+        "real_parquet_fixtures_not_yet_tested",
+        "production_scale_replay_harness_not_landed"
+      ],
+      "evidence_required": [
+        "catalog_dataset_manifest",
+        "replay_manifest"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "promotion_contracts",
+      "status": "partial",
+      "blocking_segments": [
+        "promotion_gate_needs_catalog_backtest"
+      ],
+      "evidence_required": [
+        "promotion_evidence_set",
+        "evidence_ledger"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "live_execution",
+      "status": "out_of_scope",
+      "blocking_segments": [
+        "Builder_must_not_own_live_execution"
+      ],
+      "evidence_required": [
+        "DataTester",
+        "ExecTester",
+        "reconciliation_report"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "nd_runtime_changes",
+      "status": "out_of_scope",
+      "blocking_segments": [
+        "Builder_must_not_edit_Nautilus-Daedalus_runtime_code"
+      ],
+      "evidence_required": [],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "production_deployment",
+      "status": "partial",
+      "blocking_segments": [
+        "ci_security_docker_workflows_pending",
+        "startup_fail_closed_needs_production_validation"
+      ],
+      "evidence_required": [
+        "ci_gates",
+        "auth_enforcement",
+        "object_store",
+        "service_supervision"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    },
+    {
+      "capability": "ai_advisory",
+      "status": "ready",
+      "blocking_segments": [],
+      "evidence_required": [
+        "prompt_audit_store",
+        "validation_gate"
+      ],
+      "last_reviewed_at": "2026-06-11T16:18:13.872538+00:00"
+    }
+  ]
+}

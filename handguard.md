@@ -538,3 +538,28 @@ All legacy items listed in handguard.md §14 have been removed:
 - `USE_LEGACY_COMPILE_HASH` env escape — removed
 - `BUILDER_ALLOW_FIXTURE_FALLBACK` env — removed
 - Legacy warning suppression in pyproject.toml — removed
+
+
+## Gap Closure v4 guards — 2026-06-11
+
+New guards from the v4 closure:
+
+1. **Version consistency guard:** pyproject.toml, RELEASE.md, and /health/build must agree. Tests fail on drift. `scripts/check_release_version.py` enforces in CI.
+
+2. **Readiness matrix v4 guard:** Matrix uses v4 capability names. 10 required capabilities including live_execution (out_of_scope) and nd_runtime_changes (out_of_scope). Machine-readable JSON at doc/readiness_status.json.
+
+3. **CI workflow guard:** ci.yml, security.yml, and docker.yml exist with required jobs. Tests verify structure.
+
+4. **Security workflow guard:** security.yml runs forbidden authority scan, secret scanning, and hygiene tests.
+
+5. **Production config guard:** `BuilderProductionConfig` validates token length, S3 backend, CORS, Redis, database URL, browser token absence. Startup fails closed.
+
+6. **Capability v4 guard:** Capabilities use v4 names (strategy:create, backtest:create, promotion:request_shadow). No live execution capabilities. Role-based sets for viewer, editor, operator, requester, admin.
+
+7. **Compatibility contract guard:** Explicit versioned contracts between Builder and ND/NT. Forbidden outputs include TradeAction and submit_order.
+
+8. **Full journey guard:** 7-step integration test covers spec→validation→compile→evidence→promotion→compatibility→authority invariant.
+
+9. **Secret scanning guard:** `.gitleaks.toml` and `scripts/check_secrets.sh` check env examples and production code for leaked credentials.
+
+10. **Smoke test guard:** `scripts/smoke_production.sh` verifies deployment from docs alone.

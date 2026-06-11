@@ -714,3 +714,77 @@ All 17 segments of Gap Closure v2 have been implemented and verified.
 ### Open items: NONE
 
 All findings from the original review are now closed. No remaining WATCH items.
+
+
+## Gap Closure v4 — 2026-06-11
+
+**Branch:** master (direct)
+**Segments closed:** A, B, C, D, E (deepened), I (deepened), N (new), R (partial), S, U (new)
+**Tests:** 1377 Python (from 1332 baseline, +45)
+
+### Closed items
+
+| Item | Description | Status |
+|---|---|---|
+| Segment A | Readiness matrix upgraded to v4 capability names; doc/readiness_status.json added | Closed |
+| Segment B | Version drift fixed: pyproject.toml 0.5.0, RELEASE.md unified, version consistency tests | Closed |
+| Segment C | CI hardened: security.yml, docker.yml, check_secrets.sh, check_release_version.py | Closed |
+| Segment D | BuilderProductionConfig model with fail-closed validation; startup_policy.py | Closed |
+| Segment E | Capabilities upgraded to v4 names with role-based sets; viewer/editor/operator/promotion_requester/admin | Closed |
+| Segment I | Evidence postgres repository added for persistent evidence storage | Closed |
+| Segment N | Compatibility contracts package with versioned ND/Daedalus alignment | Closed |
+| Segment R | Production smoke script (smoke_production.sh) | Partial |
+| Segment S | Security scanning: .gitleaks.toml, check_secrets.sh, security.yml workflow | Closed |
+| Segment U | Full builder journey test (7 steps covering spec→compile→evidence→promotion→compatibility) | Closed |
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `packages/config/__init__.py` | Config package exports |
+| `packages/config/production.py` | BuilderProductionConfig fail-closed model |
+| `packages/compatibility/__init__.py` | Compatibility contracts package |
+| `packages/compatibility/models.py` | CompatibilityContract + CompatibilityMatrix models |
+| `packages/evidence_ledger/postgres_repository.py` | Postgres evidence repository |
+| `services/api/startup_policy.py` | Startup validation using BuilderProductionConfig |
+| `.github/workflows/security.yml` | Security CI workflow |
+| `.github/workflows/docker.yml` | Docker CI workflow |
+| `.gitleaks.toml` | Secret scanning config |
+| `scripts/check_secrets.sh` | Env example secret check |
+| `scripts/check_release_version.py` | Version drift check |
+| `scripts/smoke_production.sh` | Production smoke test |
+| `doc/readiness_status.json` | Machine-readable readiness matrix |
+| `docs/superpowers/specs/2026-06-11-v4-gap-closure-design.md` | Implementation plan |
+| `tests/version/__init__.py` | Test package |
+| `tests/version/test_version_consistency.py` | Version + readiness tests |
+| `tests/ci/__init__.py` | Test package |
+| `tests/ci/test_ci_workflows.py` | CI workflow structure tests |
+| `tests/config/__init__.py` | Test package |
+| `tests/config/test_production_config.py` | Production config tests |
+| `tests/integration/test_full_builder_journey.py` | Full journey test |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible
+- Version metadata is consistent across all sources
+- Production config fails closed on missing/invalid settings
+- Compatibility contracts make ND alignment explicit
+
+### Remaining segments for future PRs
+
+- F: API modularization (already done in v2, verification tests only)
+- G: StrategySpec v2 deepening (exists, feature expansion)
+- H: Compiler deterministic bundle (exists, completeness check)
+- J: Artifact store production hardening (S3 exists, immutability tests)
+- K: Real dataset replay (DuckDB/Parquet deepening)
+- L: Backtest result normalization (result_normalizer.py exists)
+- M: Promotion gate full lifecycle (exists, stage transitions)
+- O: UI traceability deepening (components exist)
+- P: Runtime events/health endpoints (exists, health endpoint additions)
+- Q: Postgres migrations completeness (exists, migration coverage)
+- R: Deployment runbooks (partial, smoke script added)
+- T: Documentation cleanup

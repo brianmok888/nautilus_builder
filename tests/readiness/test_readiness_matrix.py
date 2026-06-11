@@ -1,4 +1,4 @@
-"""Tests for readiness model and service."""
+"""Tests for readiness model and service — v4 capability names."""
 from __future__ import annotations
 
 import pytest
@@ -18,7 +18,7 @@ class TestReadinessModels:
 
     def test_readiness_matrix_has_entries(self):
         matrix = get_readiness_matrix()
-        assert len(matrix.entries) > 0
+        assert len(matrix.entries) >= 10  # v4 spec requires 10 capabilities
 
     def test_live_execution_is_out_of_scope(self):
         matrix = get_readiness_matrix()
@@ -26,7 +26,7 @@ class TestReadinessModels:
         live_entry = [e for e in matrix.entries if e.capability == "live_execution"][0]
         assert live_entry.status == ReadinessStatus.OUT_OF_SCOPE
 
-    def test_test_fails_if_live_execution_claims_ready(self):
+    def test_guard_live_execution_never_ready(self):
         """Guard: if any future change flips live_execution to ready, this test catches it."""
         matrix = get_readiness_matrix()
         for entry in matrix.entries:
@@ -55,19 +55,20 @@ class TestReadinessModels:
 
 
 class TestReadinessService:
-    def test_expected_capabilities_present(self):
+    def test_expected_v4_capabilities_present(self):
         matrix = get_readiness_matrix()
         caps = {e.capability for e in matrix.entries}
         expected = {
-            "builder_authoring_ready",
-            "strategy_validation_ready",
-            "synthetic_backtest_ready",
-            "catalog_replay_smoke_ready",
-            "real_dataset_replay_ready",
-            "promotion_contract_ready",
-            "shadow_signal_preview_ready",
-            "paper_execution_observability_ready",
+            "strategy_authoring",
+            "strategy_validation",
+            "strategy_compiler",
+            "synthetic_backtest",
+            "real_dataset_replay",
+            "promotion_contracts",
             "live_execution",
+            "nd_runtime_changes",
+            "production_deployment",
+            "ai_advisory",
         }
         assert expected.issubset(caps), f"Missing capabilities: {expected - caps}"
 
@@ -78,3 +79,9 @@ class TestReadinessService:
                 assert len(entry.blocking_reasons) > 0, (
                     f"Blocked entry {entry.capability} has no blocking reasons"
                 )
+
+    def test_nd_runtime_changes_is_out_of_scope(self):
+        matrix = get_readiness_matrix()
+        nd = [e for e in matrix.entries if e.capability == "nd_runtime_changes"]
+        assert len(nd) == 1
+        assert nd[0].status == ReadinessStatus.OUT_OF_SCOPE

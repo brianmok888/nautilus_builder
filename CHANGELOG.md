@@ -90,3 +90,31 @@
 
 ### Verification
 - 641 tests passing, 0 compilation errors.
+
+## v0.5.0 (2026-06-11) — Gap Closure v4
+
+### Added
+- BuilderProductionConfig with fail-closed validation for production startup
+- Compatibility contracts package (packages/compatibility/) for ND/NT alignment
+- Evidence postgres repository for persistent evidence storage
+- Startup policy (services/api/startup_policy.py) using BuilderProductionConfig
+- CI workflows: security.yml, docker.yml
+- Security scanning: .gitleaks.toml, check_secrets.sh, check_release_version.py
+- Production smoke test script (scripts/smoke_production.sh)
+- Machine-readable readiness matrix (doc/readiness_status.json)
+- Full builder journey integration test (7 steps)
+- Version consistency tests across pyproject.toml, RELEASE.md, and /health/build
+
+### Changed
+- Version bumped from 0.1.0 to 0.5.0
+- RELEASE.md header unified (no version drift)
+- Readiness matrix uses v4 capability names
+- Capabilities upgraded to v4 format with role-based sets
+- READINESS.md updated with v4 statuses and blocking segments
+- pyproject.toml version now 0.5.0
+
+### Tests
+- 1377 Python tests (from 1332 baseline, +45 new tests)
+- Frontend typecheck and build passing
+- Forbidden authority scan passing
+- Secret scanning passing
