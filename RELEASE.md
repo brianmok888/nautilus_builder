@@ -1,6 +1,12 @@
 # Nautilus Builder — Release Process
 
 ## Version Scheme
+## Current Release
+
+**Version:** 0.1.0
+**Status:** Unreleased / dev-demo
+**Date:** 2026-06-11
+
 
 Semantic Versioning: `MAJOR.MINOR.PATCH`
 

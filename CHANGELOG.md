@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.0 - 2026-06-11
+
+### Changed
+- Canonical version source: `packages/builder_metadata/version.py` now the single source of truth.
+- `/health/build` and FastAPI app.version read from canonical source.
+- RELEASE.md updated to reference current version.
+
 ## v0.6.0 - 2026-06-07
 
 ### Added
