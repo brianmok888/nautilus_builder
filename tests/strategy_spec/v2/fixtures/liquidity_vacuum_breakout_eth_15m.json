@@ -1,0 +1,79 @@
+{
+  "metadata": {
+    "strategy_id": "liq_vacuum_breakout_eth_15m",
+    "lineage_id": "lineage_vacuum_001",
+    "name": "Liquidity Vacuum Breakout ETH 15m",
+    "version": "1.0.0",
+    "schema_version": "v2",
+    "created_by": "builder_operator"
+  },
+  "market": {
+    "adapter_id": "BINANCE_PERP",
+    "venue": "BINANCE",
+    "instrument_id": "ETHUSDT-PERP.BINANCE",
+    "market_type": "perpetual",
+    "bar_type": "15-MINUTE"
+  },
+  "features": {
+    "required": [
+      "book.best_bid",
+      "book.best_ask",
+      "book.depth_near_mid_usd",
+      "book.wall_bid_usd",
+      "book.wall_ask_usd",
+      "book.wall_persistence_ms",
+      "book.pull_stack_score"
+    ],
+    "optional": [
+      "trades.trade_count",
+      "trades.burst_score",
+      "liquidation.long_liq_notional",
+      "liquidation.short_liq_notional"
+    ],
+    "source_health": {
+      "book_age_ms_max": 300,
+      "trades_age_ms_max": 500,
+      "stale_policy": "block_signal"
+    }
+  },
+  "conditions": {
+    "entries": [
+      {
+        "id": "wall_pull",
+        "operator": "gte",
+        "feature": "book.pull_stack_score",
+        "threshold": 0.8
+      },
+      {
+        "id": "depth_thin",
+        "operator": "lte",
+        "feature": "book.depth_near_mid_usd",
+        "threshold": 100000
+      }
+    ],
+    "exits": [
+      {
+        "id": "depth_recovery",
+        "operator": "gte",
+        "feature": "book.depth_near_mid_usd",
+        "threshold": 500000
+      }
+    ]
+  },
+  "risk": {
+    "sizing": "fixed_fractional",
+    "slippage_bps_max": 8.0,
+    "spread_bps_max": 5.0,
+    "depth_usd_min": 25000,
+    "cooldown_ms": 60000
+  },
+  "evidence": {
+    "required_evidence_types": ["validation_report", "compile_artifact", "backtest_result"],
+    "replay_dataset_ref": "dataset_ethusdt_15m_binance_perp",
+    "feature_hash_required": true,
+    "policy_hash_required": true
+  },
+  "output": {
+    "mode": "signal_preview_only"
+  }
+}

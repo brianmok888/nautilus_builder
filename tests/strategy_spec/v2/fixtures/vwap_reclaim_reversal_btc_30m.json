@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "strategy_id": "vwap_reclaim_btc_30m",
+    "lineage_id": "lineage_vwap_reclaim_001",
+    "name": "VWAP Reclaim Reversal BTC 30m",
+    "version": "1.0.0",
+    "schema_version": "v2",
+    "created_by": "builder_operator"
+  },
+  "market": {
+    "adapter_id": "BINANCE_PERP",
+    "venue": "BINANCE",
+    "instrument_id": "BTCUSDT-PERP.BINANCE",
+    "market_type": "perpetual",
+    "bar_type": "30-MINUTE"
+  },
+  "features": {
+    "required": [
+      "vwap.session",
+      "vwap.session_distance_bps",
+      "book.best_bid",
+      "book.best_ask",
+      "trades.delta",
+      "trades.cvd"
+    ],
+    "optional": [
+      "funding.rate",
+      "funding.zscore",
+      "svp.poc",
+      "svp.distance_to_poc_bps"
+    ],
+    "source_health": {
+      "book_age_ms_max": 1000,
+      "trades_age_ms_max": 2000,
+      "stale_policy": "block_signal"
+    }
+  },
+  "conditions": {
+    "entries": [
+      {
+        "id": "below_vwap",
+        "operator": "gte",
+        "feature": "vwap.session_distance_bps",
+        "threshold": 20.0
+      },
+      {
+        "id": "cvd_divergence",
+        "operator": "rising",
+        "feature": "trades.cvd",
+        "sustained_for_ms": 30000
+      }
+    ],
+    "exits": [
+      {
+        "id": "vwap_touch",
+        "operator": "lte",
+        "feature": "vwap.session_distance_bps",
+        "threshold": 2.0
+      }
+    ]
+  },
+  "risk": {
+    "sizing": "fixed_fractional",
+    "slippage_bps_max": 10.0,
+    "spread_bps_max": 5.0,
+    "depth_usd_min": 100000,
+    "cooldown_ms": 60000
+  },
+  "evidence": {
+    "required_evidence_types": ["validation_report", "compile_artifact", "backtest_result"],
+    "replay_dataset_ref": "dataset_btcusdt_30m_binance_perp",
+    "feature_hash_required": true,
+    "policy_hash_required": true
+  },
+  "output": {
+    "mode": "signal_preview_only"
+  }
+}
