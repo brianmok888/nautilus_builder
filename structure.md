@@ -109,3 +109,26 @@ nautilus_builder/
 The `catalog_backed_replay_smoke` module validates NautilusTrader replay using synthetic historical quote ticks from the catalog_datasets layer. This is an evidence-gate smoke test, not full trading-production readiness.
 
 Environment: `CATALOG_BACKED_REPLAY_SMOKE_MODE=1` enables catalog-backed replay in tests.
+## 2026-06-12 Deep Review Inventory Snapshot
+
+
+Purpose: semantic inventory for the current Builder repo against NautilusTrader and Daedalus alignment.
+
+### Current authority boundaries
+- Builder remains a strategy authoring, validation, backtest/replay, promotion, and execution-lane contract system. It is not the venue adapter source of truth.
+- NautilusTrader is the execution/backtest/live runtime authority. Current local pin: `nautilus_trader==1.227.0`; latest official release checked during review: `v1.228.0`.
+- `/home/mok/projects/Nautilus-Daedalus` is a reference implementation for Daedalus runtime alignment only, not a vendored dependency.
+- AI/EvoMap/LangChain/LangGraph-style flows are advisory/workflow sidecars: they may draft, explain, and record provenance, but must not bypass manual review or execution-lane authority.
+
+### Active reviewed risk seams
+| Seam | Current files | Review status |
+| --- | --- | --- |
+| API startup/security policy | `services/api/fastapi_app.py`, `packages/auth/policy.py` | Strong fail-closed policy, but FastAPI `on_event` migration remains active. |
+| Rate limiting | `packages/auth/redis_rate_limit.py` | Production config requires Redis; runtime Redis failure still needs fail-closed proof. |
+| Pipeline orchestration | `packages/pipeline/service.py` | Validation/compile/backtest/promotion flow exists; compile exception details are suppressed. |
+| Execution lane | `packages/execution_lane/*` | Credentials/manual review/reconciliation contracts are strong; native TradingNode shutdown and module size remain watch items. |
+| Adapter/readiness evidence | `packages/adapter_registry`, `packages/backtest_runner`, tests | Backtest/replay smoke exists; DataTester/ExecTester evidence is not present for production adapter claims. |
+| Legacy/deprecation inventory | `docs/deprecations`, `docs/superpowers`, `findings.md` | Closed items are tracked; archived Nautilus 1.223/1.227 docs need historical labels. |
+
+### Independent review status
+The requested `code-reviewer` and `architect` native lanes were unavailable in this session. Treat `findings.md` as an evidence-backed local review update, not an independent approval artifact.

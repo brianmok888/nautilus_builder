@@ -51,3 +51,15 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
 | # | Guard | Status | Enforced By | Tests |
 |---|-------|--------|-------------|-------|
 | 31 | CATALOG_BACKED_REPLAY_SMOKE_MODE | ✅ ACTIVE | Environment gate for catalog replay smoke tests | `test_catalog_replay_ledger_updates.py` |
+## 2026-06-12 Review Closure Guardrails
+
+
+| ID | Guard | Status | Evidence | Required next action |
+| --- | --- | --- | --- | --- |
+| R-1 | Redis rate limiting must fail closed in production runtime failures | ⚠️ ACTIVE | `packages/auth/redis_rate_limit.py:71` can log `rate_limit_fallback_open` | Wire `fail_closed=True` for production construction and test Redis command failure. |
+| R-2 | Pipeline compile failures must preserve redacted root cause | ⚠️ ACTIVE | `packages/pipeline/service.py:68` catches broad `Exception` | Add typed error/detail field and regression test. |
+| R-3 | FastAPI startup guard must move off deprecated `on_event` | ⚠️ ACTIVE | `services/api/fastapi_app.py:203`/`:204` | Migrate to lifespan and keep fail-closed evidence test. |
+| R-4 | Nautilus dependency drift must be explicit | ⚠️ WATCH | `pyproject.toml:12` pins `1.227.0`; latest checked `v1.228.0` | Run compatibility tests before upgrading or documenting intentional pin. |
+| R-5 | DataTester/ExecTester evidence required before adapter production-readiness claims | ✅ ACTIVE | No DataTester/ExecTester matrix in Builder review scope | Keep all current adapter/live labels as scaffold/contract-only. |
+| R-6 | AI advisory lanes must not become execution authority | ✅ ACTIVE | Credential prompt rejection and browser secret rejection remain present | Keep manual review/provenance gates before any behavior-changing use. |
+| R-7 | Independent code review lanes required for approval wording | ⚠️ ACTIVE | Native `code-reviewer`/`architect` lanes unavailable this run | Do not label this review as approved until both lanes return evidence. |

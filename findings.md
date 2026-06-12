@@ -7,7 +7,7 @@
 - **Packages reviewed**: 36 domain packages (~12,800 LOC)
 - **Test baseline**: 1,441 passed, 1 integration failure, 1 skipped
 - **Review dimensions**: Alignment, Bugs, Security, Maintainability, Architecture, Legacy/Deprecation
-- **Authoritative refs**: NautilusTrader v1.227.0, nt-review/nt-architect/nt-live/nt-adapters/nt-testing skills
+- **Authoritative refs**: NautilusTrader latest v1.228.0; local pin remains nautilus_trader==1.227.0; nt-review/nt-architect/nt-live/nt-adapters/nt-testing skills
 
 ---
 
@@ -269,3 +269,102 @@ None.
 ## Master reconciliation — catalog-backed Nautilus replay
 
 The `catalog_backed_replay_smoke` module validates NautilusTrader replay using synthetic historical quote ticks from the catalog_datasets layer. This is an evidence-gate smoke test, not full trading-production readiness.
+
+## 2026-06-12 Deep Review Refresh — NT/AI Alignment and Legacy Closure
+
+### Review scope and authority
+- **Repo reviewed**: `/home/mok/projects/nautilus_builder` on `master`.
+- **Reference repo checked**: `/home/mok/projects/Nautilus-Daedalus` at `e12b89d4` for Daedalus runtime alignment only.
+- **Official source refresh (2026-06-12)**:
+  - NautilusTrader latest release: `v1.228.0` / `NautilusTrader 1.228.0 Beta` (published 2026-06-08) from `https://github.com/nautechsystems/nautilus_trader/releases/latest`.
+  - Local Builder pin remains `nautilus_trader==1.227.0` in `pyproject.toml:12` and `uv.lock`.
+  - EvoMap/evolver latest checked: `v1.89.5` (2026-06-12) from `https://github.com/EvoMap/evolver/releases/latest`.
+  - LangChain latest checked: `langchain-core==1.4.6` (2026-06-11) from `https://github.com/langchain-ai/langchain/releases/latest`.
+  - LangGraph latest checked: `langgraph-cli==0.4.29` (2026-06-11) from `https://github.com/langchain-ai/langgraph/releases/latest`.
+- **Independent review lane status**: `code-reviewer` and `architect` native agent lanes were requested by the code-review skill but were unavailable in this session. This review is evidence-backed, but **not independently approved** under the code-review skill approval contract.
+
+### Executive synthesis
+- **Final recommendation**: `COMMENT / NOT MERGE-READY AS APPROVAL` for production-readiness claims, because independent review lanes were unavailable and several active high/medium risks remain.
+- **Critical security findings**: none found in this pass.
+- **Primary active risks**: Redis fail-open behavior under runtime Redis errors, pipeline compile error suppression, version/deprecation drift, FastAPI `on_event` deprecation, and incomplete DataTester/ExecTester evidence for any future adapter-readiness claim.
+- **Positive alignment**: production startup policy remains fail-closed for missing API token/CORS/rate-limit backend; browser credential collection remains disabled; execution lane models enforce manual review/reconciliation fields for live authority; AI draft prompts reject credential requests and browser LLM config rejects secret-bearing fields.
+
+### HIGH
+
+#### H-20260612-01: Redis rate limiter can still fail open at runtime
+- **Evidence**: `packages/auth/redis_rate_limit.py:44` catches Redis connection failures and falls back; `packages/auth/redis_rate_limit.py:71` catches runtime Redis command failures and logs `rate_limit_fallback_open` unless `fail_closed=True` is configured.
+- **Risk**: production startup requires `BUILDER_RATE_LIMIT_BACKEND=redis`, but runtime Redis outages can still remove the effective API throttle if fail-closed is not wired through every production construction path.
+- **Fix**: make production construction pass `fail_closed=True` unconditionally, add a test that simulates Redis command failure in production and expects denial/503, and document local-only fail-open behavior.
+
+#### H-20260612-02: Pipeline compilation still suppresses root-cause exceptions
+- **Evidence**: `packages/pipeline/service.py:66` wraps `compile_strategy_spec`, and `packages/pipeline/service.py:68` catches bare `Exception` while only emitting `PipelineStep(name="compile", status="failed")`.
+- **Risk**: compile failures lose structured error details, making operator/audit triage hard and hiding whether the issue was validation, compiler, filesystem, or unexpected runtime failure.
+- **Fix**: catch a typed compiler exception where possible; otherwise capture `type(exc).__name__` plus redacted message in `PipelineResult.error` or a new `PipelineStep.detail` field. Add a regression test asserting the compile failure reason survives.
+
+#### H-20260612-03: Required independent review approval evidence is unavailable
+- **Evidence**: the requested `superpowers:code-review` workflow requires independent `code-reviewer` and `architect` lanes, but both native agent types returned unavailable in this session.
+- **Risk**: review results can be committed as findings, but they must not be interpreted as an independent approval or merge-readiness sign-off.
+- **Fix**: rerun the review in an environment where `code-reviewer` and `architect` lanes are available before promoting any production-readiness or deployment approval claim.
+
+### MEDIUM
+
+#### M-20260612-01: NautilusTrader version and docs are semantically stale
+- **Evidence**: active dependency pin is `pyproject.toml:12` (`nautilus_trader==1.227.0`), while latest official release checked is `v1.228.0`; archived docs still reference `nautilus_trader==1.223.0` at `docs/superpowers/specs/2026-05-24-findings-closure-design.md:14`, `:52`, and `:98`.
+- **Risk**: Builder review guidance and dependency policy can drift from current Nautilus API contracts (for example adapter/live/runtime/testing changes), causing false confidence in old guardrails.
+- **Fix**: create a compatibility upgrade issue for `1.228.0`, run targeted Builder runtime/backtest tests against it, then either upgrade the pin or document why Builder intentionally stays on `1.227.0`. Move old `1.223.0` specs under an archive heading or mark them historical.
+
+#### M-20260612-02: FastAPI startup hook uses deprecated `on_event`
+- **Evidence**: `services/api/fastapi_app.py:203` checks `hasattr(app, "on_event")` and `services/api/fastapi_app.py:204` registers `@app.on_event("startup")`.
+- **Risk**: current tests already record deprecation warnings; future FastAPI versions can remove or alter the API, weakening the evidence-storage startup guard.
+- **Fix**: migrate startup revalidation into a lifespan context manager and keep a test proving production evidence storage still fails closed.
+
+#### M-20260612-03: Native TradingNode session runner shutdown remains a lifecycle risk
+- **Evidence**: `packages/execution_lane/sessions.py:152` stores active native node/thread tuples; `packages/execution_lane/sessions.py:166` starts native TradingNode sessions after an async-loop guard. Prior review also tracks missing robust stop/join coverage.
+- **Risk**: without explicit join timeout/dispose assertions, a hung `node.stop()` or adapter disconnect can leave orphaned TradingNode threads and live venue connections.
+- **Fix**: add stop-path tests around a fake node that hangs/fails, enforce bounded join timeout, and always transition the session record to a terminal state with clear operator evidence.
+
+#### M-20260612-04: Adapter/live readiness claims must stay gated by DataTester/ExecTester evidence
+- **Evidence**: repo currently has backtest/replay smoke evidence and Python live/integration-specific TradingNode scaffolding, but no DataTester/ExecTester matrix for venue adapter readiness.
+- **Risk**: future docs or UI labels could overstate adapter conformance. Nautilus adapter/testing guidance requires DataTester-compatible evidence for data behavior and ExecTester-compatible evidence for execution lifecycle claims.
+- **Fix**: keep current wording as scaffold/contract evidence only. Add DataTester/ExecTester artifact fields before any adapter is labelled production-ready.
+
+#### M-20260612-05: Execution lane package remains large enough to slow review and ownership
+- **Evidence**: `packages/execution_lane` is ~1905 LOC across 10 Python files; `sessions.py` is ~434 LOC and `models.py` is ~325 LOC.
+- **Risk**: lifecycle, credentials, paper/live authority, and runtime-plan contracts are coupled enough that future changes may miss one guard or test seam.
+- **Fix**: split `sessions.py` into runner protocol, sandbox runner, native runner, and session ID/result helpers once behavior is locked by tests.
+
+### LOW
+
+#### L-20260612-01: Historical docs contain legacy Nautilus pins and old status language
+- **Evidence**: `docs/superpowers/plans/2026-05-24-findings-closure-implementation-plan.md` and related archived specs still reference `nautilus_trader==1.223.0`; `docs/superpowers/specs/2026-05-30-quantdinger-fluidity-gap-design.md:100` references `1.227.0` as current.
+- **Risk**: low if treated as historical, but confusing for semantic search and future agents.
+- **Fix**: add a one-line archive banner to `docs/superpowers/*` plans/specs that old version pins are historical snapshots, not current policy.
+
+#### L-20260612-02: UI placeholders are intentional but should remain labelled as non-authoritative
+- **Evidence**: README already says placeholder UI components do not replace backend runtime truth; web tests include placeholder chart labels.
+- **Risk**: low; if copied into operator docs without labels, placeholders can be mistaken for real readiness signals.
+- **Fix**: keep placeholder labels explicit and ensure `tests/web` continues to assert authority boundaries.
+
+### Inventory-first semantic legacy/deprecation closure
+
+| Inventory item | Status | Evidence | Closure action |
+| --- | --- | --- | --- |
+| `PostgresWorkflowRepository` naming drift | Closed | `findings.md` tracks `PostgresWorkflowRepository → SqliteWorkflowRepository` as closed; `docs/deprecations/deprecation-inventory.md` records removal. | Keep closed; do not reintroduce alias. |
+| `allow_legacy_fixture_refs` | Closed | `tests/promotions/test_shadow_evidence_contract.py` notes legacy warning filter removed and strict legacy ref tests remain. | Keep closed; keep strict scoped artifact refs. |
+| FastAPI `on_event` | Active | `services/api/fastapi_app.py:203`/`:204`. | Migrate to lifespan. |
+| Nautilus 1.223 archived specs | Active semantic drift | `docs/superpowers/specs/2026-05-24-findings-closure-design.md:14`. | Mark historical or update current policy pointer. |
+| Nautilus 1.227 runtime pin vs latest 1.228 | Active watch | `pyproject.toml:12`; GitHub latest `v1.228.0`. | Compatibility test before upgrade. |
+| Rust LiveNode placeholder field | Active watch | `structure.md` records `future_runtime="rust_live_node"` placeholder. | Keep labelled as placeholder until real Rust LiveNode path exists. |
+| Browser credential bootstrap | Active guard | `packages/execution_lane/credentials.py` returns disabled payload and validates env-only backend slot writes. | Keep active; no browser secret collection. |
+| AI/EvoMap/LangChain advisory boundary | Active guard | AI builder rejects credential prompts; LLM config rejects secret fields. | Keep AI sidecar/advisory-only; never execution-authoritative. |
+
+### Validation run during this review
+- `python3 scripts/check_docs_consistency.py` -> passed.
+- `python3 -m pytest tests/integration/test_operability_baseline.py tests/onboarding/test_env_and_scripts.py tests/promotions/test_shadow_evidence_contract.py -q` -> 37 passed.
+- Broader tests are run after markdown updates before commit.
+
+### Review gate outcome
+- **code-reviewer lane**: unavailable.
+- **architect lane**: unavailable.
+- **Architectural status**: `WATCH` locally, because active production/runtime risks remain but no new CRITICAL blocker was found.
+- **Final recommendation**: `COMMENT`; do not treat this as merge-ready approval until independent lanes and active high findings are resolved.
