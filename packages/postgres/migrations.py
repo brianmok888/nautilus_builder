@@ -387,3 +387,39 @@ MIGRATIONS.append(
         """,
     )
 )
+
+
+MIGRATIONS.append(
+    Migration(
+        version=7,
+        name="evidence_refs_table",
+        up="""
+        CREATE TABLE IF NOT EXISTS {schema}.evidence_refs (
+            evidence_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            strategy_lineage_id TEXT,
+            strategy_version_id TEXT,
+            artifact_type TEXT NOT NULL,
+            source_system TEXT NOT NULL,
+            uri TEXT NOT NULL,
+            sha256 TEXT NOT NULL DEFAULT '',
+            schema_version TEXT NOT NULL DEFAULT 'evidence_v1',
+            created_at TEXT,
+            producer TEXT NOT NULL DEFAULT 'builder',
+            status TEXT NOT NULL DEFAULT 'active',
+            verification_status TEXT NOT NULL DEFAULT 'unverified',
+            verification_error TEXT,
+            expires_at TEXT,
+            metadata JSONB DEFAULT '{{}}'::jsonb
+        );
+        CREATE INDEX IF NOT EXISTS idx_evidence_refs_project
+            ON {schema}.evidence_refs (project_id);
+        CREATE INDEX IF NOT EXISTS idx_evidence_refs_strategy_lineage
+            ON {schema}.evidence_refs (project_id, strategy_lineage_id)
+            WHERE strategy_lineage_id IS NOT NULL;
+        """,
+        down="""
+        DROP TABLE IF EXISTS {schema}.evidence_refs;
+        """,
+    )
+)

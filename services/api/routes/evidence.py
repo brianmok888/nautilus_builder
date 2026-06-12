@@ -1,4 +1,8 @@
-"""Evidence route handlers — CRUD for typed evidence refs."""
+"""Evidence route handlers — CRUD for typed evidence refs.
+
+Uses injected EvidenceRepositoryProtocol for storage.
+Production must use PostgresEvidenceRepository; local/dev uses InMemoryEvidenceRepository.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -7,40 +11,53 @@ from packages.evidence_ledger.models import EvidenceRef
 from packages.evidence_ledger.verifier import verify_evidence_ref
 
 
-# In-memory evidence store for dev/demo. Production uses persistence layer.
-_evidence_store: dict[str, EvidenceRef] = {}
-
-
-def create_evidence(payload: dict[str, Any]) -> dict[str, Any]:
+def create_evidence(
+    payload: dict[str, Any],
+    *,
+    repo: Any,
+) -> dict[str, Any]:
     """Create and store a new evidence reference."""
     ref = EvidenceRef(**payload)
-    verified = verify_evidence_ref(ref)
-    _evidence_store[verified.evidence_id] = verified
-    return verified.model_dump()
+    saved = repo.save(ref)
+    return saved.model_dump()
 
 
-def get_evidence(evidence_id: str) -> dict[str, Any] | None:
-    """Retrieve an evidence reference by ID."""
-    ref = _evidence_store.get(evidence_id)
+def get_evidence(
+    evidence_id: str,
+    *,
+    project_id: str,
+    repo: Any,
+) -> dict[str, Any] | None:
+    """Retrieve an evidence reference by ID, scoped to project."""
+    ref = repo.get(evidence_id, project_id)
     return ref.model_dump() if ref else None
 
 
-def verify_evidence(evidence_id: str) -> dict[str, Any] | None:
+def verify_evidence(
+    evidence_id: str,
+    *,
+    project_id: str,
+    repo: Any,
+) -> dict[str, Any] | None:
     """Re-verify an evidence reference."""
-    ref = _evidence_store.get(evidence_id)
+    ref = repo.get(evidence_id, project_id)
     if not ref:
         return None
     verified = verify_evidence_ref(ref)
-    _evidence_store[evidence_id] = verified
-    return verified.model_dump()
+    saved = repo.save(verified)
+    return saved.model_dump()
 
 
-def list_evidence_for_strategy(strategy_lineage_id: str) -> list[dict[str, Any]]:
+def list_evidence_for_strategy(
+    strategy_lineage_id: str,
+    *,
+    project_id: str,
+    repo: Any,
+) -> list[dict[str, Any]]:
     """List all evidence refs for a strategy lineage."""
     if not strategy_lineage_id:
-        return [ref.model_dump() for ref in _evidence_store.values()]
+        return [r.model_dump() for r in repo.list_by_project(project_id)]
     return [
-        ref.model_dump()
-        for ref in _evidence_store.values()
-        if ref.strategy_lineage_id == strategy_lineage_id
+        r.model_dump()
+        for r in repo.list_by_strategy_lineage(project_id, strategy_lineage_id)
     ]

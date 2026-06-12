@@ -132,3 +132,46 @@ class CatalogDataset(BaseModel):
             user_id=self.user_id,
             project_id=self.project_id,
         )
+
+
+class DatasetDataType(str, Enum):
+    """ND-grade dataset types for replay manifests."""
+    QUOTE_TICKS = "quote_ticks"
+    TRADE_TICKS = "trade_ticks"
+    ORDER_BOOK_SNAPSHOTS = "order_book_snapshots"
+    BARS_OHLCV = "bars_ohlcv"
+    FUNDING_RATES = "funding_rates"
+    LIQUIDATIONS = "liquidations"
+    FEATURE_SNAPSHOTS = "feature_snapshots"
+    STATE_BUNDLE_EXPORTS = "state_bundle_exports"
+    STRATEGY_SIGNAL_PREVIEW_EXPORTS = "strategy_signal_preview_exports"
+    GATE_DECISION_EXPORTS = "gate_decision_exports"
+
+
+class DatasetFileEntry(BaseModel):
+    """A single file entry in a dataset manifest."""
+    model_config = ConfigDict(extra="forbid")
+
+    data_type: DatasetDataType
+    uri: str = Field(min_length=1)
+    sha256: str = Field(min_length=1)
+    row_count: int = Field(ge=0)
+    min_ts_ns: int = 0
+    max_ts_ns: int = 0
+    required: bool = True
+    source_status: str = "live"  # live | historical | synthetic | missing
+
+
+class DatasetManifestV1(BaseModel):
+    """v5 dataset manifest with multi-type file entries."""
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = "dataset_manifest_v1"
+    dataset_id: str = Field(min_length=1)
+    project_id: str = Field(min_length=1)
+    adapter_id: str = Field(min_length=1)
+    venue: str = Field(min_length=1)
+    instrument_id: str = Field(min_length=1)
+    time_range: dict[str, str] = Field(default_factory=dict)
+    files: list[DatasetFileEntry] = Field(default_factory=list)
+    manifest_hash: str = ""

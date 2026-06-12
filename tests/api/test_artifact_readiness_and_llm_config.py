@@ -110,7 +110,23 @@ def test_fastapi_postgres_llm_config_save_persists_to_config_repository(
         def set(self, key: str, value: dict[str, Any], *, updated_by: str | None = None) -> None:
             self.saved.append((key, value, updated_by))
 
-    monkeypatch.setattr(postgres, "connect_pool", lambda dsn: object())
+    class _FakeConn:
+        """Fake Postgres connection for tests without psycopg."""
+        def execute(self, *a, **kw):
+            return self
+        def fetchone(self):
+            return None
+        def fetchall(self):
+            return []
+        @property
+        def rowcount(self):
+            return 0
+    _fake_conn = _FakeConn()
+    monkeypatch.setattr(postgres, "connect_pool", lambda dsn: _fake_conn)
+    # Mock all Postgres repositories that the app creates
+    for repo_name in ["PostgresStrategyRepository", "PostgresAdapterRepository", "PostgresBacktestJobRepository", "PostgresWorkflowResultRepository"]:
+        if hasattr(postgres, repo_name):
+            monkeypatch.setattr(postgres, repo_name, lambda *a, **kw: None)
     monkeypatch.setattr(postgres, "apply_migrations", lambda conn: None)
     monkeypatch.setattr(postgres, "seed_default_market_data", lambda conn: None)
     monkeypatch.setattr(postgres, "PostgresConfigRepository", RecordingConfigRepository)

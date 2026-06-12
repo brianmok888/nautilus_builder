@@ -226,7 +226,27 @@ def test_fastapi_production_mode_requires_durable_ai_audit_store(monkeypatch) ->
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
     monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("BUILDER_DATABASE_URL", "postgresql://test:test@localhost:5432/builder_test")
     monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
+
+    # Mock postgres since psycopg is not available in test env
+    import packages.postgres as _pg
+
+    class _FakeConn:
+        """Fake Postgres connection for tests without psycopg."""
+        def execute(self, *a, **kw):
+            return self
+        def fetchone(self):
+            return None
+        def fetchall(self):
+            return []
+        @property
+        def rowcount(self):
+            return 0
+    _fake = _FakeConn()
+    monkeypatch.setattr(_pg, "connect_pool", lambda dsn: _fake)
+    monkeypatch.setattr(_pg, "apply_migrations", lambda conn: None)
+    monkeypatch.setattr(_pg, "seed_default_market_data", lambda conn: None)
 
     from services.api.fastapi_app import create_fastapi_app
 

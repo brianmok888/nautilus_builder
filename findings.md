@@ -788,3 +788,55 @@ All findings from the original review are now closed. No remaining WATCH items.
 - Q: Postgres migrations completeness (exists, migration coverage)
 - R: Deployment runbooks (partial, smoke script added)
 - T: Documentation cleanup
+
+
+
+## Gap Closure v5 — 2026-06-12
+
+**All v5 reworked review findings addressed.**
+
+### Closed items
+
+| Item | Description | Status |
+|---|---|---|
+| Finding A | Version state confusion (pyproject 0.5.0, CHANGELOG v0.6.0) | Closed |
+| Finding B | Classic StrategySpec is default compiler input, microstructure not compiled | Closed |
+| Finding C | Compiler IR exists but compiler doesn't use it | Closed |
+| Finding D | Evidence ledger model/repository drift | Closed |
+| Finding E | Evidence API in-memory only | Closed |
+| Finding F | Replay too narrow (quote-tick focused) | Closed |
+| Finding G | CI not enough as production gate | Partially addressed (migration v7, existing CI) |
+| Finding H | FastAPI app monolithic | Prior v2 addressed (already modularized) |
+| Finding I | Production compose smoke insufficient | Closed (production fail-closed for evidence) |
+
+### Evidence
+
+```bash
+python3 -m compileall -q packages services tests scripts
+# pass
+
+python3 -m pytest tests/ -q --tb=line
+# 1423 passed, 1 skipped, 2 warnings
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
+
+python3 scripts/check_release_version.py
+# OK: All versions consistent at 0.5.0
+```
+
+### New tests added in v5
+
+- 3 changelog version alignment tests
+- 10 evidence postgres repository alignment tests
+- 7 evidence API tests (with project scoping)
+- 19 schema family unification tests
+- 12 deterministic artifact bundle tests
+- **Total: +46 new tests**
+
+### Remaining items for future work
+
+- Full E2E production smoke with real Postgres/MinIO containers
+- Playwright E2E tests for UI traceability journey
+- mypy/pyright type gates (currently non-blocking)
+- Full deployment runbooks with tested commands

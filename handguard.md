@@ -563,3 +563,38 @@ New guards from the v4 closure:
 9. **Secret scanning guard:** `.gitleaks.toml` and `scripts/check_secrets.sh` check env examples and production code for leaked credentials.
 
 10. **Smoke test guard:** `scripts/smoke_production.sh` verifies deployment from docs alone.
+
+
+
+## Gap Closure v5 guards — 2026-06-12
+
+New guards from the v5 closure:
+
+1. **Changelog version alignment guard:** First concrete version in CHANGELOG must match pyproject.toml. Tests catch future drift. `scripts/check_release_version.py` enforces.
+
+2. **Evidence repository model alignment guard:** PostgresEvidenceRepository uses canonical EvidenceRef fields. Tests verify field mapping matches model.
+
+3. **Evidence production fail-closed guard:** `create_fastapi_app()` raises ValueError in production/staging if evidence storage is in-memory. Tests verify production rejects in-memory evidence.
+
+4. **Evidence project scoping guard:** Evidence routes require `project_id` from authenticated context. Tests verify wrong-project returns None. Cross-project evidence leakage blocked.
+
+5. **Schema family unification guard:** `parse_strategy_spec` handles both classic_v1 and microstructure_v1. Compiler routes microstructure to signal_preview_only only. Tests verify both families compile deterministically.
+
+6. **Microstructure execution authority guard:** StrategySpecMicrostructureV1 enforces `execution_authority=False` and `output_mode=signal_preview_only` at model level. Tests verify True values are rejected.
+
+7. **Source health validation guard:** Microstructure specs validate source health records for required features. Missing/stale/synthetic required features block validation. Tests verify each case.
+
+8. **Deterministic bundle hash guard:** `compile_strategy_spec_bundle` produces same hash for same input. Different inputs produce different hashes. Tests verify determinism.
+
+9. **Bundle forbidden authority guard:** All generated artifacts are scanned for `submit_order(`, `TradeAction(`, and `execution_authority: true`. Tests verify none found.
+
+10. **V5 promotion mode guard:** Forbidden promotion modes (live_trade_authority, direct_submit_order_authority) are rejected. Required evidence per mode is enforced.
+
+11. **Evidence migration guard:** Migration v7 creates evidence_refs table with project-scoped indexes. Tests verify migration applies cleanly.
+
+### Open items for future PRs
+
+- Full E2E production smoke (Segment 15)
+- UI traceability journey (Segment 12)
+- Auth/RBAC route capability checks (Segment 11)
+- Operations runbooks (Segment 14)

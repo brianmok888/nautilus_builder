@@ -1,0 +1,56 @@
+{
+  "adapter_id": "binance",
+  "execution_authority": false,
+  "features": [
+    {
+      "fail_closed_on_missing": true,
+      "feature": "liquidity_walls",
+      "required": true
+    },
+    {
+      "feature": "depth_near_price_usd",
+      "max_staleness_ms": 2000,
+      "required": true
+    },
+    {
+      "feature": "svp_poc",
+      "required": true
+    },
+    {
+      "feature": "aggressive_buy_volume",
+      "required": false
+    },
+    {
+      "feature": "aggressive_sell_volume",
+      "required": false
+    }
+  ],
+  "instrument_id": "ETHUSDT-PERP.BINANCE",
+  "output_mode": "signal_preview_only",
+  "risk": {
+    "max_hold_ms": 30000,
+    "max_loss_notional_usd": 250,
+    "max_position_notional_usd": 5000
+  },
+  "schema_version": "microstructure_v1",
+  "signals": [
+    {
+      "condition": "liquidity_walls > 0.8 AND depth_near_price_usd < 500000",
+      "direction": "long",
+      "features": [
+        {
+          "feature": "liquidity_walls",
+          "required": true
+        },
+        {
+          "feature": "depth_near_price_usd",
+          "max_staleness_ms": 2000,
+          "required": true
+        }
+      ],
+      "name": "vacuum_breakout_long"
+    }
+  ],
+  "venue": "BINANCE",
+  "version": "1.0.0"
+}

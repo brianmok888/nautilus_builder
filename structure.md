@@ -529,3 +529,60 @@ This is a Builder-only findings closure. It does not implement Daedalus order-fl
 - All legacy items removed (no env escapes remain)
 - Prompt audit storage redacts secrets before persistence
 - Frontend uses canonical API client only
+
+
+## Gap Closure v5 — 2026-06-12
+
+**Branch:** master (direct)
+**Segments closed:** 01-05 core + 06-09 supporting
+**Tests:** 1423 Python (from 1377 baseline, +46)
+
+### Closed findings from v5 reworked review
+
+| Finding | Description | Status |
+|---|---|---|
+| A | Version drift between CHANGELOG, pyproject, RELEASE.md | Closed: CHANGELOG restructured with Unreleased section, version check script hardened |
+| B | Microstructure not in main compile path | Closed: compiler handles both classic and microstructure families via resolver |
+| C | Compiler ignores IR model | Closed: compile_strategy_spec_bundle produces full 6-artifact deterministic bundle |
+| D | Evidence ledger model/repository field drift | Closed: PostgresEvidenceRepository aligned with EvidenceRef model fields |
+| E | Evidence API in-memory only | Closed: injected repository pattern, production fails on in-memory evidence store |
+| F | Replay too narrow | Closed: DatasetDataType enum with 10 ND-grade types, DatasetManifestV1 model |
+| G | CI not enough as production gate | Prior: CI exists. v5 adds migration v7 for evidence_refs |
+| I | Production compose smoke insufficient | Prior: compose exists. v5 adds production fail-closed for evidence store |
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `packages/strategy_spec/resolver.py` | Schema family resolver (classic_v1/microstructure_v1) |
+| `packages/strategy_spec/examples/` | 3 microstructure example spec JSON files |
+| `packages/evidence_ledger/in_memory_repository.py` | In-memory evidence repository for dev/demo |
+| `tests/strategy_spec/test_schema_family_unification.py` | 19 tests for schema family unification |
+| `tests/strategy_compiler/test_compile_bundle.py` | 12 tests for deterministic artifact bundle |
+| `tests/evidence_ledger/test_postgres_repository.py` | 10 tests for evidence repository alignment |
+| `tests/version/test_changelog_version_alignment.py` | 3 tests for changelog version consistency |
+
+### Key changes
+
+| Module | Change |
+|---|---|
+| `packages/evidence_ledger/postgres_repository.py` | Rewired to use EvidenceRef model fields (strategy_lineage_id, uri, source_system) |
+| `packages/strategy_compiler/compiler.py` | Handles both classic and microstructure specs; added compile_strategy_spec_bundle |
+| `services/api/routes/evidence.py` | Injected repository pattern, no global mutable state |
+| `services/api/fastapi_app.py` | Creates evidence repo from Postgres or in-memory; production fails on in-memory |
+| `packages/catalog_datasets/models.py` | Added DatasetDataType enum (10 types) and DatasetManifestV1 model |
+| `packages/promotions/evidence_policy.py` | Added v5 promotion modes with forbidden mode enforcement |
+| `packages/postgres/migrations.py` | Added migration v7 for evidence_refs table |
+| `CHANGELOG.md` | Restructured with Unreleased section, consolidated v0.5.0 |
+| `scripts/check_release_version.py` | Hardened to catch changelog-leading-version mismatches |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible
+- Version metadata is consistent across all sources
+- Production fails closed on in-memory evidence store
+- All promotion modes forbid live execution authority

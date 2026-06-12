@@ -1,0 +1,60 @@
+{
+  "adapter_id": "binance",
+  "execution_authority": false,
+  "features": [
+    {
+      "fail_closed_on_missing": true,
+      "feature": "vpin_toxicity",
+      "max_staleness_ms": 3000,
+      "required": true
+    },
+    {
+      "feature": "book_resilience",
+      "required": true
+    },
+    {
+      "feature": "cvd_divergence",
+      "required": true
+    },
+    {
+      "feature": "funding_z_score",
+      "required": false
+    },
+    {
+      "feature": "liquidity_replenishment",
+      "required": false
+    }
+  ],
+  "instrument_id": "BTCUSDT-PERP.BINANCE",
+  "output_mode": "signal_preview_only",
+  "risk": {
+    "max_hold_ms": 45000,
+    "max_loss_notional_usd": 150,
+    "max_position_notional_usd": 3000
+  },
+  "schema_version": "microstructure_v1",
+  "signals": [
+    {
+      "condition": "vpin_toxicity > 0.9 AND book_resilience < 0.2 AND cvd_divergence > 0.5",
+      "direction": "short",
+      "features": [
+        {
+          "feature": "vpin_toxicity",
+          "max_staleness_ms": 3000,
+          "required": true
+        },
+        {
+          "feature": "book_resilience",
+          "required": true
+        },
+        {
+          "feature": "cvd_divergence",
+          "required": true
+        }
+      ],
+      "name": "exhaustion_fade_short"
+    }
+  ],
+  "venue": "BINANCE",
+  "version": "1.0.0"
+}

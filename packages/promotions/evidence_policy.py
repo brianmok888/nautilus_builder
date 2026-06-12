@@ -69,3 +69,63 @@ BLOCKING_REASONS = {
 def get_required_evidence(level: PromotionLevel) -> list[str]:
     """Return the list of required evidence types for a target level."""
     return REQUIRED_EVIDENCE.get(level, [])
+
+
+# v5 promotion modes (safer naming)
+V5_PROMOTION_MODES = {
+    "shadow_only": PromotionLevel.SHADOW_SIGNAL_PREVIEW,
+    "signal_preview_only": PromotionLevel.SHADOW_SIGNAL_PREVIEW,
+    "paper_replay_candidate": PromotionLevel.PAPER_READY,
+}
+
+# Forbidden promotion modes — Builder must never grant these
+FORBIDDEN_PROMOTION_MODES = {
+    "live_trade_authority",
+    "direct_trade_action_authority",
+    "direct_submit_order_authority",
+    "live_execution",
+}
+
+# v5 required evidence per mode
+V5_REQUIRED_EVIDENCE: dict[str, list[str]] = {
+    "shadow_only": [
+        "strategy_spec",
+        "validation_report",
+        "compiler_ir",
+        "risk_contract",
+        "runtime_boundary_report",
+    ],
+    "signal_preview_only": [
+        "strategy_spec",
+        "validation_report",
+        "compiler_ir",
+        "risk_contract",
+        "feature_dependency_graph",
+        "replay_manifest_template",
+        "manual_review",
+    ],
+    "paper_replay_candidate": [
+        "strategy_spec",
+        "validation_report",
+        "compiler_ir",
+        "risk_contract",
+        "feature_dependency_graph",
+        "replay_manifest_template",
+        "catalog_dataset_manifest",
+        "backtest_result",
+        "no_lookahead_report",
+        "gate_compatibility_report",
+    ],
+}
+
+
+def get_v5_required_evidence(mode: str) -> list[str]:
+    """Return required evidence for a v5 promotion mode."""
+    if mode in FORBIDDEN_PROMOTION_MODES:
+        raise ValueError(f"Forbidden promotion mode: {mode}")
+    return V5_REQUIRED_EVIDENCE.get(mode, [])
+
+
+def is_forbidden_mode(mode: str) -> bool:
+    """Check if a promotion mode is forbidden for Builder."""
+    return mode in FORBIDDEN_PROMOTION_MODES

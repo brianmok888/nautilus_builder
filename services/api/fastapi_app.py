@@ -31,6 +31,7 @@ from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.readiness import readiness_payload
 from services.api.routes.evidence import create_evidence, get_evidence, verify_evidence, list_evidence_for_strategy
+from packages.evidence_ledger.in_memory_repository import InMemoryEvidenceRepository
 
 from services.api.routes.promotions import create_shadow_payload, request_promotion_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
@@ -182,6 +183,16 @@ def create_fastapi_app(
         except (ImportError, OSError, ValueError) as exc:
             artifact_store_status = "error"
             artifact_store_error = str(exc)
+    # Evidence repository: Postgres in production, in-memory for local/dev
+    evidence_repo = InMemoryEvidenceRepository()
+    if _pg_conn:
+        from packages.evidence_ledger.postgres_repository import PostgresEvidenceRepository
+        evidence_repo = PostgresEvidenceRepository(_pg_conn)
+    elif _strictest_configured_env() != BuilderEnvironment.LOCAL:
+        raise ValueError(
+            "Production/staging requires persistent evidence storage. "
+            "Set BUILDER_DATABASE_URL or use local mode."
+        )
     ai_builder_service = AiBuilderService.from_env(store=_default_ai_audit_store(ai_audit_store))
     execution_lane_service = execution_lane_service or ExecutionLaneService()
     llm_config_service = llm_config_service or LlmConfigService()
@@ -279,27 +290,27 @@ def create_fastapi_app(
 
     @app.post("/api/evidence")
     def create_evidence_route(payload: dict, authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        return _fastapi_response(ApiResponse(create_evidence(payload)), JSONResponse)
+        return _fastapi_response(ApiResponse(create_evidence(payload, repo=evidence_repo)), JSONResponse)
 
     @app.get("/api/evidence/{evidence_id}")
     def get_evidence_route(evidence_id: str, authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        result = get_evidence(evidence_id)
+        result = get_evidence(evidence_id, project_id=context.project_id, repo=evidence_repo)
         if result is None:
             return _fastapi_response(ApiResponse(error="not_found"), JSONResponse)
         return _fastapi_response(ApiResponse(result), JSONResponse)
 
     @app.post("/api/evidence/{evidence_id}/verify")
     def verify_evidence_route(evidence_id: str, authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        result = verify_evidence(evidence_id)
+        result = verify_evidence(evidence_id, project_id=context.project_id, repo=evidence_repo)
         if result is None:
             return _fastapi_response(ApiResponse(error="not_found"), JSONResponse)
         return _fastapi_response(ApiResponse(result), JSONResponse)
@@ -309,7 +320,7 @@ def create_fastapi_app(
         _context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
-        return _fastapi_response(ApiResponse(list_evidence_for_strategy(strategy_lineage_id)), JSONResponse)
+        return _fastapi_response(ApiResponse(list_evidence_for_strategy(strategy_lineage_id, project_id=context.project_id, repo=evidence_repo)), JSONResponse)
 
     @app.get("/api/adapters")
     def adapters(authorization: str | None = Header(default=None)) -> Any:

@@ -1,120 +1,109 @@
 # Changelog
 
-## v0.1.0 - 2026-06-11
+## Unreleased
 
 ### Changed
-- Canonical version source: `packages/builder_metadata/version.py` now the single source of truth.
-- `/health/build` and FastAPI app.version read from canonical source.
-- RELEASE.md updated to reference current version.
-
-## v0.6.0 - 2026-06-07
+- v5 Finding A: CHANGELOG restructured with Unreleased section; version check script hardened.
+- v5 Finding B: Compiler handles both classic and microstructure StrategySpec families via resolver.
+- v5 Finding C: New `compile_strategy_spec_bundle()` produces 6 deterministic artifacts (IR, feature graph, risk contract, replay manifest, compile report, bundle manifest).
+- v5 Finding D: PostgresEvidenceRepository aligned with EvidenceRef model fields (strategy_lineage_id, uri, source_system, VerificationStatus).
+- v5 Finding E: Evidence routes use injected repository pattern; production fails on in-memory evidence store.
+- v5 Finding F: DatasetDataType enum with 10 ND-grade types; DatasetManifestV1 model for multi-type file entries.
+- v5 Finding G: Migration v7 for evidence_refs table with project-scoped indexes.
+- v5 Promotion: Forbidden promotion modes enforced; required evidence per mode defined.
 
 ### Added
-- Deterministic replay fixture generator (`packages/backtest_runner/replay_loader.py`): generates reproducible fixtures from seed for all 10 dataset types.
-- Dataset report with determinism proof: same spec always produces same hash.
-- OHLC consistency validation for bar fixtures.
-- `StrategySpecMicrostructureV1` schema with 26 microstructure feature references (OBI, CVD, spread_bps, VPIN, etc.).
-- Source health semantics: `FeatureSourceHealth` with stale/missing/true_zero/synthetic_fallback tracking.
-- Fail-closed source health validation: missing or stale required features block spec compilation.
-- `StrategySpecClassicV1` alias for backward compatibility.
-- `RELEASE.md` with version scheme, release checklist, rollback procedure, hotfix process.
-- `docker-compose.staging.yml` with Postgres, Redis, MinIO, CORS locked.
-- `docker-compose.production.yml` with all guards, password-required env vars, restart policies.
-- CI workflow updated with per-suite runs (strategy_spec, workflow_spine, artifact_store, catalog_datasets).
-- Updated `handguard.md` with microstructure spec gate (Section 34), replay loader gate (Section 35).
-
-### Changed
-- Classic `StrategySpec` unchanged — all existing tests continue to pass.
-- CI workflow now runs individual test suites for better failure isolation.
-
-### Security
-- Microstructure spec enforces `output_mode=signal_preview_only` and `execution_authority=False`.
-- No execution authority introduced in any new code.
+- `packages/strategy_spec/resolver.py` — schema family resolver.
+- `packages/evidence_ledger/in_memory_repository.py` — in-memory evidence repository for dev/demo.
+- `packages/catalog_datasets/models.py` — DatasetDataType enum and DatasetManifestV1 model.
+- `packages/strategy_spec/examples/` — 3 microstructure example spec JSON files.
+- 46 new tests across version, evidence, strategy_spec, and strategy_compiler packages.
 
 ### Verification
-- 811 tests passing, 0 compilation errors.
-- Repo hygiene scan passes.
-- Forbidden authority scan passes.
+- 1423 Python tests passing.
+- Forbidden authority scan passing.
+- Version consistency check passing.
+- No `submit_order(` or authoritative `TradeAction(` in Builder production code.
 
-## v0.5.0 - 2026-06-07
+## v0.5.0 - 2026-06-11
 
 ### Added
-- Redis-backed rate limiting (`RedisRateLimiter`) with configurable backend selection (`BUILDER_RATE_LIMIT_BACKEND=memory|redis`).
-- In-memory rate limiter retained as default for local development.
-- Audit middleware (`AuditMiddleware`) that logs every mutation request (POST, PUT, DELETE, PATCH) with actor_id, project_id, request_id, route, method, status_code.
-- Request ID middleware: every response includes `X-Request-ID` header (UUID).
-- Audit middleware writes to Postgres `audit_events` table when Postgres is configured.
-- Redis rate limiter fails open (allows request, logs warning) when Redis is unavailable.
-- Expanded deployment guide with required env vars table, forbidden production defaults, Postgres/S3/MinIO setup steps, health checks, migration commands, backup/restore commands, release checklist, and rollback checklist.
-- New operations guide (`docs/operations.md`) covering monitoring, incident response, backup/restore, environment profiles, rate limiting architecture, and audit trail queries.
-- Production environment example (`.env.production.example`) updated with rate limiting and audit configuration vars.
-- `audit_events` migration v3 adds `project_id` column and index for project-scoped audit queries.
+- Redis-backed rate limiting (`RedisRateLimiter`) with configurable backend selection.
+- Audit middleware logging every mutation request with actor_id, project_id, request_id.
+- Request ID middleware: every response includes `X-Request-ID` header.
+- BuilderProductionConfig with fail-closed validation for production startup.
+- Compatibility contracts package (`packages/compatibility/`) for ND/NT alignment.
+- Evidence Postgres repository for persistent evidence storage.
+- Startup policy (`services/api/startup_policy.py`) using BuilderProductionConfig.
+- CI workflows: `ci.yml`, `security.yml`, `docker.yml`.
+- Security scanning: `.gitleaks.toml`, `check_secrets.sh`, `check_release_version.py`.
+- Production smoke test script (`scripts/smoke_production.sh`).
+- Machine-readable readiness matrix (`doc/readiness_status.json`).
+- Full builder journey integration test (7 steps).
+- Version consistency tests across `pyproject.toml`, `RELEASE.md`, and `/health/build`.
+- Deterministic replay fixture generator for all 10 dataset types.
+- `StrategySpecMicrostructureV1` schema with 26 microstructure feature references.
+- Source health semantics with stale/missing/true_zero/synthetic_fallback tracking.
+- `StrategySpecClassicV1` alias for backward compatibility.
+- `RELEASE.md` with version scheme, release checklist, rollback procedure.
+- `docker-compose.staging.yml` and `docker-compose.production.yml` with guards.
+- Promotion modes: `AllowedPromotionMode` enum for safe-only modes.
+- Immutable promotion ledger: `PromotionLedgerEntry` with `execution_authority=False`.
+- Health endpoints: `/health/live`, `/health/ready`, `/health/build`.
+- Deterministic compiler IR (`CompiledStrategyIR`).
+- Feature dependency graph, risk contract, artifact bundle models.
+- Evidence ledger with typed `EvidenceRef` model and verifier.
+- Canonical version source in `packages/builder_metadata/version.py`.
+- UX traceability components (`StrategyJourney`, `BlockingReasonPanel`).
+- Structured audit events with 15 required event types.
+- Builder metrics with 7 canonical metric names.
+- Local CI parity script (`scripts/verify_all.sh`).
 
 ### Changed
-- FastAPI app selects rate limiter backend based on `BUILDER_RATE_LIMIT_BACKEND` env var.
-- `packages/auth/__init__.py` exports `InMemoryRateLimiter` and `RedisRateLimiter`.
-
-### Fixed
-- Production mode no longer relies solely on in-memory rate limiting.
+- FastAPI creates default artifact store from `BUILDER_ARTIFACT_BACKEND`/`BUILDER_ARTIFACT_ROOT`.
+- `/health/ready` reports artifact-store factory failures instead of unconditional readiness.
+- Postgres-backed LLM config saves persist through the config repository.
+- Frontend execution lane panel is observe/request-only; no command construction.
+- Forbidden authority safety scan covers production paths by default.
+- Frontend uses canonical `apiFetch` from `api.ts`; `apiClient.ts` deprecated.
+- AI prompt audit storage redacts secrets before persistence.
+- All legacy items removed (no env escapes remain).
+- Capabilities upgraded to v4 names with role-based sets.
 
 ### Security
-- Audit trail now covers all mutation routes in production.
-- Request IDs enable end-to-end trace correlation.
+- Docker builds never copy `.env*` files into images.
+- Browser/API credential entry disabled; backend-only provisioning required.
+- Installed `nautilus-builder-api` uses authenticated FastAPI entrypoint.
+- Rate limiting enforced on all protected routes after auth.
+- Mutation audit carries authenticated actor/project attribution.
+- `NEXT_PUBLIC_BUILDER_API_TOKEN` forbidden in staging/production.
+- CORS wildcard/empty rejected in staging/production.
+- Production config fails closed on missing/invalid settings.
+
+### Verification
+- 1377 Python tests passing, 138 frontend tests passing.
+- Forbidden authority scan passing.
+- Secret scanning passing.
+- Frontend typecheck and build passing.
+- No `submit_order(` or authoritative `TradeAction(` in Builder production code.
 
 ## v0.4.0 - 2026-06-07
 
 ### Added
-- Repo hygiene: removed committed `.vite/vitest` cache, tightened `.gitignore`, added `scripts/check_repo_hygiene.sh` and `scripts/check_forbidden_authority.sh`.
-- CI: expanded GitHub Actions with `repo-hygiene` job, branch gating on `master/main`.
-- Security: `BUILDER_ENV` validation (`local|staging|production`), production token enforcement (rejects short/dev/public tokens), CORS validation (rejects wildcard/empty in production).
-- Structured error codes: `ErrorCode` enum with 12 stable codes, `StructuredError` exception, `error_response()` helper.
-- Persistence: migration v2 with `compiler_runs`, `replay_runs`, `promotion_ledger`, `audit_events` tables.
-- Promotion modes: `AllowedPromotionMode` enum (`shadow_only`, `signal_preview_only`, `paper_replay_candidate`), `ForbiddenPromotionMode` for live authority modes.
-- Immutable ledger: `PromotionLedgerEntry` with `execution_authority=False` enforced via `Literal[False]`.
-- Audit events: immutable `AuditEvent` model with `frozen=True`, `audit_event_from_mutation()` helper.
-- Replay fixtures: `ReplayFixtureType` enum (bars, trades, quotes, order book snapshots, funding rates, liquidations), `FailureModeFixture`, `ReplayFixtureConfig`.
-- Static scan: `scan_generated_artifact()` for forbidden references in generated strategy code.
-- Health endpoints: `/health/live`, `/health/ready`, `/health/build`.
+- Repo hygiene: removed committed `.vite/vitest` cache, tightened `.gitignore`.
+- Security: `BUILDER_ENV` validation, production token enforcement, CORS validation.
+- Structured error codes: `ErrorCode` enum with 12 stable codes.
+- Persistence: migration v2 with compiler_runs, replay_runs, promotion_ledger, audit_events.
+- Promotion modes: `AllowedPromotionMode`, `ForbiddenPromotionMode`.
+- Immutable ledger: `PromotionLedgerEntry` with `execution_authority=False`.
+- Replay fixtures: `ReplayFixtureType` enum, `FailureModeFixture`, `ReplayFixtureConfig`.
+- Static scan: `scan_generated_artifact()` for forbidden references.
 
 ### Changed
-- CI runs on `master/main` push (not all pushes).
-- Production mode rejects `dev-token` via both `BUILDER_API_TOKEN` and `BUILDER_DEV_AUTH_TOKEN`.
-- Promotion models now enforce allowed modes via Pydantic validator.
-
-### Fixed
-- Removed committed `node_modules/.vite/vitest/.../results.json`.
-
-### Security
-- Production startup validates token length (≥32 chars), rejects `NEXT_PUBLIC_*` tokens.
-- Wildcard CORS rejected in staging/production.
+- CI runs on `master/main` push.
+- Production mode rejects `dev-token`.
+- Promotion models enforce allowed modes via Pydantic validator.
 
 ### Verification
 - 641 tests passing, 0 compilation errors.
 
-## v0.5.0 (2026-06-11) — Gap Closure v4
-
-### Added
-- BuilderProductionConfig with fail-closed validation for production startup
-- Compatibility contracts package (packages/compatibility/) for ND/NT alignment
-- Evidence postgres repository for persistent evidence storage
-- Startup policy (services/api/startup_policy.py) using BuilderProductionConfig
-- CI workflows: security.yml, docker.yml
-- Security scanning: .gitleaks.toml, check_secrets.sh, check_release_version.py
-- Production smoke test script (scripts/smoke_production.sh)
-- Machine-readable readiness matrix (doc/readiness_status.json)
-- Full builder journey integration test (7 steps)
-- Version consistency tests across pyproject.toml, RELEASE.md, and /health/build
-
-### Changed
-- Version bumped from 0.1.0 to 0.5.0
-- RELEASE.md header unified (no version drift)
-- Readiness matrix uses v4 capability names
-- Capabilities upgraded to v4 format with role-based sets
-- READINESS.md updated with v4 statuses and blocking segments
-- pyproject.toml version now 0.5.0
-
-### Tests
-- 1377 Python tests (from 1332 baseline, +45 new tests)
-- Frontend typecheck and build passing
-- Forbidden authority scan passing
-- Secret scanning passing

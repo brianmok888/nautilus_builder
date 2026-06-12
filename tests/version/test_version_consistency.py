@@ -133,3 +133,61 @@ class TestReadinessMatrix:
 
         matrix = get_readiness_matrix()
         assert not matrix.live_execution_ready
+
+
+class TestChangelogVersionAlignment:
+    """Verify CHANGELOG.md first concrete version matches pyproject.toml."""
+
+    def test_changelog_first_concrete_version_matches_pyproject(self) -> None:
+        """First concrete version section in CHANGELOG must match pyproject.toml.
+
+        This catches cases where a future version section is added to the changelog
+        without bumping pyproject.toml, or where pyproject is ahead of changelog.
+        """
+        changelog = _REPO_ROOT / "CHANGELOG.md"
+        text = changelog.read_text()
+
+        # Parse all section headers
+        sections = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                sections.append(stripped[3:].strip())
+
+        # Find first concrete version (skip Unreleased)
+        for header in sections:
+            if header.lower().startswith("unreleased"):
+                continue
+            m = re.match(r"v?(\d+\.\d+\.\d+)", header)
+            if m:
+                changelog_v = m.group(1)
+                pyproject_v = _read_pyproject_version()
+                assert changelog_v == pyproject_v, (
+                    f"CHANGELOG.md first concrete version '{changelog_v}' (from '{header}') "
+                    f"!= pyproject.toml '{pyproject_v}'. "
+                    f"Use '## Unreleased' header for pending work."
+                )
+                return
+
+        pytest.fail("No concrete version section found in CHANGELOG.md")
+
+    def test_changelog_mentions_current_version(self) -> None:
+        """CHANGELOG.md must mention the current pyproject version."""
+        changelog = _REPO_ROOT / "CHANGELOG.md"
+        text = changelog.read_text()
+        pyproject_v = _read_pyproject_version()
+        assert pyproject_v in text, (
+            f"CHANGELOG.md does not mention version {pyproject_v}"
+        )
+
+    def test_version_check_script_passes(self) -> None:
+        """The version check script itself must pass."""
+        import subprocess
+        result = subprocess.run(
+            ["python3", str(_REPO_ROOT / "scripts" / "check_release_version.py")],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"check_release_version.py failed:\n{result.stderr}"
+        )

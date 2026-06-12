@@ -180,6 +180,7 @@ def test_fastapi_startup_rejects_dev_auth_token_with_conflicting_production_env(
 
 
 def test_fastapi_startup_treats_app_env_production_as_strictest_audit_store_policy(monkeypatch) -> None:
+    """Production mode with APP_ENV=production requires both DB and audit store."""
     _install_fake_fastapi(monkeypatch)
     _clear_policy_env(monkeypatch)
     monkeypatch.setenv("APP_ENV", "production")
@@ -188,7 +189,27 @@ def test_fastapi_startup_treats_app_env_production_as_strictest_audit_store_poli
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
     monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("BUILDER_DATABASE_URL", "postgresql://test:test@localhost:5432/builder_test")
     monkeypatch.delenv("BUILDER_AI_AUDIT_SQLITE_PATH", raising=False)
+
+    # Mock postgres since psycopg is not available in test env
+    import packages.postgres as postgres
+
+    class _FakeConn:
+        """Fake Postgres connection for tests without psycopg."""
+        def execute(self, *a, **kw):
+            return self
+        def fetchone(self):
+            return None
+        def fetchall(self):
+            return []
+        @property
+        def rowcount(self):
+            return 0
+    _fake = _FakeConn()
+    monkeypatch.setattr(postgres, "connect_pool", lambda dsn: _fake)
+    monkeypatch.setattr(postgres, "apply_migrations", lambda conn: None)
+    monkeypatch.setattr(postgres, "seed_default_market_data", lambda conn: None)
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -264,6 +285,26 @@ def test_fastapi_startup_accepts_strong_production_policy(monkeypatch, tmp_path)
     monkeypatch.setenv("BUILDER_AI_AUDIT_SQLITE_PATH", str(tmp_path / "audit.sqlite"))
     monkeypatch.setenv("BUILDER_RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("BUILDER_REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("BUILDER_DATABASE_URL", "postgresql://test:test@localhost:5432/builder_test")
+
+    # Mock postgres since psycopg is not available in test env
+    import packages.postgres as postgres
+
+    class _FakeConn:
+        """Fake Postgres connection for tests without psycopg."""
+        def execute(self, *a, **kw):
+            return self
+        def fetchone(self):
+            return None
+        def fetchall(self):
+            return []
+        @property
+        def rowcount(self):
+            return 0
+    _fake = _FakeConn()
+    monkeypatch.setattr(postgres, "connect_pool", lambda dsn: _fake)
+    monkeypatch.setattr(postgres, "apply_migrations", lambda conn: None)
+    monkeypatch.setattr(postgres, "seed_default_market_data", lambda conn: None)
 
     from services.api.fastapi_app import create_fastapi_app
 

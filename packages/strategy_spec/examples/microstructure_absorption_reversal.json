@@ -1,0 +1,56 @@
+{
+  "adapter_id": "binance",
+  "execution_authority": false,
+  "features": [
+    {
+      "fail_closed_on_missing": true,
+      "feature": "absorption",
+      "required": true
+    },
+    {
+      "feature": "cvd",
+      "max_staleness_ms": 5000,
+      "required": true
+    },
+    {
+      "feature": "obi",
+      "required": true
+    },
+    {
+      "feature": "spread_bps",
+      "required": false
+    },
+    {
+      "feature": "vpin_toxicity",
+      "required": false
+    }
+  ],
+  "instrument_id": "BTCUSDT-PERP.BINANCE",
+  "output_mode": "signal_preview_only",
+  "risk": {
+    "max_hold_ms": 60000,
+    "max_loss_notional_usd": 500,
+    "max_position_notional_usd": 10000
+  },
+  "schema_version": "microstructure_v1",
+  "signals": [
+    {
+      "condition": "absorption > 0.7 AND cvd < -1000000",
+      "direction": "long",
+      "features": [
+        {
+          "feature": "absorption",
+          "required": true
+        },
+        {
+          "feature": "cvd",
+          "max_staleness_ms": 5000,
+          "required": true
+        }
+      ],
+      "name": "absorption_reversal_long"
+    }
+  ],
+  "venue": "BINANCE",
+  "version": "1.0.0"
+}
