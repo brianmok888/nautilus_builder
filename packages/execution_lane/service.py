@@ -14,7 +14,16 @@ from .sessions import ExecutionLaneSession, TradingNodeSessionRunner, default_se
 class ExecutionLaneService:
     """In-memory contract service for a strategy-decoupled execution lane."""
 
-    def __init__(self, *, credential_env_dir: str | Path | None = None, session_runner: TradingNodeSessionRunner | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        credential_env_dir: str | Path | None = None,
+        session_runner: TradingNodeSessionRunner | None = None,
+        max_reports: int | None = None,
+        max_sessions: int | None = None,
+    ) -> None:
+        self._max_reports = max_reports
+        self._max_sessions = max_sessions
         self._profiles: dict[str, ExecutionLaneProfile] = {}
         self._commands: dict[str, ExecutionLaneCommand] = {}
         self._idempotency_index: dict[tuple[str, str], str] = {}
@@ -134,12 +143,26 @@ class ExecutionLaneService:
         report_payload.setdefault("payload", {})
         report = ExecutionLaneReport.model_validate(report_payload)
         self._reports[report.report_id] = report
+        self._evict_reports_if_needed()
         self._commands[command.command_id] = command.model_copy(update={"status": ExecutionCommandStatus.REPORTED})
         return report
 
     def record_session(self, session: ExecutionLaneSession) -> ExecutionLaneSession:
         self._sessions[session.session_id] = session
+        self._evict_sessions_if_needed()
         return session
+
+    def _evict_reports_if_needed(self) -> None:
+        if self._max_reports is not None:
+            while len(self._reports) > self._max_reports:
+                oldest_key = next(iter(self._reports))
+                del self._reports[oldest_key]
+
+    def _evict_sessions_if_needed(self) -> None:
+        if self._max_sessions is not None:
+            while len(self._sessions) > self._max_sessions:
+                oldest_key = next(iter(self._sessions))
+                del self._sessions[oldest_key]
 
     def get_session(self, session_id: str, *, project_id: str | None = None) -> ExecutionLaneSession:
         session = self._sessions[session_id]

@@ -163,11 +163,14 @@ class SqliteWorkflowRepository:
     ) -> list[WorkflowResultRecord]:
         table = _table(self._schema, "test_results")
         sql = f"SELECT payload FROM {table} ORDER BY rowid"
+        params: list[int] = []
         if offset:
-            sql += f" LIMIT {int(limit or -1)} OFFSET {int(offset)}"
+            sql += " LIMIT ? OFFSET ?"
+            params = [int(limit or -1), int(offset)]
         elif limit is not None:
-            sql += f" LIMIT {int(limit)}"
-        rows = self._connection.execute(sql).fetchall()
+            sql += " LIMIT ?"
+            params = [int(limit)]
+        rows = self._connection.execute(sql, params).fetchall()
         results = [WorkflowResultRecord(**json.loads(row[0])) for row in rows]
         if context is None:
             return results

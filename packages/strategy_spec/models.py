@@ -137,3 +137,11 @@ class StrategySpec(StrictModel):
     risk: RiskBlock
     validation: ValidationFlags
     provenance: Provenance
+
+    @model_validator(mode="after")
+    def enforce_signal_preview_only(self) -> "StrategySpec":
+        if self.validation.output_mode != OutputMode.SIGNAL_PREVIEW_ONLY:
+            raise ValueError(
+                f"output_mode must be signal_preview_only, got {self.validation.output_mode.value}"
+            )
+        return self

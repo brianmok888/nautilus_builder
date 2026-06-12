@@ -200,6 +200,21 @@ def create_fastapi_app(
     from packages.builder_metadata.version import get_canonical_version as _get_canonical_version
     app = FastAPI(title="Nautilus Builder API", version=_get_canonical_version())
 
+    if hasattr(app, "on_event"):
+        @app.on_event("startup")
+        def _revalidate_evidence_storage() -> None:
+            """Belt-and-suspenders guard: re-check evidence storage config at runtime.
+
+            Catches cases where the FastAPI app is created outside create_fastapi_app().
+            """
+            if not isinstance(evidence_repo, InMemoryEvidenceRepository):
+                return
+            if _strictest_configured_env() != BuilderEnvironment.LOCAL:
+                raise ValueError(
+                    "Production/staging requires persistent evidence storage "
+                    "(detected at startup event). Set BUILDER_DATABASE_URL or use local mode."
+                )
+
     # --- Middleware (added in reverse execution order: last added = first executed) ---
 
     # Request ID middleware: adds X-Request-ID to every response

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from nautilus_trader.config import StrategyConfig
-from nautilus_trader.model.data import QuoteTick
+from nautilus_trader.model.data import Bar, QuoteTick
 from nautilus_trader.model.identifiers import InstrumentId
 from nautilus_trader.trading.strategy import Strategy
 
@@ -14,7 +14,6 @@ class ExecutionLanePaperStrategyConfig(StrategyConfig, frozen=True):
     later consume approved TradeAction contracts, but this strategy never calls
     submit_order.
     """
-
     instrument_id: InstrumentId
     strategy_lineage_id: str
     strategy_version_id: str
@@ -22,6 +21,7 @@ class ExecutionLanePaperStrategyConfig(StrategyConfig, frozen=True):
     promotion_approval_id: str | None = None
     execution_authority: bool = False
     may_submit_order: bool = False
+    bar_type: str | None = None
 
 
 class ExecutionLanePaperStrategy(Strategy):
@@ -33,11 +33,29 @@ class ExecutionLanePaperStrategy(Strategy):
         super().__init__(config)
         self.instrument = None
         self.observed_quote_ticks = 0
+        self.observed_bars = 0
 
     def on_start(self) -> None:
         self.instrument = self.cache.instrument(self.config.instrument_id)
         if self.instrument is not None:
-            self.subscribe_quote_ticks(instrument_id=self.config.instrument_id)
+            if self.config.bar_type:
+                self.subscribe_bars(bar_type=self.config.bar_type)
+            else:
+                self.subscribe_quote_ticks(instrument_id=self.config.instrument_id)
+
+    def on_stop(self) -> None:
+        if self.config.bar_type:
+            self.unsubscribe_bars(bar_type=self.config.bar_type)
+        else:
+            self.unsubscribe_quote_ticks(instrument_id=self.config.instrument_id)
+
+    def on_reset(self) -> None:
+        self.instrument = None
+        self.observed_quote_ticks = 0
+        self.observed_bars = 0
 
     def on_quote_tick(self, tick: QuoteTick) -> None:
         self.observed_quote_ticks += 1
+
+    def on_bar(self, bar: Bar) -> None:
+        self.observed_bars += 1
