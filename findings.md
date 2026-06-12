@@ -1,882 +1,213 @@
-# Nautilus Builder Deep Review Findings
-
-**Review date:** 2026-06-08
-**Scope:** Current repository (`packages/`, `services/`, `apps/web/`, `tests/`, `scripts/`, `doc/`, `docs/`) plus current uncommitted diff.
-**Reference repo:** `/home/mok/projects/Nautilus-Daedalus`
-**Method:** `$superpowers:code-review`, `nt-review` primary, `nt-architect`/`nt-adapters`/`nt-live`/`nt-testing` supporting, aiogram-dialog negative-inventory lens, official NautilusTrader/EvoMap/LangChain/LangGraph references, static grep, manual route probes, focused tests.
-
-## Executive summary
-
-**Final recommendation:** **CLOSED for the user-listed Builder security blockers**. Segments 1-5 close credential/package safety, packaged API exposure, rate-limit enforcement, audit attribution, artifact readiness, LLM persistence, frontend runtime-action ownership, and forbidden-authority safety-scan hardening.
-**Architectural status:** **WATCH** for production hardening and legacy cleanup; the reviewed Builder-only blocker set is closed, but production/live trading readiness remains outside this closeout.
-**Production/live-readiness status:** **OUT OF SCOPE / WATCH** — this does not grant live execution authority, adapter compliance, or production trading readiness.
-
-## Current deep review addendum — 2026-06-08 post-route standardization
-
-**Recommendation:** **CLOSED for the reviewed blocker set; WATCH before any production/live-readiness claim.** The previous one-line Backtest hash styling and clean-route UI closeouts remain verified; Segments 1-5 close credential/API/rate-limit/audit-attribution, artifact-readiness/LLM-persistence, frontend runtime-action ownership, and safety-scan hardening blockers.
-
-### Current top-priority findings
-
-
-### Segment 1 closure — credential/package safety (2026-06-08)
-
-**Status:** CLOSED for Docker credential packaging and browser/API credential entry. Segment 2 also closes packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction with production fail-closed behavior, and authenticated audit actor/project attribution. Segment 3 closes artifact readiness and LLM persistence; Segment 4 closes frontend runtime-action ownership. Segment 5 closes safety-scan hardening.
-
-**Evidence:**
-
-```bash
-python3 -m pytest tests/test_dockerfile_safety.py tests/api/test_fastapi_app.py::test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials tests/web/test_execution_lane_ui_contract.py -q
-# 4 passed
-
-cd apps/web && npm run test -- lib/api.test.ts components/config/ExecutionLaneFeaturePanel.test.tsx
-# 2 files passed; 14 passed, 2 skipped
-```
-
-**Changes:** `.dockerignore` now excludes `.env*` and local state, `Dockerfile.api` no longer copies `.env.execution.local`, Settings no longer mounts `CredentialSlotBootstrap`, the frontend API client no longer exposes credential-slot posting, and the FastAPI credential-slot route returns `credential_slot_http_disabled` without writing `.env.execution.local`.
-
-### Segment 2 closure — API exposure, rate limits, and audit attribution (2026-06-08)
-
-**Status:** CLOSED for packaged API exposure, protected-route rate-limit enforcement, Redis credential redaction/production fail-closed behavior, and authenticated audit actor/project attribution. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling.
-
-**Evidence:**
-
-```bash
-python3 -m pytest tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_redis_rate_limit_security.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/postgres/test_audit_event_hardening.py tests/api/test_security_hardening.py tests/auth/test_rate_limit.py tests/auth/test_token_context.py -q
-# 117 passed, 1 skipped, 1 warning
-
-python3 -m compileall -q services/api/fastapi_app.py services/api/dev_server.py services/api/fastapi_cli.py packages/auth/audit_middleware.py packages/auth/context_middleware.py packages/auth/redis_rate_limit.py packages/postgres/audit_event_repository.py packages/postgres/migrations.py packages/postgres/promotion_ledger_repository.py tests/api/test_production_safety.py tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/auth/test_redis_rate_limit.py tests/auth/test_audit_middleware.py tests/auth/test_audit_attribution.py tests/auth/test_redis_rate_limit_security.py tests/postgres/test_audit_event_hardening.py
-# pass
-```
-
-**Changes:** `nautilus-builder-api` now starts `services.api.fastapi_cli:main`, the dependency-free dev server rejects non-loopback hosts unless explicitly unsafe, protected FastAPI routes enforce the configured limiter after bearer auth, Redis limiter warnings redact credentials and fail closed in production mode, `AuthContextMiddleware` attaches actor/project to request state, and Postgres audit inserts include `project_id`.
-
-### Segment 3 closure — artifact readiness and LLM persistence (2026-06-08)
-
-**Status:** CLOSED for FastAPI artifact-store startup/readiness wiring and Postgres-backed LLM config persistence. Segment 5 closes the remaining safety-scan blocker for the user-listed closure scope.
-
-**Evidence:**
-
-```bash
-python3 -m pytest tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py tests/artifact_store/test_s3_artifact_store.py tests/api/test_fastapi_app.py tests/api/test_route_auth_scope.py tests/api/test_llm_config_routes.py -q
-# 49 passed, 1 skipped, 1 warning
-
-python3 -m compileall -q packages/artifact_store/factory.py services/api/fastapi_app.py tests/api/test_artifact_readiness_and_llm_config.py tests/artifact_store/test_factory_env.py
-# pass
-
-git diff --check
-# pass
-```
-
-**Changes:** `create_artifact_store()` now honors `BUILDER_ARTIFACT_ROOT` for the local backend, FastAPI initializes a default artifact store from the factory when none is injected, `/health/ready` reports artifact-store factory errors instead of unconditional readiness, and `_pg_config_repo` is preserved so `POST /api/config/llm` persists through the Postgres config repository.
-
-### Segment 4 closure — frontend runtime-action ownership (2026-06-08)
-
-**Status:** CLOSED for browser-owned execution-lane command/risk/worker/session action construction. Segment 5 closes the remaining safety-scan blocker for the user-listed closure scope.
-
-**Evidence:**
-
-```bash
-cd apps/web && npm run test -- components/config/ExecutionLaneFeaturePanel.test.tsx lib/api.test.ts
-# 14 passed, 2 skipped
-
-cd apps/web && npm run typecheck
-# pass
-
-python3 -m pytest tests/web/test_execution_lane_ui_contract.py -q
-# 1 passed
-
-git diff --check
-# pass
-```
-
-**Changes:** `ExecutionLaneFeaturePanel` now registers backend-owned paper profile visibility and fetches runtime plans only. It no longer renders command queue, backend worker, or paper-session lifecycle controls; it no longer constructs `order_intent` or `risk_decision`; and `apps/web/lib/api.ts` no longer exports execution-lane command, worker, or session action helpers.
-
-### Segment 5 closure — forbidden-authority safety scan (2026-06-08)
-
-**Status:** CLOSED for the false-confidence safety-scan gap.
-
-**Evidence:**
-
-```bash
-python3 -m pytest tests/hygiene/test_repo_hygiene.py -q
-# 11 passed
-
-bash scripts/check_forbidden_authority.sh
-# PASSED
-
-git diff --check
-# pass
-```
-
-**Changes:** `scripts/check_forbidden_authority.sh` now scans production `packages`, `services`, and `apps/web` paths by default, excludes frontend tests by path, uses fixed-string grep so `.submit_order` does not accidentally match `may_submit_order`, and keeps any false-positive allowlist at exact-line granularity instead of directory prefixes. `tests/hygiene/test_repo_hygiene.py` now asserts the script keeps production scan paths and fixed-string matching.
-
-### Final reconciliation — stale contract tests aligned (2026-06-09)
-
-**Status:** CLOSED. Full-suite verification exposed stale Python tests that still expected browser credential bootstrap, dependency-free API packaging, and Docker-created `.env.execution.local` behavior. Those tests now assert the closed guard contract: browser/API credential bootstrap returns `credential_slot_http_disabled`, session lifecycle tests use backend-owned credential-slot provisioning, packaged API uses authenticated FastAPI, Docker images do not create/copy local credential env files, and the web UI has no `CredentialSlotBootstrap` source.
-
-**Evidence:**
-
-```bash
-python3 -m pytest tests/api/test_execution_lane_credentials_routes.py tests/api/test_execution_lane_tradingnode_routes.py::test_execution_lane_session_start_and_stop_routes_return_lifecycle tests/integration/test_headless_backend_runtime.py::test_pyproject_exposes_headless_backend_entrypoints tests/onboarding/test_docker_zero_config.py::TestDockerfiles::test_api_dockerfile_does_not_create_or_copy_local_credential_env_file tests/web/test_sectioned_operator_ui.py::test_execution_config_section_keeps_feature_flags_read_only_and_secret_free -q
-# 6 passed
-
-python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 979 passed, 1 skipped, 1 warning
-
-cd apps/web && npm run typecheck
-# pass
-
-cd apps/web && npm test
-# Test Files 33 passed, 1 skipped; Tests 131 passed, 4 skipped
-
-cd apps/web && npm run build
-# pass
-
-grep -R "submit_order\|Start live trading\|live trading enabled\|Auto execute\|Guaranteed profit" apps/web || true
-# reviewed; hits are negative/safety-oriented tests, `may_submit_order: false`, and generated `.next` copies of safe UI text.
-```
-
-#### C-01 — Docker API image can include local exchange credentials
-
-- **Status:** CLOSED in Segment 1 (2026-06-08)
-- **Severity:** Previously CRITICAL
-- **Files:** `Dockerfile.api:13-15`, `.gitignore:1-6`; missing `.dockerignore`; local untracked `.env.execution.local:1-2` was present with Binance credential variable names (values redacted, not copied into this report).
-- **Closure:** `Dockerfile.api` no longer touches or copies `.env.execution.local`/`.env.local`, and `.dockerignore` excludes `.env*`, `.git`, caches, local DB/artifact folders, and build outputs. Operators should still rotate any real keys that may have been present before this closure.
-
-#### C-02 — Builder accepts browser-entered venue credentials and stores raw values
-
-- **Status:** CLOSED for browser/API entry in Segment 1 (2026-06-08); backend-only secret provisioning remains a future design seam.
-- **Severity:** Previously CRITICAL
-- **Files:** `apps/web/app/config/page.tsx:3-17`, `apps/web/components/config/CredentialSlotBootstrap.tsx:11-14`, `25-35`, `47-50`, `62-69`; `services/api/fastapi_app.py:431-444`; `packages/execution_lane/credentials.py:124-151`; `packages/execution_lane/sessions.py:218-232`; `packages/execution_lane/adapter_config_builders.py:31-70`.
-- **Closure:** Settings no longer mounts credential bootstrap UI, the Execution Lane panel has no raw credential inputs, the frontend API client no longer posts credential slots, and the FastAPI credential-slot route returns `credential_slot_http_disabled` without persisting submitted values. Future secret provisioning must be backend-only or CLI/admin-only, separately designed and tested.
-
-#### H-01 — Packaged `nautilus-builder-api` starts an unauthenticated dev server
-
-- **Status:** CLOSED in Segment 2 (2026-06-08)
-- **Severity:** Previously HIGH
-- **Files:** `pyproject.toml:19-20`; `services/api/dev_server.py`; `services/api/fastapi_cli.py`; `services/api/app.py:57-125`.
-- **Closure:** The installed console script now points to authenticated FastAPI via `services.api.fastapi_cli:main`. The dependency-free dev server remains available only as a local development helper and rejects non-loopback host binding unless `--unsafe-allow-non-loopback` is explicit.
-
-#### H-02 — Rate limiting is configured but not enforced
-
-- **Status:** CLOSED in Segment 2 (2026-06-08)
-- **Severity:** Previously HIGH
-- **Files:** `services/api/fastapi_app.py`; `packages/auth/redis_rate_limit.py`; `docker-compose.production.yml:69-70`.
-- **Closure:** Protected FastAPI route handlers now enforce the configured limiter through `require_context()` after bearer auth. Redis limiter warnings redact credential-bearing URLs, and production Redis outage behavior fails closed instead of allowing traffic open.
-
-#### H-03 — Mutation audit events are not attributable and may fail silently
-
-- **Status:** CLOSED in Segment 2 (2026-06-08)
-- **Severity:** Previously HIGH
-- **Files:** `packages/auth/audit_middleware.py`; `packages/postgres/migrations.py:199-210`; `services/api/fastapi_app.py`.
-- **Closure:** `AuthContextMiddleware` attaches authenticated `actor_id`/`project_id`/role to request state for valid bearer tokens, and the Postgres audit writer now persists `project_id`. Audit-write failures now fail closed for successful mutations, preserve failed mutation responses, and Postgres insert failures propagate for deterministic handling.
-
-#### H-04 — Frontend can construct execution-lane order-intent/worker actions
-
-- **Status:** CLOSED in Segment 4 (2026-06-08)
-- **Severity:** Previously HIGH
-- **Files:** `apps/web/components/config/ExecutionLaneFeaturePanel.tsx:137-160`, `325-350`, `362-372`, `539-552`.
-- **Issue:** The browser constructs `order_intent` and an `approved` risk decision, queues the command, runs the backend worker once, and starts/stops paper sessions.
-- **Risk:** Backend checks keep `may_submit_order=false` today, but this weakens the architectural rule that the UI is display/advisory only and should not own runtime-action composition.
-- **Closure:** The web panel and API client now expose profile/runtime-plan request/observe behavior only. Browser code no longer constructs command/risk payloads or calls worker/session action endpoints.
-
-#### M-01 — Artifact-store env/factory is not wired into FastAPI startup
-
-- **Status:** CLOSED in Segment 3 (2026-06-08)
-- **Severity:** Previously MEDIUM
-- **Files:** `services/api/fastapi_app.py:98-105`, `226`, `338`, `635`; `packages/artifact_store/factory.py:24-45`; `services/api/routes/backtest_execution.py:193-198`; `docs/verification/local-verification-checklist.md:30`.
-- **Issue:** `create_fastapi_app()` accepts `artifact_store` but does not create one from `BUILDER_ARTIFACT_ROOT`/`BUILDER_ARTIFACT_BACKEND`; `/health/ready` still reports `artifact_store: ok`.
-- **Risk:** Local BacktestNode runs and strict promotion can fail with `artifact store is required` even when runbooks export artifact env variables.
-- **Closure:** FastAPI now builds the artifact store from the factory during app startup when one is not injected, the local factory honors `BUILDER_ARTIFACT_ROOT`, and readiness reports factory failure as `ready=false`.
-
-#### M-02 — Postgres LLM config saves do not persist after startup
-
-- **Status:** CLOSED in Segment 3 (2026-06-08)
-- **Severity:** Previously MEDIUM
-- **Files:** `services/api/fastapi_app.py:141-151`, `168-169`, `424-429`; `services/api/routes/llm_config.py:21-23`.
-- **Issue:** `_pg_config_repo` is created and used to load config, then reset to `None`, so `save_llm_config_payload(..., pg_config_repo=_pg_config_repo if _pg_conn else None)` never persists saves.
-- **Risk:** UI says config saved but restart can revert to old/default config.
-- **Closure:** `_pg_config_repo` is initialized before the Postgres branch and no longer reset after startup, so LLM config saves call `PostgresConfigRepository.set("llm_config", ...)` when Postgres is configured.
-
-#### M-03 — Direct frontend fetches bypass the canonical API client
-
-- **Severity:** MEDIUM
-- **Files:** `apps/web/components/ai-builder/AiStrategyCopilot.tsx:29-35`, `134-137`; `apps/web/hooks/useHealthCheck.ts:24`; `apps/web/lib/apiClient.ts:25-69`; `apps/web/lib/api.ts:130-163`.
-- **Issue:** Some UI code bypasses `lib/api.ts`, losing central auth/proxy/error behavior; `/api/adapters` auth errors can become non-array state and later crash `.map()`.
-- **Risk:** Inconsistent local/prod behavior and poor UX under API auth/config errors.
-- **Fix:** Route all API calls through `apiFetch` helpers and remove or wrap the older `apiClient.ts` module.
-
-#### M-04 — Forbidden-authority scan allowlists production code directories
-
-- **Status:** CLOSED in Segment 5 (2026-06-08)
-- **Severity:** MEDIUM
-- **Files:** `scripts/check_forbidden_authority.sh:21-38`.
-- **Issue:** The safety scan allowlists `packages/`, `services/`, and `apps/web/`, so it would miss future forbidden authority in production code.
-- **Risk:** A green safety scan can provide false confidence.
-- **Closure:** The scan now searches `packages`, `services`, and `apps/web` production paths by default, excludes frontend test/spec files, uses fixed-string grep, and permits only exact-line false-positive allowlist entries.
-
-### Web UI / UX status
-
-- **Closed:** Overview and Strategy Builder no longer link to the same content. `Overview` uses `/` and `BuilderOverview`; Strategy Builder uses `/builder`; Backtest and Execution use `/backtests` and `/execution`.
-- **Closed:** The `?tab=` route style is gone from `apps/web` source in this review scan.
-- **Closed/WATCH:** Execution Lane controls now expose backend-owned profile/runtime-plan request-observe behavior only; continue to prefer “Paper / reviewed runtime gate” wording over any production/live-readiness implication.
-- **WATCH:** Settings should not present credential bootstrap as normal web UX. Remove or isolate it behind a backend-only local operator path.
-
-### Inventory-first semantic legacy/deprecation update
-
-| Item | Current status | Evidence / closure action |
-|---|---|---|
-| `storage_config.py` legacy alias | **OPEN** | `packages/workflow_spine/storage_config.py:1-3`; keep 2026-07-01 removal deadline. |
-| `PostgresWorkflowRepository` alias | **OPEN** | `packages/workflow_spine/postgres_repository.py:213-219`, `packages/workflow_spine/__init__.py:28-45`; remove after cutoff. |
-| Backtest legacy hash derivation | **OPEN** | `services/api/routes/backtest_jobs.py:267-275`; keep disabled by default and remove env escape after cutoff. |
-| `allow_legacy_fixture_refs` | **OPEN/WATCH** | `services/api/routes/promotions.py:22-34`, `pyproject.toml:36`; strict mode remains required for production. |
-| `res_001` fixture fallback | **WATCH** | `services/api/routes/workflow_results.py:23-24`; flag-gated, keep production off. |
-| `NEXT_PUBLIC_BUILDER_API_TOKEN` | **CLOSED/WATCH** | `packages/auth/policy.py:67-71`, `apps/web/middleware.ts:31-59`; reject browser-token reintroduction. |
-| aiogram / Telegram | **CLOSED for Builder runtime** | No Builder dependency found; keep Telegram under Daedalus boundary. |
-| LangChain/LangGraph/EvoMap | **CLOSED for Builder runtime** | No Builder dependency found; keep these as Daedalus/advisory references unless separately designed. |
-| Query-tab routes | **CLOSED** | Source grep returned no `?tab=` / tab query references under `apps/web`. |
-
-### Positive validation during this review
-
-- No direct production Builder `submit_order(` call or authoritative `TradeAction(` construction was found in the focused source scan.
-- `apps/web` safety tests referenced by the frontend review passed in the subagent lane (`middleware.test.ts`, `lib/api.test.ts`, `safety-contract.test.tsx`: 23 passed).
-- Builder `pyproject.toml` still pins `nautilus_trader==1.227.0`; the local Daedalus reference currently pins `1.228.0`, so NT compatibility must be reviewed before any adapter/live-readiness claim.
-- Official NautilusTrader and AI reference URLs were reachable during review; they remain authoritative for adapter/test/live/advisory boundaries.
-
-
-The Builder/Daedalus/NautilusTrader execution boundary remains directionally correct: no Builder production path was found that directly calls `submit_order(` or constructs authoritative `TradeAction(`. The historical risk was not live order authority creep; it was cross-project data exposure/mutation and stale review artifacts that previously claimed `APPROVE` despite blockers.
-
-## Current closure snapshot — post-review fixes
-
-**Updated:** 2026-06-08
-
-The Segment 1-4 closure and follow-up review fixes now cover:
-
-- strategy list/detail/approve/clone project scoping;
-- production startup token/CORS enforcement using the strictest configured `BUILDER_ENV`/`APP_ENV`;
-- rejection of `BUILDER_DEV_AUTH_TOKEN` outside local mode;
-- runtime missing-auth coverage for every registered FastAPI `/api/*` route;
-- context-scoped `/api/results` listing and workflow result reads;
-- context-scoped evidence-summary backtest jobs so same-version jobs from other projects cannot upgrade compile/replay evidence;
-- execution-lane status, runtime-plan, profile, command, worker, and session routes scoped to bearer project;
-- local-only Next middleware token injection and no server token in staging/production web compose services;
-- demo seeding under the configured dev user/project scope;
-- Postgres identifier validation before dynamic SQL construction;
-- forbidden-authority scanning across production `packages`, `services`, and `apps/web` paths by default.
-
-Fresh verification evidence:
-
-```bash
-python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 954 passed, 1 skipped, 1 warning
-
-bash scripts/check_forbidden_authority.sh && git diff --check
-# passed
-
-cd apps/web && rm -rf .next && npm run build
-# passed; route summary includes Middleware
-
-cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 123 passed, 4 skipped
-```
-
-Current stop condition for this addendum: focused review verification is green for publishing the blocker closure after final git/remote checks. Production/live-trading readiness remains outside this closeout and still requires separate NautilusTrader/Daedalus evidence.
-
-## Historical severity summary — prior Segment 1-4 closure
-
-The table and detailed findings below this heading are retained as prior closure history. The **current** review verdict and priorities are the 2026-06-08 post-route-standardization addendum above.
-
-| Category | CRITICAL | HIGH | MEDIUM | LOW | WATCH |
-|---|---:|---:|---:|---:|---:|
-| Security / auth | 0 | 3 | 2 | 0 | 1 |
-| Bugs / correctness | 0 | 1 | 2 | 1 | 1 |
-| Maintainability | 0 | 0 | 3 | 2 | 2 |
-| Architecture / NT alignment | 0 | 1 | 2 | 0 | 4 |
-| Legacy / deprecation | 0 | 0 | 2 | 1 | 8 |
-| **Total unique actionable findings** | **0** | **4** | **6** | **3** | **8** |
-
-## HIGH priority findings
-
-### H-01 — `/api/strategies` list leaks project-scoped strategies without auth or with wrong-project auth
-
-- **Files:**
-  - `services/api/fastapi_app.py:509-511`
-  - `services/api/routes/strategies.py:19-24`
-  - `packages/strategy_spec/repository.py:79-91`
-  - `tests/api/test_fastapi_app.py:266-279`
-- **Evidence:** `list_strategies()` never calls `require_context(authorization)` and calls `list_strategies_payload(strategy_repository)` without context. The route helper supports a context but receives none. Existing tests assert that unauthenticated list access returns `200` and exposes `strategy_001`.
-- **Manual probe:** After creating an alpha-owned strategy, `GET /api/strategies` with no token returned `200` with `user_id='u1', project_id='p1'`; the same route with a beta token also returned the alpha strategy.
-- **Risk:** Cross-tenant/project strategy metadata and full latest spec exposure.
-- **Fix:** Require auth on list route, pass `context=context` to `list_strategies_payload()`, and update tests to expect `401` for missing auth and an empty/filtered list for wrong-project tokens.
-- **Segment status:** **CLOSED** by Segment 1. Runtime tests now require bearer auth and project filtering.
-
-### H-02 — Strategy approve/clone routes can mutate or copy another project’s strategy
-
-- **Files:**
-  - `services/api/fastapi_app.py:541-559`
-  - `packages/strategy_spec/repository.py:144-177`
-  - `packages/postgres/strategy_repository.py:147-197`
-- **Evidence:** `approve_strategy()` and `clone_strategy()` authenticate a token but discard `context`; repository `update_status()`, `approve_strategy()`, and `clone_strategy()` do not scope-check. Postgres variants also ignore context and table rows do not include scope columns in the returned/listed records.
-- **Manual probe:** A beta token successfully approved an alpha-owned `strategy_001`; beta clone also returned `201` and created `strategy_002` outside the original scope payload.
-- **Risk:** Unauthorized promotion/lifecycle mutation and cross-project copying of strategy specs.
-- **Fix:** Add context parameters to repository mutation methods, call `_assert_scope()`/SQL project predicates before mutation, and preserve scope on cloned strategies. Add cross-project negative tests for approve, clone, update-status, Postgres strategy repository paths.
-- **Segment status:** **CLOSED** by Segment 1. In-memory and Postgres strategy repository paths now preserve and enforce user/project scope.
-
-### H-03 — Production auth policy functions exist but FastAPI startup does not enforce them
-
-- **Files:**
-  - `packages/auth/policy.py:32-86`
-  - `services/api/fastapi_app.py:161-164`, `services/api/fastapi_app.py:680-696`
-  - `tests/api/test_production_safety.py:23-31`
-- **Evidence:** `validate_builder_env()`, `validate_production_token()`, and `validate_cors_config()` enforce the stronger policy in isolation, but `create_fastapi_app()` does not import/call them. `_register_env_dev_token()` only rejects a small known-dev-token set in production. Existing tests accept `my-secret-prod-key-2026` in production, which is shorter than the 32-character policy requirement.
-- **Manual probe:** With `APP_ENV=production`, a durable AI audit SQLite path, and `BUILDER_API_TOKEN=my-secret-prod-key-2026`, FastAPI startup succeeded.
-- **Risk:** Production deployments can start with short or public tokens and invalid CORS unless another launcher performs validation.
-- **Fix:** Call the policy functions during FastAPI app creation before token registration and CORS middleware setup. Update production tests to require 32+ chars, forbid `NEXT_PUBLIC_BUILDER_API_TOKEN`, reject wildcard/empty CORS in staging/production, and verify startup failure.
-- **Segment status:** **CLOSED** by Segment 2 plus follow-up review fix. Startup now applies strictest configured environment and rejects `BUILDER_DEV_AUTH_TOKEN` outside local mode.
-
-### H-04 — Static auth route test gives false confidence
-
-- **Files:**
-  - `tests/api/test_route_auth_scope.py:24-71`
-  - `services/api/fastapi_app.py:234-252`, `services/api/fastapi_app.py:498-511`
-- **Evidence:** The test only checks for an `authorization` parameter or a textual `require_context` occurrence; routes such as adapters, instruments, backtest profile validation, strategy registry external, and strategy list have an auth parameter but do not validate it.
-- **Risk:** Future public routes can pass tests while bypassing auth.
-- **Fix:** Replace the static source scan with runtime route tests that call each `/api` endpoint without auth and expect `401` unless explicitly allowlisted. Keep health endpoints public only.
-- **Segment 4 status:** **CLOSED**. `tests/api/test_route_auth_scope.py` now exercises the registered FastAPI route table at runtime, verifies every `/api/*` route is covered, and expects missing auth to return `401`. The previously public FastAPI catalog/profile/registry routes now call `require_context()`.
-
-## MEDIUM priority findings
-
-### M-01 — Postgres table/schema helpers interpolate unsanitized schema names
-
-- **Files:**
-  - `packages/postgres/strategy_repository.py:12-17`
-  - `packages/postgres/backtest_job_repository.py:35-40`
-  - `packages/postgres/config_repository.py:20`
-  - `packages/postgres/adapter_repository.py:17`
-  - `packages/postgres/workflow_result_repository.py:25`
-  - `packages/postgres/promotion_ledger_repository.py:82`
-  - `packages/postgres/migrations.py:80-103`, `packages/postgres/migrations.py:128-292`
-- **Evidence:** Several repositories build table identifiers with `f"{self._schema}.{name}"` without applying `safe_storage_identifier()`. Current callers normally use constant `builder`, so this is not an immediate exploit in the reviewed path.
-- **Risk:** SQL injection or broken migrations if schema becomes operator-controlled or CLI-provided.
-- **Fix:** Centralize a Postgres identifier helper using the same strict regex as `packages/workflow_spine/storage_config.py:14-17`; validate schema once in constructors and migrations.
-- **Segment 3 status:** **CLOSED**. `packages.postgres.identifiers` now validates schema/table identifiers for Postgres repositories, migration entrypoints, default seed helpers, and demo seed paths. Covered by `tests/postgres/test_identifier_safety.py`.
-
-### M-02 — `PostgresBacktestJobService.list_jobs_for_strategy()` scans all jobs
-
-- **Files:**
-  - `packages/backtest_jobs/postgres_service.py:136-142`
-  - `packages/postgres/backtest_job_repository.py:183-190`
-- **Evidence:** The repository already has `list_by_strategy_version()`, but the service refreshes all jobs and filters in memory.
-- **Risk:** Performance and data-blast-radius issue as job volume grows; unnecessary full-table reads during evidence-summary calls.
-- **Fix:** Delegate directly to `self._repo.list_by_strategy_version(strategy_version_id)` and scope by `UserProjectContext` when evidence summary is scoped.
-- **Segment 3 status:** **CLOSED for query path**. `PostgresBacktestJobService.list_jobs_for_strategy()` now calls `list_by_strategy_version()` directly and refreshes only returned jobs into cache. Covered by `tests/backtest_jobs/test_postgres_service.py`.
-
-### M-03 — Evidence summary can overstate compile evidence
-
-- **Files:**
-  - `services/api/routes/evidence_summary.py:59-67`, `services/api/routes/evidence_summary.py:110-115`
-  - `packages/backtest_jobs/models.py:31-33`
-  - `scripts/seed_demo_evidence.py:33-36`
-- **Evidence:** If strategy status is `backtested`, `approved`, or `execution_ready`, compile status becomes `passed` even without a compile hash. `BacktestJob.compile_hash` accepts any string, and demo seed values use `sha256:demo_*` strings rather than 64-hex digests.
-- **Risk:** UI can present implied compile evidence as equivalent to artifact-backed compile evidence.
-- **Fix:** Split statuses: `passed_with_artifact`, `passed_inferred`, `missing`; validate production compile hashes as 64-hex or store `hash_scheme` explicitly. Keep demo hashes labelled `fixture_dev_only`/`demo_only`.
-- **Segment 3 status:** **PARTIAL / WATCH**. Lifecycle-only compile success now reports `passed_inferred` and does not create compiled audit events. Artifact-hash strictness remains a future hardening item if non-demo compile hashes become production promotion evidence.
-
-### M-04 — Strategy Postgres repository does not preserve/project-scope filter list/detail/mutations
-
-- **Files:**
-  - `packages/postgres/strategy_repository.py:27-42`, `packages/postgres/strategy_repository.py:111-145`, `packages/postgres/strategy_repository.py:147-197`
-  - `packages/postgres/migrations.py:24-40`
-- **Evidence:** The in-memory repository tracks `_scopes`; Postgres strategy rows insert no `user_id`/`project_id`, list/detail methods ignore context, and mutations do not scope-filter.
-- **Risk:** Once Postgres mode is used, API-level context cannot be enforced consistently for strategies.
-- **Fix:** Add scoped columns to `strategies` and `strategy_versions`, migrate existing demo/default rows with explicit local scope, and apply context predicates in list/detail/mutations.
-
-### M-05 — Oversized modules concentrate too many responsibilities
-
-- **Files:**
-  - `services/api/fastapi_app.py` — 753 LOC
-  - `packages/execution_lane/sessions.py` — 434 LOC
-  - `packages/ai_builder/provider.py` — 334 LOC
-  - `apps/web/components/config/ExecutionLaneFeaturePanel.tsx` — 678 LOC
-  - `apps/web/lib/api.ts` — 438 LOC
-- **Risk:** Auth omissions and route ownership drift are easier to introduce when route registration, policy, dependency construction, and handlers live in one large file.
-- **Fix:** Split route groups into routers with typed dependencies; keep `fastapi_app.py` as composition/bootstrap only. For frontend, split large panels into view-model, sections, and API hooks.
-
-### M-06 — AI audit persists raw prompts without a redaction gate
-
-- **Files:**
-  - `packages/ai_builder/service.py:76-87`
-- **Evidence:** The audit store records the raw `prompt`. `_reject_forbidden_prompt()` blocks obvious credential terms but not all sensitive operator content.
-- **Risk:** Prompt audit logs may store secrets or proprietary strategy details longer than intended.
-- **Fix:** Add a prompt-redaction/secrets scan before persistence; store a redacted prompt plus hash of the original if forensic traceability is needed.
-
-## LOW priority findings
-
-### L-01 — Demo seed silently swallows strategy upsert errors
-
-- **File:** `scripts/seed_builder_demo_data.py:76-80`
-- **Risk:** Broken migrations/schema mismatches can be hidden, followed by an unconditional status update that may fail later or partially seed data.
-- **Fix:** Catch only the expected idempotency conflict or log/re-raise unexpected exceptions.
-- **Segment 3 status:** **CLOSED**. The seed script no longer catches broad `Exception`; unexpected save failures propagate. It also reuses the canonical demo `StrategySpec` factory to avoid stale schema construction.
-
-### L-02 — Stale review artifacts previously claimed all findings were fixed
-
-- **Files:** `structure.md`, `findings.md`, `handguard.md`
-- **Risk:** Operators may treat stale `APPROVE` text as current despite active blockers.
-- **Fix:** This update replaces stale approve language with a dated 2026-06-08 REQUEST-CHANGES report.
-
-### L-03 — Current changed diff lacks Postgres-focused evidence summary tests
-
-- **Files:** `tests/api/test_evidence_summary.py`, `packages/backtest_jobs/postgres_service.py`
-- **Risk:** Public method behavior is covered for in-memory service but not for the Postgres service/repository path.
-- **Fix:** Add a repository mock or lightweight integration test proving `PostgresBacktestJobService.list_jobs_for_strategy()` delegates to `list_by_strategy_version()` and preserves ordering/scope.
-- **Segment 3 status:** **CLOSED** by `tests/backtest_jobs/test_postgres_service.py`.
-
-## Inventory-first semantic legacy/deprecation closure review
-
-| Item / search term | Status | Evidence | Risk / closure action |
-|---|---|---|---|
-| `storage_config.py` legacy alias | **OPEN** | `packages/workflow_spine/storage_config.py:1-4` | Deadline remains 2026-07-01. Add issue/owner; remove alias after cutoff. |
-| `PostgresWorkflowRepository` alias | **OPEN** | `packages/workflow_spine/postgres_repository.py:194-207` | Alias is intentionally deprecated. Remove after 2026-07-01 and update imports/tests. |
-| Backtest legacy hash | **OPEN** | `services/api/routes/backtest_jobs.py:267-275` | Env-flag legacy derivation remains. Add cutoff test and remove after 2026-07-01. |
-| `allow_legacy_fixture_refs` | **OPEN** | `services/api/routes/promotions.py:22-34`, `pyproject.toml:36` warning ignore | Strict evidence should be default for non-dev. Remove/deadline the warning suppression after cutoff. |
-| `res_001` fixture fallback | **WATCH** | `services/api/routes/workflow_results.py:14-28`, tests under `tests/api/test_workflow_results.py` | Default is gated by `BUILDER_ALLOW_FIXTURE_FALLBACK`; keep production flag off and label fixture evidence. |
-| `TradingNode` wording | **WATCH** | `packages/execution_lane/nautilus_runtime.py:11-15`, `packages/execution_lane/sessions.py:137-179`, docs/design text | Label as Python live/integration-specific; do not imply universal current NT live runtime. |
-| `LiveNode` wording | **WATCH** | `packages/execution_lane/nautilus_runtime.py:31-32`, official NT data testing docs | Keep Rust `LiveNode` as future/current Rust-backed path; do not claim Builder runs it. |
-| `TradeAction` / `submit_order` | **FALSE POSITIVE in Builder production code; WATCH in docs/tests** | Production grep found no `submit_order(` or `TradeAction(`; docs/tests/policy intentionally mention them. | Keep scans specific to code paths, not doc policy text. Reject new production calls. |
-| `COINBASE_INTX`, Coinbase International | **CLOSED** | No production references found in current Builder search. | No action. |
-| dYdX v3 / `dydx_v3` | **CLOSED** | No production references found in current Builder search. | No action. |
-| `fill_limit_at_touch` / `fill_limit_inside_spread` | **CLOSED** | No Builder usage found; Builder backtest config keeps `trade_execution=False`. | Re-check on NT upgrades. |
-| `load_ids_async` / `load_async` | **CLOSED/WATCH** | No custom Builder adapter implementation uses these methods. | If Builder adds adapters, follow official adapter guide and DataTester evidence. |
-| `builder_fee_refresh_mins` | **CLOSED** | No references found. | No action. |
-| `NEXT_PUBLIC_BUILDER_API_TOKEN` | **CLOSED/WATCH** | `apps/web/lib/api.ts`, `apps/web/middleware.ts`, compose tests, `.env.production.example` forbid browser-exposed Builder API tokens. Runtime proxy/token tests now require explicit local web env, no build-time rewrites, and no staging/production web `BUILDER_API_TOKEN`. | Web `/api/*` token injection is local-only and explicit; reject browser-token reintroduction and reject staging/prod token proxy defaults. |
-| `aiogram` / `telegram` | **FALSE POSITIVE for Builder runtime** | No Builder dependency in `pyproject.toml`; docs reference Daedalus Telegram boundary. | Keep as Daedalus-only. Reject Builder aiogram dependency. |
-| `langchain` / `langgraph` / `evomap` | **FALSE POSITIVE for Builder runtime** | No Builder dependency in `pyproject.toml`; Daedalus owns these AI lanes. | Keep Builder AI provider advisory-only; do not couple to Daedalus AI runtimes. |
-| `fixture` / `fallback` | **WATCH** | Many intentional fixture/dev paths in backtest and workflow results. | Ensure every fixture path is labelled dev/test only and disabled by default in production. |
-
-## NautilusTrader / Daedalus alignment notes
-
-- Builder pins `nautilus_trader==1.227.0`; the local Daedalus reference pins `1.228.0`. Treat this drift as a required compatibility review item before claiming adapter/live-readiness alignment.
-- Official NT adapter docs define layered Rust core + Python integration layers and require DataTester/ExecTester evidence for adapter readiness. Builder currently gates on evidence refs but should not claim it produces those adapter test artifacts.
-- Official NT Data Testing Spec notes legacy Python `TradingNode` examples but prefers Rust-backed `LiveNode` for new Rust/PyO3 adapters. Builder docs should retain the `python_live_integration_specific` label for TradingNode contracts.
-- Daedalus `AGENTS.md` and README state Telegram is downstream-only, TradeAction is approved intent rather than execution evidence, and ExecutionReport is the source for submitted/filled/rejected/canceled wording. Builder should mirror this boundary.
-
-## Current diff inclusion assessment
-
-**Historical prior-closeout inclusion assessment, retained for context only.** The earlier findings-closure diff did not introduce Builder order authority or Daedalus coupling and closed the listed Segment 3/4 items. The current 2026-06-08 addendum closes the user-listed blocker set; git/remote checks decide whether this blocker closure can be published. Production/live-readiness approval remains out of scope.
-
-## Verification evidence
-
-```bash
-python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 954 passed, 1 skipped, 1 warning
-
-python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
-# 16 passed after strictest audit-store policy fix
-
-cd apps/web && rm -rf .next && npm run build
-# passed; route summary includes Middleware
-
-cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 123 passed, 4 skipped
-
-cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# superseded by the targeted deployment-safety loop below
-
-cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
-# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
-
-python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
-# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
-```
-
-Former H-01/H-02/H-03 manual probes are now represented by regression tests and segment evidence below.
-
-## Prior review verdict before Segment 1-4 closure
-
-- **code-reviewer recommendation:** REQUEST CHANGES
-- **architect status:** BLOCK
-- **final recommendation:** REQUEST CHANGES
-
-The Segment 1-4 implementation, master reconciliation, and final closeout verification below close this prior verdict for Builder-only dev-demo scope. Final git/remote checks remain.
-
-Do not make production/live-readiness claims from this closeout. Merge-readiness is limited to Builder-only dev-demo scope after final git/remote checks pass.
-
-## Master reconciliation — catalog-backed Nautilus replay
-
-`catalog_backed_replay_smoke` remains recorded as a catalog-backed Nautilus replay smoke: it uses synthetic historical quote ticks and a no-order subscribe strategy to prove BacktestNode wiring. This is **not full trading-production readiness** and must not be used as adapter/live compliance evidence.
-
-
-## Segment 1 reconciliation — API auth and strategy scope
-
-**Completed:** 2026-06-08
-
-Implemented and verified the first closure segment for strategy API auth and project scope. `GET /api/strategies` now requires bearer auth and passes `UserProjectContext` to the strategy repository. Strategy approve/clone/status paths now accept scoped context and cannot mutate another project in the in-memory repository. The Postgres strategy repository now persists `user_id`/`project_id`, filters scoped list/detail/version reads, accepts context on approve/clone/status mutations, and includes an idempotent migration v5 for existing databases while v1 creates scoped columns for fresh databases.
-
-Verification evidence:
-
-```bash
-python3 -m pytest tests/api/test_fastapi_app.py::test_fastapi_strategy_routes_require_auth_and_filter_by_project tests/api/test_fastapi_app.py::test_fastapi_strategy_approve_and_clone_are_project_scoped -q
-# 2 passed
-
-python3 -m pytest tests/api/test_fastapi_app.py tests/strategy_spec tests/postgres/test_strategy_repository.py tests/postgres/test_migration_v2.py -q
-# 75 passed
-
-python3 -m compileall -q packages/strategy_spec/repository.py packages/postgres/strategy_repository.py packages/postgres/migrations.py services/api/fastapi_app.py tests/api/test_fastapi_app.py tests/postgres/test_strategy_repository.py
-# pass
-```
-
-At Segment 1 completion time, remaining blockers were H-03 production startup policy wiring, H-04 runtime auth coverage, and medium storage/evidence findings.
-
-
-## Segment 2 reconciliation — production startup policy
-
-**Completed:** 2026-06-08
-
-Implemented and verified FastAPI startup enforcement for the existing `packages.auth.policy` checks. `create_fastapi_app()` now validates `BUILDER_ENV`/`APP_ENV`, rejects staging/production without a 32+ character `BUILDER_API_TOKEN`, rejects `NEXT_PUBLIC_BUILDER_API_TOKEN`, and rejects empty or wildcard CORS origins before registering tokens or accepting traffic. Local/dev token behavior remains covered by tests.
-
-Verification evidence:
-
-```bash
-python3 -m pytest tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
-# 67 passed, 1 warning (Starlette/httpx deprecation from testclient)
-
-python3 -m pytest tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
-# 84 passed, 1 warning (Starlette/httpx deprecation from testclient)
-
-python3 -m compileall -q services/api/fastapi_app.py tests/api/test_production_safety.py
-# pass
-```
-
-At Segment 2 completion time, remaining blockers were H-04 runtime auth coverage and Segment 3 storage/evidence verification.
-
-
-## Segment 3 reconciliation — storage and evidence hardening
-
-**Completed:** 2026-06-08
-
-Implemented and verified the storage/evidence closure segment. Unsafe Postgres schema/table identifiers are rejected before SQL construction in repository constructors, migrations, seed helpers, and demo seed paths. Postgres backtest evidence reads now use the repository's strategy-version query rather than scanning all jobs. Compile evidence inferred only from lifecycle status now reports `passed_inferred`; artifact-backed jobs remain `passed`. Demo strategy seeding now reuses the canonical demo spec factory and propagates unexpected save failures.
-
-Verification evidence:
-
-```bash
-python3 -m pytest tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/api/test_evidence_summary.py::test_backtested_strategy_has_compile_evidence tests/api/test_evidence_summary.py::test_compile_status_inferred_from_lifecycle_does_not_create_compile_audit tests/scripts/test_seed_builder_demo_data.py -q
-# 15 passed
-
-python3 -m pytest tests/postgres tests/api/test_evidence_summary.py tests/backtest_jobs tests/scripts/test_seed_builder_demo_data.py -q
-# 101 passed
-
-python3 -m compileall -q packages/postgres packages/backtest_jobs/postgres_service.py services/api/routes/evidence_summary.py scripts/seed_builder_demo_data.py tests/postgres/test_identifier_safety.py tests/backtest_jobs/test_postgres_service.py tests/scripts/test_seed_builder_demo_data.py tests/api/test_evidence_summary.py
-# pass
-```
-
-At final closeout time, Segment 3 is reconciled; production compile-hash strictness remains WATCH only for future non-demo promotion evidence.
-
-
-## Segment 4 reconciliation — runtime auth coverage
-
-**Completed:** 2026-06-08
-
-Replaced the static route auth confidence test with runtime missing-auth coverage for every registered FastAPI `/api/*` route. The matrix test now fails on any unaccounted `/api/*` route and verifies missing bearer auth returns `401` before payload-specific behavior. The FastAPI adapters, instruments, data availability, backtest profile validation, and external strategy registry routes now require bearer auth.
-
-Verification evidence:
-
-```bash
-python3 -m pytest tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_every_registered_api_route_is_auth_tested tests/api/test_route_auth_scope.py::TestRouteAuthScope::test_protected_api_routes_reject_missing_auth_at_runtime -q
-# 2 passed
-
-python3 -m pytest tests/api/test_route_auth_scope.py tests/api/test_fastapi_app.py tests/api/test_production_safety.py tests/api/test_security_hardening.py tests/auth -q
-# 91 passed, 1 skipped, 1 warning (Starlette/httpx deprecation from testclient)
-
-python3 -m compileall -q services/api/fastapi_app.py tests/api/test_route_auth_scope.py
-# pass
-```
-
-At Segment 4 completion time, remaining blockers were full master reconciliation and code review.
-
-## Master reconciliation — findings closure implementation
-
-**Updated:** 2026-06-08
-
-Master reconciliation verified Segment 1-4 and the follow-up review-fix loop as a Builder-only findings closure. The closure now includes strictest-env production policy for token/CORS, durable AI audit-store requirements, production Redis rate-limit startup policy, scoped `/api/results`, scoped evidence-summary backtest jobs, scoped execution-lane runtime routes, explicit-local server-token web proxying, runtime `/health/backend` proxying, removal of build-time API rewrites, and same-origin local web verification docs.
-
-Verification evidence:
-
-```bash
-python3 -m compileall -q packages services tests scripts && python3 -m pytest tests/ -q --tb=line
-# 954 passed, 1 skipped, 1 warning
-
-python3 -m pytest tests/api/test_production_safety.py tests/api/test_fastapi_app.py::test_fastapi_workflow_routes_require_auth_and_deny_cross_project tests/api/test_fastapi_app.py::test_fastapi_demo_seed_uses_default_dev_token_scope tests/api/test_fastapi_app.py::test_fastapi_execution_lane_routes_filter_runtime_state_by_project tests/api/test_evidence_summary.py::test_evidence_summary_filters_backtest_jobs_by_project -q --tb=short
-# 16 passed after strictest audit-store policy fix
-
-bash scripts/check_forbidden_authority.sh && git diff --check
-# passed in final closeout
-
-cd apps/web && rm -rf .next && npm run build
-# passed; route summary includes Middleware
-
-cd apps/web && npm run typecheck && npx vitest run --config vitest.config.mts --testTimeout=10000
-# 123 passed, 4 skipped
-
-cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts --testTimeout=10000
-# superseded by the targeted deployment-safety loop below
-
-cd apps/web && npx vitest run --config vitest.config.mts middleware.test.ts lib/api.test.ts --testTimeout=10000
-# 20 passed after RED confirmed runtime health proxying and explicit-local token injection
-
-python3 -m pytest tests/integration/test_docker_compose_profiles.py tests/web/test_frontend_infrastructure.py -q
-# 36 passed after RED confirmed localhost API binding, explicit web envs, and no build-time rewrites
-```
-
-Historical prior-closeout stop condition: full verification and post-implementation review had passed for that earlier branch. Current addendum stop condition is publication-only after clean git/remote checks; production/security readiness remains blocked.
-
-
-## Gap Closure v1 — 2026-06-11
-
-All 15 segments of the gap closure have been implemented and verified.
-
-**Final verification:**
-- 1175 Python tests passed (from 979 baseline)
-- 131 frontend tests passed
-- Forbidden authority scan PASSED
-- Frontend typecheck and build PASS
-
-**Key closures:**
-- Version metadata now flows from canonical source
-- CI gates protect against drift
-- Readiness matrix prevents false claims
-- StrategySpec v2 supports ND microstructure strategies
-- Compiler produces deterministic artifact bundles
-- Evidence is typed, scoped, and hash-verifiable
-- Promotion gate enforces evidence requirements
-- Live-trading readiness remains OUT OF SCOPE
-
-**Builder remains Builder-only.** No live order authority introduced.
-
-
-## Gap Closure v2 — 2026-06-11
-
-All 17 segments of Gap Closure v2 have been implemented and verified.
-
-**Final verification:**
-- 1305 Python tests passed (from 1176 baseline, +129)
-- 138 frontend tests passed (from 131 baseline, +7)
-- Forbidden authority scan PASSED
-- Docs consistency check PASSED
-- Frontend typecheck and build PASS
-
-**Key closures in v2:**
-- BuilderBuildInfo with env-injected git/build metadata
-- Readiness matrix with machine-readable GET /api/readiness endpoint
-- Canonical ND microstructure feature registry (50+ features)
-- Structured validation issue codes (ERR_*, WARN_*)
-- FullArtifactBundle with deterministic hash and CompileArtifactManifest
-- Data alignment checks (monotonicity, lookahead, staleness)
-- Evidence CRUD API with hash verification
-- Promotion evidence policy with blocking reason codes
-- ApiError standard response model
-- Capability enum for RBAC
-- Local object storage with path traversal protection
-- UX traceability components (StrategyJourney, BlockingReasonPanel)
-- Audit event model with 15 required event types
-- BuilderMetrics with 7 canonical metric names
-- Docs consistency check script
-- Local CI parity script (verify_all.sh)
-
-**Builder remains Builder-only.** No live order authority introduced.
-
-
-## Gap Closure v3 — 2026-06-11
-
-**All remaining open items closed.**
-
-### Closed findings
-
-| Finding | Description | Closure |
-|---|---|---|
-| M-03 | Direct frontend fetches bypass canonical API client | Closed: AiStrategyCopilot uses fetchAdapters, apiClient.ts deprecated |
-| M-05 | Oversized modules | Closed: Already modularized in v2 gap closure |
-| M-06 | AI audit persists raw prompts without redaction | Closed: _redact_prompt() scans and replaces secrets before storage |
-| Legacy: storage_config.py | Deprecation comment | Closed: Comment removed |
-| Legacy: PostgresWorkflowRepository | Alias | Closed: Alias removed |
-| Legacy: backtest hash | Legacy env escape | Closed: Removed USE_LEGACY_COMPILE_HASH |
-| Legacy: allow_legacy_fixture_refs | Warning suppression | Closed: Removed flag and pyproject filterwarnings |
-| Legacy: res_001 fixture fallback | BUILDER_ALLOW_FIXTURE_FALLBACK | Closed: Removed fixture fallback entirely |
-
-### New segments closed
-
-| Segment | Description |
-|---|---|
-| 15 (completion) | All legacy items removed |
-| 17 | Documentation alignment, readiness badges |
-| 18 | Full-system verification harness |
-
-### Open items: NONE
-
-All findings from the original review are now closed. No remaining WATCH items.
-
-
-## Gap Closure v4 — 2026-06-11
-
-**Branch:** master (direct)
-**Segments closed:** A, B, C, D, E (deepened), I (deepened), N (new), R (partial), S, U (new)
-**Tests:** 1377 Python (from 1332 baseline, +45)
-
-### Closed items
-
-| Item | Description | Status |
-|---|---|---|
-| Segment A | Readiness matrix upgraded to v4 capability names; doc/readiness_status.json added | Closed |
-| Segment B | Version drift fixed: pyproject.toml 0.5.0, RELEASE.md unified, version consistency tests | Closed |
-| Segment C | CI hardened: security.yml, docker.yml, check_secrets.sh, check_release_version.py | Closed |
-| Segment D | BuilderProductionConfig model with fail-closed validation; startup_policy.py | Closed |
-| Segment E | Capabilities upgraded to v4 names with role-based sets; viewer/editor/operator/promotion_requester/admin | Closed |
-| Segment I | Evidence postgres repository added for persistent evidence storage | Closed |
-| Segment N | Compatibility contracts package with versioned ND/Daedalus alignment | Closed |
-| Segment R | Production smoke script (smoke_production.sh) | Partial |
-| Segment S | Security scanning: .gitleaks.toml, check_secrets.sh, security.yml workflow | Closed |
-| Segment U | Full builder journey test (7 steps covering spec→compile→evidence→promotion→compatibility) | Closed |
-
-### New files
-
-| File | Purpose |
-|---|---|
-| `packages/config/__init__.py` | Config package exports |
-| `packages/config/production.py` | BuilderProductionConfig fail-closed model |
-| `packages/compatibility/__init__.py` | Compatibility contracts package |
-| `packages/compatibility/models.py` | CompatibilityContract + CompatibilityMatrix models |
-| `packages/evidence_ledger/postgres_repository.py` | Postgres evidence repository |
-| `services/api/startup_policy.py` | Startup validation using BuilderProductionConfig |
-| `.github/workflows/security.yml` | Security CI workflow |
-| `.github/workflows/docker.yml` | Docker CI workflow |
-| `.gitleaks.toml` | Secret scanning config |
-| `scripts/check_secrets.sh` | Env example secret check |
-| `scripts/check_release_version.py` | Version drift check |
-| `scripts/smoke_production.sh` | Production smoke test |
-| `doc/readiness_status.json` | Machine-readable readiness matrix |
-| `docs/superpowers/specs/2026-06-11-v4-gap-closure-design.md` | Implementation plan |
-| `tests/version/__init__.py` | Test package |
-| `tests/version/test_version_consistency.py` | Version + readiness tests |
-| `tests/ci/__init__.py` | Test package |
-| `tests/ci/test_ci_workflows.py` | CI workflow structure tests |
-| `tests/config/__init__.py` | Test package |
-| `tests/config/test_production_config.py` | Production config tests |
-| `tests/integration/test_full_builder_journey.py` | Full journey test |
-
-### Hard invariants preserved
-
-- No `submit_order(` in Builder production code
-- No authoritative `TradeAction(` in Builder production code
-- `execution_authority` is always `False`
-- Builder does not claim live-trading readiness
-- Deterministic hashes are reproducible
-- Version metadata is consistent across all sources
-- Production config fails closed on missing/invalid settings
-- Compatibility contracts make ND alignment explicit
-
-### Remaining segments for future PRs
-
-- F: API modularization (already done in v2, verification tests only)
-- G: StrategySpec v2 deepening (exists, feature expansion)
-- H: Compiler deterministic bundle (exists, completeness check)
-- J: Artifact store production hardening (S3 exists, immutability tests)
-- K: Real dataset replay (DuckDB/Parquet deepening)
-- L: Backtest result normalization (result_normalizer.py exists)
-- M: Promotion gate full lifecycle (exists, stage transitions)
-- O: UI traceability deepening (components exist)
-- P: Runtime events/health endpoints (exists, health endpoint additions)
-- Q: Postgres migrations completeness (exists, migration coverage)
-- R: Deployment runbooks (partial, smoke script added)
-- T: Documentation cleanup
-
-
-
-## Gap Closure v5 — 2026-06-12
-
-**All v5 reworked review findings addressed.**
-
-### Closed items
-
-| Item | Description | Status |
-|---|---|---|
-| Finding A | Version state confusion (pyproject 0.5.0, CHANGELOG v0.6.0) | Closed |
-| Finding B | Classic StrategySpec is default compiler input, microstructure not compiled | Closed |
-| Finding C | Compiler IR exists but compiler doesn't use it | Closed |
-| Finding D | Evidence ledger model/repository drift | Closed |
-| Finding E | Evidence API in-memory only | Closed |
-| Finding F | Replay too narrow (quote-tick focused) | Closed |
-| Finding G | CI not enough as production gate | Partially addressed (migration v7, existing CI) |
-| Finding H | FastAPI app monolithic | Prior v2 addressed (already modularized) |
-| Finding I | Production compose smoke insufficient | Closed (production fail-closed for evidence) |
-
-### Evidence
-
-```bash
-python3 -m compileall -q packages services tests scripts
-# pass
-
-python3 -m pytest tests/ -q --tb=line
-# 1423 passed, 1 skipped, 2 warnings
-
-bash scripts/check_forbidden_authority.sh
-# PASSED
-
-python3 scripts/check_release_version.py
-# OK: All versions consistent at 0.5.0
-```
-
-### New tests added in v5
-
-- 3 changelog version alignment tests
-- 10 evidence postgres repository alignment tests
-- 7 evidence API tests (with project scoping)
-- 19 schema family unification tests
-- 12 deterministic artifact bundle tests
-- **Total: +46 new tests**
-
-### Remaining items for future work
-
-- Full E2E production smoke with real Postgres/MinIO containers
-- Playwright E2E tests for UI traceability journey
-- mypy/pyright type gates (currently non-blocking)
-- Full deployment runbooks with tested commands
-
-## Gap Closure v6 — 2026-06-12
-
-**All v6 reworked review findings addressed.**
-
-### Closed items
-
-| Item | Description | Status |
-|---|---|---|
-| G1 | Evidence ledger model/repository mismatch | Verified aligned — no stale names |
-| G2 | Evidence API in-memory store | Verified — injected repo, production fail-closed |
-| G3 | Compiler v2 bundle not exported/authoritative | Closed — exports, static scan integrated |
-| G4 | Version drift check too weak | Verified — hardened in v5 |
-| G5 | Real dataset replay blocked/partial | WATCH — synthetic fixtures exist, production Parquet/DuckDB is future |
-| G6 | S3/local artifact store protocol parity | Closed — unified put_json/get_json/verify_ref |
-| G7 | Readiness docs stale drift | WATCH — scripts exist, generation not automated |
-
-### Evidence
-
-```bash
-python3 -m compileall -q packages services tests scripts
-# pass
-
-python3 -m pytest tests/ -q --tb=line
-# 1479 passed, 1 skipped, 1 warning
-
-bash scripts/check_forbidden_authority.sh
-# PASSED
-
-python3 scripts/check_release_version.py
-# OK: All versions consistent at 0.5.0
-```
-
-### New tests added in v6
-
-- 16 InMemoryEvidenceRepository tests (update_verification, pagination, round trips)
-- 18 enhanced verifier tests (hex, expiry, source system, scope, artifact store)
-- 13 artifact store protocol parity tests (local + S3 + factory)
-- 7 compiler bundle authoritative tests (exports, static scan, determinism)
-- **Total: +55 new tests**
+# Deep Review Findings — nautilus_builder + Nautilus-Daedalus
+
+**Review Date:** 2026-06-12
+**Reviewer:** Autonomous code-reviewer + architect lanes
+**Scope:** Both repos, full tree, NT v1.227.0/v1.228.0 API alignment
+**Test Evidence:** Builder 1479 passed / 1 skipped; Daedalus ~3130 tests (partial UI failures)
+
+---
+
+## CODE REVIEW REPORT
+
+Files Reviewed: 85+ (critical paths)
+Total Issues: 24
+Architectural Status: WATCH
+
+---
+
+### CRITICAL (2)
+
+**C-01: NT version pin mismatch in Daedalus pyproject.toml**
+- File: `Nautilus-Daedalus/pyproject.toml:3`
+- Issue: `nautilus_trader==1.228.0` declared but installed version is `1.227.0`. This creates a silent version drift where tests pass against 1.227.0 but production would install 1.228.0 with potentially different APIs (especially `fill_limit_at_touch` → `fill_limit_inside_spread` rename in v1.224, or Quantity subtraction returning ValueError in v1.223+).
+- Risk: Runtime failures in production when uv/pip resolves to 1.228.0. Any breaking change between 1.227 and 1.228 would surface only at deploy time.
+- Fix: Either pin to `1.227.0` to match the tested version, or upgrade the environment and run the full test suite against 1.228.0.
+
+**C-02: Unbounded in-memory credential/token stores in production path**
+- Files: `packages/auth/service.py`, `packages/execution_lane/service.py`
+- Issue: `AuthTokenService._tokens` is a plain `dict[str, UserProjectContext]` with no eviction, TTL, or size limit. `ExecutionLaneService._sessions`, `_profiles`, `_commands`, `_reports` are all unbounded dicts. In a long-running production FastAPI process, these grow without bound.
+- Risk: Memory exhaustion under sustained load. Tokens issued for testing (`nb_test_*`) are never cleaned up.
+- Fix: Add TTL-based eviction or LRU cap for auth tokens. Consider Postgres-backed session persistence for execution lane state in production (the `postgres_repository.py` exists but the in-memory service is the default).
+
+---
+
+### HIGH (5)
+
+**H-01: Adapter config builder only supports Binance**
+- File: `packages/execution_lane/adapter_config_builders.py`
+- Issue: Only `build_binance_data_config()` and `build_binance_exec_config()` exist. The `build_generic_data_config()` function exists but raises `ValueError` for non-Binance venues. Daedalus has adapters for Extended, Ethereal, O1XYZ, StandX, Apex Omni — none are wired.
+- Risk: Execution lane paper sessions fail for any non-Binance venue. This blocks multi-venue strategy testing.
+- Fix: Add adapter config builders for all venues used in Daedalus, or make `build_generic_data_config()` fall back to a safe default config pattern.
+
+**H-02: Custom message bus bypasses NT publish_signal/publish_data**
+- File: `Nautilus-Daedalus/nautilus_actors/nt_actor_bus.py`
+- Issue: `subscribe_topic()` and `publish_topic()` use `bus.subscribe(topic, callback)` and `bus.publish(topic, payload)` directly, with JSON-encoded strings. This bypasses NautilusTrader's typed `publish_signal()` and `publish_data()` APIs which are the canonical patterns for Actor-to-Strategy communication per NT architecture docs.
+- Risk: Loss of NT message bus guarantees (typed routing, DataType matching, backpressure). Custom bus has no type safety — any string payload passes.
+- Fix: Migrate to `self.publish_signal()` for primitives and `self.publish_data(DataType(...), data)` for structured data. Keep the topic bus as a compatibility shim during transition.
+
+**H-03: TradeDecisionActor uses asyncio.gather inside NT Actor**
+- File: `Nautilus-Daedalus/nautilus_actors/trade_decision_actor.py`
+- Issue: Uses `asyncio.gather(*tasks, return_exceptions=True)` for concurrent postmortem learning. NT runs on a single thread with an event-driven model; spawning concurrent coroutines inside Actor handlers can cause re-entrancy issues if the gathered tasks access shared actor state.
+- Risk: Race conditions on `_tasks` dict, potential double-processing of signals.
+- Fix: Serialize postmortem processing or use an off-actor background worker with proper synchronization.
+
+**H-04: ExtendedExecutionClient missing reconciliation methods**
+- File: `Nautilus-Daedalus/nautilus_adapters/adapters/extended/execution.py`
+- Issue: Uses `unsupported_reconciliation` from a local helper. The NT adapter contract requires reconciliation for production execution clients. The client generates fill reports but delegates mass-status and position-status to unsupported stubs.
+- Risk: In live trading, position reconciliation on startup is not possible. State drift between NT cache and venue could lead to duplicate or missed orders.
+- Fix: Implement `generate_execution_mass_status()` and `generate_position_status()` using venue REST endpoints, or explicitly document that this adapter is paper/testnet only.
+
+**H-05: Evidence production fail-closed only enforced at app factory level**
+- File: `services/api/fastapi_app.py`
+- Issue: The ValueError for in-memory evidence in production is raised inside `create_fastapi_app()`, which is only called during server startup. If a developer bypasses the factory and creates a FastAPI app directly (e.g., in tests or scripts), the guard is skipped.
+- Risk: Misconfigured production deployment without evidence persistence.
+- Fix: Add a startup event handler that re-validates evidence storage config, or make the check a FastAPI dependency.
+
+---
+
+### MEDIUM (9)
+
+**M-01: Paper strategy only subscribes to quote ticks**
+- File: `packages/execution_lane/paper_strategy.py`
+- Issue: `ExecutionLanePaperStrategy` subscribes to `quote_ticks` but the StrategySpec model supports bar-based strategies (`bar_type` field). Paper sessions for bar strategies won't receive any data.
+- Fix: Add conditional subscription based on spec data type (bars vs ticks).
+
+**M-02: No `on_reset` cleanup in paper strategy**
+- File: `packages/execution_lane/paper_strategy.py`
+- Issue: Missing `on_reset()` method. `observed_quote_ticks` counter is not reset.
+- Fix: Add `on_reset()` that clears `observed_quote_ticks` and `self.instrument = None`.
+
+**M-03: SQLite workflow repository uses string interpolation for LIMIT/OFFSET**
+- File: `packages/workflow_spine/postgres_repository.py:109-113`
+- Issue: `sql += f" LIMIT {int(limit or -1)} OFFSET {int(offset)}"` — while `int()` provides basic sanitization, the pattern of string interpolation in SQL is fragile. The table name is also interpolated.
+- Fix: Use parameterized queries for LIMIT/OFFSET (`?` placeholders).
+
+**M-04: EvoMapCapsuleAdvisoryActor uses `time.monotonic()` instead of NT clock**
+- File: `Nautilus-Daedalus/nautilus_actors/evomap_capsule_advisory_actor.py`
+- Issue: Capsule TTL check uses `time.monotonic()` rather than `self.clock`. This breaks determinism in backtests and DST environments.
+- Fix: Use `self.clock.timestamp_ns()` or `self.clock.elapsed()` for TTL checks.
+
+**M-05: Daedalus test failures in Telegram Signal UI suite**
+- Files: `tests/test_telegram_signal_*.py` (14+ failures observed)
+- Issue: Telegram signal CLI, process, schema, and UI dialog tests are failing. These appear to be contract tests that encode assumptions about legacy operator imports and stream defaults that may have changed.
+- Risk: Signal delivery pipeline may be broken or tests encode stale contracts.
+- Fix: Investigate and fix the 14+ failing tests. If they test deprecated behavior, update the tests; if they test current behavior, fix the implementation.
+
+**M-06: `_bayesian_confidence_shadow` fallback produces misleading data**
+- File: `Nautilus-Daedalus/nautilus_actors/trade_decision_actor.py:286+`
+- Issue: When Bayesian confidence is missing, the function returns a synthetic shadow with `confidence_quality: "insufficient"` but still populates numeric fields with zeros. Downstream consumers may not check `confidence_quality` and treat zeros as valid metrics.
+- Fix: Return `None` or raise when confidence is missing, forcing explicit handling.
+
+**M-07: StrategySpec classic model doesn't enforce `output_mode=signal_preview_only`**
+- File: `packages/strategy_spec/models.py`
+- Issue: The v1 `StrategySpec` has `OutputMode.SIGNAL_PREVIEW_ONLY` as the only enum value, but doesn't have a model validator enforcing it (unlike `StrategySpecMicrostructureV1` which has an explicit `Literal[False]` guard on `execution_authority`).
+- Risk: If new output modes are added to the enum without updating validators, the classic spec could accept them silently.
+- Fix: Add a model validator that enforces `output_mode == SIGNAL_PREVIEW_ONLY`.
+
+**M-08: Version consistency test may not catch Daedalus drift**
+- File: `tests/version/test_version_consistency.py`
+- Issue: Builder has version consistency tests, but Daedalus `pyproject.toml` pins `1.228.0` while installed is `1.227.0`. There's no cross-repo version alignment check.
+- Fix: Add a CI check that verifies Daedalus pyproject.toml NT version matches the actually installed/tested version.
+
+**M-09: No structured logging/observability in Daedalus actors**
+- Files: `nautilus_actors/trade_decision_actor.py`, `nautilus_actors/gate_actor.py`
+- Issue: Actors use `self._logger.error(message)` with formatted strings instead of structured logging. Error events are formatted as space-delimited key=value strings rather than JSON.
+- Risk: Difficult to parse, aggregate, or alert on actor errors in production monitoring.
+- Fix: Use Python `structlog` or NT's built-in logging with structured fields.
+
+---
+
+### LOW (8)
+
+**L-01: `_installed_nautilus_version()` always returns None**
+- File: `packages/execution_lane/nautilus_runtime.py:183`
+- Issue: The function has a `try: import nautilus_trader; return None` — the `return None` is inside the try block before any version extraction. Dead code.
+- Fix: Change to `return str(getattr(nautilus_trader, "__version__", "")) or None`.
+
+**L-02: Starlette deprecation warning in test client**
+- Issue: `StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead`.
+- Fix: Update FastAPI/Starlette dependency or install `httpx2`.
+
+**L-03: No type hints on several Daedalus adapter methods**
+- Files: `nautilus_adapters/adapters/extended/execution.py`, `nautilus_adapters/adapters/extended/client.py`
+- Issue: Several methods use `object | None` for parameters that should be typed.
+- Fix: Add proper type annotations.
+
+**L-04: `coerce_config_arg` docstring mentions "temporary message-bus override"**
+- File: `Nautilus-Daedalus/nautilus_actors/nt_actor_bus.py`
+- Issue: The compatibility layer for dual-constructor actors is necessary but the docstring could be clearer about the NT ActorFactory contract.
+- Fix: Add a reference to the NT ActorFactory docs.
+
+**L-05: Evidence repository field mapping tests cover Postgres but not migration rollback**
+- File: `packages/evidence_ledger/postgres_repository.py`
+- Issue: Migration v7 creates `evidence_refs` table, but there's no rollback path tested.
+- Fix: Add a downgrade migration test.
+
+**L-06: Missing `on_stop` in `ExecutionLanePaperStrategy`**
+- File: `packages/execution_lane/paper_strategy.py`
+- Issue: No explicit unsubscribe in `on_stop()`. NT framework handles cleanup, but explicit unsubscribe is recommended per NT conventions.
+- Fix: Add `on_stop()` with `self.unsubscribe_quote_ticks()`.
+
+**L-07: `reveal_secret()` in Daedalus credential resolution doesn't audit access**
+- File: `Nautilus-Daedalus/nautilus_adapters/adapters/credential_resolution.py`
+- Issue: Secret values are resolved without logging access. For audit compliance, credential access should be logged (without the value).
+- Fix: Add an optional audit logger that records which credential was accessed.
+
+**L-08: No `.env.execution.local` file permission validation**
+- File: `packages/execution_lane/credentials.py`
+- Issue: The credential slot store writes to `.env.execution.local` but doesn't validate that the file has restrictive permissions (0600). `_validate_env_file_path` checks for path separators but not file mode.
+- Fix: Add `os.chmod(path, 0o600)` after writing, or validate existing permissions.
+
+---
+
+## ARCHITECTURE WATCHLIST
+
+**AW-01: Dual-repo architecture creates synchronization risk**
+- Concern: Builder and Daedalus share NT contract types (TradeAction, StrategySpec) but live in separate repos with independent dependency pins. A breaking change in one repo's contract models can silently break the other.
+- Status: WATCH
+- Recommendation: Consider a shared contract package (`nautilus_contracts`) published as a library, or add cross-repo contract compatibility tests in CI.
+
+**AW-02: Custom message bus topic system may not scale to LiveNode**
+- Concern: Daedalus uses string-based topic pub/sub via `nt_actor_bus.py`. If the system migrates to Rust LiveNode, this custom bus won't transfer. NT's native `publish_signal`/`publish_data` would.
+- Status: WATCH
+- Recommendation: Create a migration plan from topic-based bus to NT-native typed signals.
+
+**AW-03: Execution lane in-memory defaults may not survive production restarts**
+- Concern: All execution lane state (profiles, commands, sessions, reports) lives in memory by default. A process restart loses all in-flight session state.
+- Status: WATCH
+- Recommendation: Ensure production deployments use the Postgres-backed repositories from the start, not just for evidence.
+
+**AW-04: EvoMap advisory is correctly non-blocking but audit trail is file-based**
+- Concern: `evomap_orchestrator.py` persists state to a local JSON file (`state_path`). In a distributed deployment, this won't be shared across instances.
+- Status: WATCH
+- Recommendation: Migrate EvoMap state to Postgres/Redis for multi-instance deployments.
+
+---
+
+## LEGACY/DEPRECATION CLOSURE INVENTORY
+
+| Item | Status | Location | Action |
+|------|--------|----------|--------|
+| `credential_slot_http_disabled` response | ✅ Closed | `credentials.py:47` | Already returns 410 |
+| Browser credential bootstrap | ✅ Closed | `credentials.py:46-48` | Returns error payload |
+| `CredentialSlotBootstrap.tsx` | ✅ Closed | handguard guard | Asserted absent |
+| `strategy_lane_coupled` | ✅ Hardcoded False | `models.py:150`, `nautilus_runtime.py:36` | Literal[False] enforced |
+| `browser_credentials_allowed` | ✅ Hardcoded False | `config_contract.py:10,20` | Literal[False] enforced |
+| `credential_inputs_allowed` | ✅ Hardcoded False | `service.py` snapshot | Always False |
+| Coinbase International adapter (NT v1.224 removal) | ✅ Not referenced | N/A | No action needed |
+| dYdX v3 adapter (NT v1.223 removal) | ✅ Not referenced | N/A | No action needed |
+| `fill_limit_at_touch` (NT v1.224 rename) | ✅ Not used | N/A | No action needed |
+| `TradeAction` retired keys rejection | ✅ Active | `trade_action.py:97` | Validator rejects retired keys |
+| Legacy operator imports in Telegram CLI | ⚠️ Tests failing | `test_telegram_signal_cli.py` | 14 tests need reconciliation |
+| `_installed_nautilus_version()` dead code | 🔧 Bug | `nautilus_runtime.py:183` | Returns None always |
+| `may_submit_order` / `execution_authority` | ✅ Hardcoded False for paper | `models.py:62-63,194-195` | Paper blocks both |
+
+---
+
+## SYNTHESIS
+
+- code-reviewer recommendation: **REQUEST CHANGES** (2 CRITICAL, 5 HIGH)
+- architect status: **WATCH** (4 architectural concerns, no blockers)
+- final recommendation: **REQUEST CHANGES**
+
+Address CRITICAL items (version pin mismatch, unbounded stores) and at minimum H-01 (multi-venue adapter support) and H-04 (reconciliation) before considering production deployment.
