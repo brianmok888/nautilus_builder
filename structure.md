@@ -2,7 +2,7 @@
 
 ## Overview
 
-**nautilus_builder** is a FastAPI-based strategy builder platform for NautilusTrader. It compiles strategy specifications (classic_v1 and microstructure_v1 families) into deterministic artifacts, manages execution lane lifecycle (paper/live), and provides evidence-based promotion gates. The companion **Nautilus-Daedalus** repository provides the runtime actors, adapters, advisory infrastructure (EvoMap/LangGraph), and decision engines.
+**nautilus_builder** is a FastAPI-based strategy builder platform for NautilusTrader. It compiles strategy specifications (classic_v1 and microstructure_v1 families) into deterministic artifacts, manages execution lane lifecycle (paper/live), and provides evidence-based promotion gates.
 
 ## Architecture
 
@@ -45,53 +45,27 @@ nautilus_builder/
 ├── infra/                       # Docker compose, CI workflows
 ├── tests/                       # 1479 passing contract tests
 └── apps/web/                    # Frontend (Ant Design operator UI)
-
-Nautilus-Daedalus/
-├── nautilus_actors/             # NT Actor implementations
-│   ├── trade_decision_actor.py  # StateBundle → TradeAction decision lane
-│   ├── evomap_capsule_advisory_actor.py  # EvoMap advisory overlay (non-blocking)
-│   ├── gate_actor.py            # Pre-trade gate decisions
-│   ├── signal_preview_actor.py  # Signal preview (no orders)
-│   ├── promotion_controller.py  # Strategy promotion logic
-│   ├── nt_actor_bus.py          # Message bus compatibility layer
-│   └── contracts/               # Actor message contracts
-├── nautilus_adapters/           # Custom NT adapters
-│   ├── adapters/extended/       # Extended adapter (execution + data)
-│   ├── adapters/ethereal/       # Ethereal adapter
-│   ├── adapters/o1xyz/          # O1XYZ adapter
-│   ├── adapters/standx/         # StandX adapter
-│   ├── adapters/apex_omni/      # Apex Omni adapter
-│   └── adapters/credential_resolution.py  # SecretStr/env credential resolver
-├── nautilus_brain/              # ML/AI decision layer
-│   ├── advisory/                # EvoMap orchestrator, audit trail, LangGraph
-│   ├── contracts/               # TradeAction, StateBundle, EdgeSignal contracts
-│   ├── decision_engines/        # PPO, deterministic, hybrid_shadow
-│   └── evaluation/              # Orderflow replay, shadow evaluation
-├── nautilus_runtime/            # Runtime configuration
-├── packages/prediction_market/  # Polymarket prediction models
-└── tests/                       # ~3130 tests (UI failures noted)
 ```
 
 ## Key Metrics
 
-| Metric | nautilus_builder | Nautilus-Daedalus |
-|--------|-----------------|-------------------|
-| Python LOC | ~38,600 | ~55,000+ |
-| Test count | 1,479 passed | ~3,130 (some UI failures) |
-| NT version pinned | 1.227.0 (pyproject) / 1.227.0 (installed) | 1.228.0 (pyproject) / 1.227.0 (installed) |
-| Dependencies | FastAPI, NautilusTrader, Pydantic v2, Redis, Postgres | NautilusTrader, aiogram, LangGraph, LangChain |
+| Metric | Value |
+|--------|-------|
+| Python LOC | ~38,600 |
+| Test count | 1,479 passed, 1 skipped |
+| NT version pinned | 1.227.0 (pyproject) / 1.227.0 (installed) |
+| Dependencies | FastAPI, NautilusTrader, Pydantic v2, Redis, Postgres |
 
-## NautilusTrader API Compatibility Matrix
+## NautilusTrader API Usage
 
-| NT Feature | Builder Usage | Daedalus Usage | Aligned |
-|------------|--------------|----------------|---------|
-| TradingNode (Python) | paper_strategy.py, sessions.py | N/A (uses Actors) | ✅ |
-| LiveNode (Rust) | Planned (future_runtime) | N/A | ⚠️ Future |
-| StrategyConfig frozen=True | ExecutionLanePaperStrategyConfig | ActorConfig frozen=True | ✅ |
-| on_start → request_bars → subscribe_bars | paper_strategy uses subscribe_quote_ticks | Actors use custom bus | ✅ |
-| Cache instrument null check | Checked in paper_strategy | Checked in adapters | ✅ |
-| reconciliation=True | Enforced ≥60min lookback | N/A | ✅ |
-| risk_engine bypass=False | Literal[False] enforced | N/A | ✅ |
-| Actor message bus (publish_signal/publish_data) | N/A | Custom nt_actor_bus | ⚠️ Custom |
-| DataTester/ExecTester evidence | Referenced in profile fields | N/A | ✅ |
-| Credential via env vars | Local .env.execution.local | credential_resolution.py | ✅ |
+| NT Feature | Usage | Aligned |
+|------------|-------|---------|
+| TradingNode (Python) | paper_strategy.py, sessions.py | ✅ |
+| LiveNode (Rust) | Planned (future_runtime field) | ⚠️ Future |
+| StrategyConfig frozen=True | ExecutionLanePaperStrategyConfig | ✅ |
+| on_start → instrument null check | paper_strategy checks `if not None` | ✅ |
+| subscribe_quote_ticks | paper_strategy uses directly | ⚠️ No warmup bars |
+| reconciliation=True | Enforced ≥60min lookback | ✅ |
+| risk_engine bypass=False | Literal[False] enforced | ✅ |
+| DataTester/ExecTester evidence | Referenced in profile fields | ✅ |
+| Credential via env vars | Local .env.execution.local | ✅ |
