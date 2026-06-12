@@ -586,3 +586,62 @@ This is a Builder-only findings closure. It does not implement Daedalus order-fl
 - Version metadata is consistent across all sources
 - Production fails closed on in-memory evidence store
 - All promotion modes forbid live execution authority
+
+## Gap Closure v6 — 2026-06-12
+
+**Branch:** master (direct)
+**Segments closed:** 01-06 (all)
+**Tests:** 1479 Python (from 1424 baseline, +55)
+
+### Closed findings from v6 reworked review
+
+| Finding | Description | Status |
+|---|---|---|
+| G1 | Evidence ledger model/repository mismatch (already fixed in v5) | Verified aligned |
+| G2 | Evidence API in-memory store (already fixed in v5) | Verified aligned |
+| G3 | Compiler v2 artifacts not exported/authoritative | Closed: exports + static scan |
+| G4 | Version drift check too weak (already hardened in v5) | Verified aligned |
+| G5 | Real dataset replay blocked/partial | WATCH (future E2E) |
+| G6 | S3 artifact store protocol parity | Closed: unified put_json/get_json/verify_ref |
+| G7 | Readiness docs stale drift | WATCH (scripts exist) |
+
+### New/enhanced modules
+
+| Module | Change |
+|---|---|
+| `packages/evidence_ledger/in_memory_repository.py` | Added `update_verification`, `list_by_project` pagination, removed auto-verify on save |
+| `packages/evidence_ledger/verifier.py` | Enhanced: hex format, expiry, source system allowlist, project scope, artifact store checksum |
+| `packages/artifact_store/interface.py` | Unified protocol: `put_json`, `get_json`, `verify_ref` with `UserProjectContext` |
+| `packages/artifact_store/service.py` | Added `verify_ref` to `LocalJsonArtifactStore` |
+| `packages/artifact_store/s3_store.py` | Added `put_json`, `get_json`, `verify_ref` with context scoping |
+| `packages/strategy_compiler/__init__.py` | Exports `compile_strategy_spec_bundle` and `FullArtifactBundle` |
+| `packages/strategy_compiler/compiler.py` | Static scan integrated into `compile_strategy_spec_bundle` |
+| `packages/strategy_compiler/static_scan.py` | Updated required pattern to match both Python and JSON boolean formats |
+| `services/api/routes/evidence.py` | Uses `update_verification` for verified state persistence |
+
+### New test files
+
+| File | Tests |
+|---|---|
+| `tests/evidence_ledger/test_in_memory_repository.py` | 16 tests for InMemoryEvidenceRepository |
+| `tests/evidence_ledger/test_verifier_v2.py` | 18 tests for enhanced verifier |
+| `tests/artifact_store/test_protocol_parity.py` | 13 tests for unified store protocol |
+| `tests/strategy_compiler/test_bundle_authoritative.py` | 7 tests for compiler bundle exports |
+
+### Hard invariants preserved
+
+- No `submit_order(` in Builder production code
+- No authoritative `TradeAction(` in Builder production code
+- `execution_authority` is always `False`
+- Builder does not claim live-trading readiness
+- Deterministic hashes are reproducible
+- Production fails closed on in-memory evidence store
+- All promotion modes forbid live execution authority
+- Static scan blocks forbidden authority patterns in compiled artifacts
+
+### Remaining items for future work
+
+- Full E2E production smoke with real Postgres/MinIO containers
+- Playwright E2E tests for UI traceability journey
+- Real dataset replay with production-scale Parquet/DuckDB
+- mypy/pyright type gates (currently non-blocking)

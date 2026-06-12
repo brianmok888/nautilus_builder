@@ -93,7 +93,7 @@ class TestPostgresEvidenceRepositoryImport:
     def test_model_fields_match_repository_columns(self) -> None:
         """EvidenceRef model fields must be a superset of repository columns."""
         ref = _make_ref()
-        model_fields = set(ref.model_fields.keys())
+        model_fields = set(EvidenceRef.model_fields.keys())
         # These must exist on the model
         required = {
             "evidence_id", "project_id", "strategy_lineage_id",

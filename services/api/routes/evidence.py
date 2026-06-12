@@ -1,7 +1,10 @@
 """Evidence route handlers — CRUD for typed evidence refs.
 
-Uses injected EvidenceRepositoryProtocol for storage.
+Uses injected repository for storage.
 Production must use PostgresEvidenceRepository; local/dev uses InMemoryEvidenceRepository.
+
+v6: verify_evidence uses enhanced verifier with source system, expiry,
+    hex format, and optional artifact store integration.
 """
 from __future__ import annotations
 
@@ -38,14 +41,27 @@ def verify_evidence(
     *,
     project_id: str,
     repo: Any,
+    artifact_store: Any | None = None,
 ) -> dict[str, Any] | None:
-    """Re-verify an evidence reference."""
+    """Re-verify an evidence reference using the enhanced verifier."""
     ref = repo.get(evidence_id, project_id)
     if not ref:
         return None
-    verified = verify_evidence_ref(ref)
-    saved = repo.save(verified)
-    return saved.model_dump()
+    verified = verify_evidence_ref(
+        ref,
+        artifact_store=artifact_store,
+        context_project_id=project_id,
+    )
+    # Use update_verification to persist the result
+    updated = repo.update_verification(
+        evidence_id=evidence_id,
+        project_id=project_id,
+        verification_status=verified.verification_status,
+        error=verified.verification_error,
+    )
+    if updated is not None:
+        return updated.model_dump()
+    return verified.model_dump()
 
 
 def list_evidence_for_strategy(

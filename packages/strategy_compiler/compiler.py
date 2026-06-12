@@ -171,6 +171,16 @@ def compile_strategy_spec_bundle(
 
     # Compile report
     from packages.builder_metadata.version import get_canonical_version
+    # Static scan on generated artifacts
+    from packages.strategy_compiler.static_scan import scan_generated_artifact
+    all_artifacts_str = json.dumps({
+        "ir": ir.model_dump(mode="json"),
+        "feature_graph": feature_graph_data,
+        "risk_contract": risk_data,
+        "replay_manifest": replay_manifest,
+    }, sort_keys=True)
+    static_scan_result = scan_generated_artifact(all_artifacts_str)
+
     compile_report: dict[str, Any] = {
         "schema_version": "compile_report_v1",
         "spec_family": family,
@@ -182,6 +192,8 @@ def compile_strategy_spec_bundle(
         "compiler_version": get_canonical_version(),
         "profile": profile if family == "classic_v1" else "signal_preview_only",
         "execution_authority": False,
+        "static_scan_passed": static_scan_result.passed,
+        "static_scan_violations": static_scan_result.violations,
     }
     compile_report_hash = canonical_hash(compile_report)
 

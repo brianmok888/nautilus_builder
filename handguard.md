@@ -598,3 +598,29 @@ New guards from the v5 closure:
 - UI traceability journey (Segment 12)
 - Auth/RBAC route capability checks (Segment 11)
 - Operations runbooks (Segment 14)
+
+## Gap Closure v6 guards — 2026-06-12
+
+New guards from the v6 closure:
+
+1. **Evidence verifier hex format guard:** SHA-256 hashes must be exactly 64 lowercase hex characters for artifact-backed types. Uppercase, non-hex, or wrong-length hashes return HASH_MISMATCH.
+
+2. **Evidence verifier source system guard:** Only known source systems are accepted. Unknown sources return FAILED. Allowed: builder, nautilus_builder, nautilus_daedalus, data_tester, exec_tester, reconciliation_service, manual_review, backtest_runner, compiler.
+
+3. **Evidence verifier expiry guard:** Evidence with `expires_at` in the past returns EXPIRED. Future or null expiry passes.
+
+4. **Evidence verifier scope guard:** When `context_project_id` is provided, evidence must match or returns SCOPE_MISMATCH.
+
+5. **Evidence verifier artifact store guard:** When an artifact store is provided, verifier resolves the artifact URI and compares actual checksum against the stored hash.
+
+6. **Evidence verifier immutability guard:** `verify_evidence_ref()` returns a new `EvidenceRef` copy. The original is never mutated.
+
+7. **Artifact store unified protocol guard:** Both `LocalJsonArtifactStore` and `S3ArtifactStore` implement `put_json`, `get_json`, `verify_ref` with `UserProjectContext`. Factory rejects unknown backends and S3 without bucket.
+
+8. **Compiler bundle export guard:** `compile_strategy_spec_bundle` and `FullArtifactBundle` are exported from `packages.strategy_compiler.__init__`.
+
+9. **Compiler static scan guard:** `compile_strategy_spec_bundle` runs static scan on all generated artifacts. Compile report includes `static_scan_passed` and `static_scan_violations`.
+
+10. **InMemoryEvidenceRepository parity guard:** `InMemoryEvidenceRepository` has `update_verification` and `list_by_project` with limit/offset, matching `PostgresEvidenceRepository` interface.
+
+11. **Evidence route persistence guard:** `verify_evidence()` route uses `update_verification()` to persist verification status changes instead of full save.

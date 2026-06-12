@@ -1,71 +1,60 @@
 """Artifact store abstraction for Nautilus Builder.
 
 Defines the protocol (interface) that all artifact backends must implement.
+
+v6: Unified protocol with put_json/get_json/verify_ref using UserProjectContext.
 """
 from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from .models import ArtifactRecord
+from packages.auth import UserProjectContext
+
+from .models import ArtifactRecord, StoredJsonArtifact
 
 
 @runtime_checkable
 class ArtifactStoreProtocol(Protocol):
     """Protocol for artifact storage backends.
 
-    All implementations must provide put() and get() methods.
+    All implementations must provide put_json, get_json, and verify_ref.
     Artifacts are always content-addressed and immutable.
     """
 
-    def put(
+    def put_json(
         self,
         *,
+        context: UserProjectContext,
         artifact_type: str,
         artifact_id: str,
         payload: dict[str, Any],
-        user_id: str,
-        project_id: str,
-        content_type: str = "application/json",
+        metadata: dict[str, str] | None = None,
     ) -> ArtifactRecord:
-        """Store an artifact and return its record.
+        """Store a JSON artifact and return its record."""
+        ...
 
-        Parameters
-        ----------
-        artifact_type
-            Category of artifact (e.g., compile_artifact, replay_result).
-        artifact_id
-            Unique identifier within the type scope.
-        payload
-            JSON-serializable artifact content.
-        user_id
-            Owner user ID.
-        project_id
-            Owning project ID.
-        content_type
-            MIME type for the stored artifact.
+    def get_json(
+        self,
+        *,
+        context: UserProjectContext,
+        artifact_ref: str,
+    ) -> StoredJsonArtifact:
+        """Retrieve a JSON artifact by reference, scoped to context.
 
-        Returns
-        -------
-        ArtifactRecord
-            Metadata record including checksum and storage URI.
+        Raises ValueError if artifact not found, scope mismatch, or checksum mismatch.
         """
         ...
 
-    def get(self, artifact_ref: str) -> dict[str, Any]:
-        """Retrieve an artifact by its reference.
+    def verify_ref(
+        self,
+        *,
+        context: UserProjectContext,
+        artifact_ref: str,
+        expected_sha256: str | None = None,
+    ) -> ArtifactRecord:
+        """Verify an artifact exists and has valid checksum.
 
-        Parameters
-        ----------
-        artifact_ref
-            The artifact reference string.
-
-        Returns
-        -------
-        dict with 'record' (ArtifactRecord) and 'payload' (dict).
-
-        Raises
-        ------
-        ValueError
-            If artifact not found or checksum mismatch.
+        Returns the ArtifactRecord if verification passes.
+        Raises ValueError if artifact not found, scope mismatch, or checksum mismatch.
         """
         ...

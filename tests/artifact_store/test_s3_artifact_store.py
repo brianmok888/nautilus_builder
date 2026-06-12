@@ -25,12 +25,13 @@ from packages.artifact_store.models import ArtifactRecord
 # ===========================================================================
 
 class TestArtifactStoreProtocol:
-    def test_protocol_defines_put_and_get(self):
-        """ArtifactStoreProtocol must define put() and get() methods."""
+    def test_protocol_defines_put_json_get_json_verify_ref(self):
+        """ArtifactStoreProtocol must define put_json, get_json, verify_ref methods."""
         from packages.artifact_store.interface import ArtifactStoreProtocol
 
-        assert hasattr(ArtifactStoreProtocol, "put")
-        assert hasattr(ArtifactStoreProtocol, "get")
+        assert hasattr(ArtifactStoreProtocol, "put_json")
+        assert hasattr(ArtifactStoreProtocol, "get_json")
+        assert hasattr(ArtifactStoreProtocol, "verify_ref")
 
 
 # ===========================================================================
@@ -63,7 +64,7 @@ class TestS3ArtifactStore:
         call_args = mock_client.put_object.call_args
         assert call_args is not None
         key = call_args.kwargs.get("Key") or call_args[1].get("Key")
-        assert key.startswith("artifacts/compile_artifact/")
+        assert key.startswith("artifacts/proj_001/user_001/compile_artifact/")
         # Key should contain the sha256 hash
         parts = key.split("/")
         assert len(parts) >= 3

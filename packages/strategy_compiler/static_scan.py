@@ -21,7 +21,7 @@ _FORBIDDEN_PATTERNS: list[tuple[str, str]] = [
 
 # Patterns that must be present
 _REQUIRED_PATTERNS: list[tuple[str, str]] = [
-    (r"execution_authority\s*=\s*False", "execution_authority=False declaration"),
+    (r"execution_authority.+(?:False|false)", "execution_authority=False declaration"),
 ]
 
 

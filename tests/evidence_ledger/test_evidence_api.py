@@ -1,7 +1,10 @@
-"""Tests for evidence API routes and verifier — Segment 03 v5.
+"""Tests for evidence API routes and verifier — Segment 03 v5 + v6.
 
 Uses InMemoryEvidenceRepository through the route functions,
 verifying project scoping and scoped mutations.
+
+v6 update: save() no longer auto-verifies. Verification happens
+explicitly via verify_evidence() or verifier.verify_evidence_ref().
 """
 from __future__ import annotations
 
@@ -20,6 +23,7 @@ def _make_repo() -> InMemoryEvidenceRepository:
 
 
 def test_create_and_get_evidence() -> None:
+    """Create stores as unverified; explicit verify updates status."""
     repo = _make_repo()
     payload = {
         "evidence_id": "ev_test_001",
@@ -33,11 +37,17 @@ def test_create_and_get_evidence() -> None:
     }
     result = create_evidence(payload, repo=repo)
     assert result["evidence_id"] == "ev_test_001"
-    assert result["verification_status"] in ("verified", "failed", "hash_mismatch")
+    # v6: save does not auto-verify
+    assert result["verification_status"] == "unverified"
+
+    # Explicit verify updates status
+    verified = verify_evidence("ev_test_001", project_id="project_001", repo=repo)
+    assert verified is not None
+    assert verified["verification_status"] == "verified"
 
     retrieved = get_evidence("ev_test_001", project_id="project_001", repo=repo)
     assert retrieved is not None
-    assert retrieved["evidence_id"] == "ev_test_001"
+    assert retrieved["verification_status"] == "verified"
 
 
 def test_get_missing_evidence_returns_none() -> None:
@@ -106,6 +116,7 @@ def test_list_evidence_for_strategy() -> None:
 
 
 def test_evidence_without_hash_fails_for_artifact_types() -> None:
+    """Verifying artifact-backed evidence with empty hash returns FAILED."""
     repo = _make_repo()
     payload = {
         "evidence_id": "ev_no_hash",
@@ -116,5 +127,8 @@ def test_evidence_without_hash_fails_for_artifact_types() -> None:
         "sha256": "",
         "schema_version": "evidence_v1",
     }
-    result = create_evidence(payload, repo=repo)
+    create_evidence(payload, repo=repo)
+    # v6: save stores as-is; verify catches the hash issue
+    result = verify_evidence("ev_no_hash", project_id="project_001", repo=repo)
+    assert result is not None
     assert result["verification_status"] in ("failed", "hash_mismatch")

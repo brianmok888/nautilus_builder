@@ -4,8 +4,7 @@ Must NOT be used in production. Production requires PostgresEvidenceRepository.
 """
 from __future__ import annotations
 
-from packages.evidence_ledger.models import EvidenceRef
-from packages.evidence_ledger.verifier import verify_evidence_ref
+from packages.evidence_ledger.models import EvidenceRef, VerificationStatus
 
 
 class InMemoryEvidenceRepository:
@@ -18,10 +17,9 @@ class InMemoryEvidenceRepository:
         self._store: dict[str, EvidenceRef] = {}
 
     def save(self, ref: EvidenceRef) -> EvidenceRef:
-        """Save and verify an evidence ref."""
-        verified = verify_evidence_ref(ref)
-        self._store[verified.evidence_id] = verified
-        return verified
+        """Save an evidence ref without auto-verifying."""
+        self._store[ref.evidence_id] = ref
+        return ref
 
     def get(self, evidence_id: str, project_id: str) -> EvidenceRef | None:
         """Get an evidence ref by ID, scoped to project."""
@@ -30,9 +28,19 @@ class InMemoryEvidenceRepository:
             return None
         return ref
 
-    def list_by_project(self, project_id: str) -> list[EvidenceRef]:
-        """List all evidence refs for a project."""
-        return [ref for ref in self._store.values() if ref.project_id == project_id]
+    def list_by_project(
+        self,
+        project_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[EvidenceRef]:
+        """List evidence refs for a project with pagination."""
+        all_refs = sorted(
+            (ref for ref in self._store.values() if ref.project_id == project_id),
+            key=lambda r: r.evidence_id,
+        )
+        return all_refs[offset : offset + limit]
 
     def list_by_strategy_lineage(
         self, project_id: str, strategy_lineage_id: str
@@ -44,3 +52,21 @@ class InMemoryEvidenceRepository:
             if ref.project_id == project_id
             and ref.strategy_lineage_id == strategy_lineage_id
         ]
+
+    def update_verification(
+        self,
+        evidence_id: str,
+        project_id: str,
+        verification_status: VerificationStatus,
+        error: str | None = None,
+    ) -> EvidenceRef | None:
+        """Update verification status. Returns updated ref or None if not found."""
+        ref = self._store.get(evidence_id)
+        if ref is None or ref.project_id != project_id:
+            return None
+        updated = ref.model_copy(update={
+            "verification_status": verification_status,
+            "verification_error": error,
+        })
+        self._store[evidence_id] = updated
+        return updated

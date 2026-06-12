@@ -89,6 +89,26 @@ class LocalJsonArtifactStore:
             raise ValueError(f"artifact checksum mismatch: {record.artifact_ref}")
         return StoredJsonArtifact(record=record, payload=payload)
 
+    def verify_ref(
+        self,
+        *,
+        context: UserProjectContext,
+        artifact_ref: str,
+        expected_sha256: str | None = None,
+    ) -> ArtifactRecord:
+        """Verify an artifact exists and has valid checksum.
+
+        Returns the ArtifactRecord if verification passes.
+        Raises ValueError if artifact not found, scope mismatch, or checksum mismatch.
+        """
+        stored = self.get_json(context=context, artifact_ref=artifact_ref)
+        if expected_sha256 and stored.record.checksum_sha256 != expected_sha256:
+            raise ValueError(
+                f"artifact checksum mismatch: expected={expected_sha256}, "
+                f"actual={stored.record.checksum_sha256}"
+            )
+        return stored.record
+
     def scoped_ref(self, artifact_ref: str) -> ScopedArtifactRef:
         parts = artifact_ref.split("/")
         if len(parts) != 7 or "/".join(parts[:3]) != _ARTIFACT_PREFIX:

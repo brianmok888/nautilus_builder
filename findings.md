@@ -840,3 +840,43 @@ python3 scripts/check_release_version.py
 - Playwright E2E tests for UI traceability journey
 - mypy/pyright type gates (currently non-blocking)
 - Full deployment runbooks with tested commands
+
+## Gap Closure v6 — 2026-06-12
+
+**All v6 reworked review findings addressed.**
+
+### Closed items
+
+| Item | Description | Status |
+|---|---|---|
+| G1 | Evidence ledger model/repository mismatch | Verified aligned — no stale names |
+| G2 | Evidence API in-memory store | Verified — injected repo, production fail-closed |
+| G3 | Compiler v2 bundle not exported/authoritative | Closed — exports, static scan integrated |
+| G4 | Version drift check too weak | Verified — hardened in v5 |
+| G5 | Real dataset replay blocked/partial | WATCH — synthetic fixtures exist, production Parquet/DuckDB is future |
+| G6 | S3/local artifact store protocol parity | Closed — unified put_json/get_json/verify_ref |
+| G7 | Readiness docs stale drift | WATCH — scripts exist, generation not automated |
+
+### Evidence
+
+```bash
+python3 -m compileall -q packages services tests scripts
+# pass
+
+python3 -m pytest tests/ -q --tb=line
+# 1479 passed, 1 skipped, 1 warning
+
+bash scripts/check_forbidden_authority.sh
+# PASSED
+
+python3 scripts/check_release_version.py
+# OK: All versions consistent at 0.5.0
+```
+
+### New tests added in v6
+
+- 16 InMemoryEvidenceRepository tests (update_verification, pagination, round trips)
+- 18 enhanced verifier tests (hex, expiry, source system, scope, artifact store)
+- 13 artifact store protocol parity tests (local + S3 + factory)
+- 7 compiler bundle authoritative tests (exports, static scan, determinism)
+- **Total: +55 new tests**
