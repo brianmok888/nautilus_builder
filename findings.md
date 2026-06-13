@@ -1,4 +1,4 @@
-# Nautilus Builder — Deep Code Review Findings (2026-06-12)
+# Nautilus Builder — Deep Code Review Findings (2026-06-13)
 
 ## Review Scope
 
@@ -281,10 +281,10 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
   - EvoMap/evolver latest checked: `v1.89.5` (2026-06-12) from `https://github.com/EvoMap/evolver/releases/latest`.
   - LangChain latest checked: `langchain-core==1.4.6` (2026-06-11) from `https://github.com/langchain-ai/langchain/releases/latest`.
   - LangGraph latest checked: `langgraph-cli==0.4.29` (2026-06-11) from `https://github.com/langchain-ai/langgraph/releases/latest`.
-- **Independent review lane status**: `code-reviewer` and `architect` native agent lanes were requested by the code-review skill but were unavailable in this session. This review is evidence-backed, but **not independently approved** under the code-review skill approval contract.
+- **Independent review lane status**: Historical 2026-06-12 note: lanes were unavailable in that session. **Superseded 2026-06-13**: both `code-reviewer` and `architect` lanes completed and returned REQUEST CHANGES / BLOCK production-readiness claims.
 
 ### Executive synthesis
-- **Final recommendation**: `COMMENT / NOT MERGE-READY AS APPROVAL` for production-readiness claims, because independent review lanes were unavailable and several active high/medium risks remain.
+- **Final recommendation**: `COMMENT / NOT MERGE-READY AS APPROVAL` for production-readiness claims, because active high/medium risks remain; superseded by the 2026-06-13 independent-lane pass where lanes completed successfully.
 - **Critical security findings**: none found in this pass.
 - **Primary active risks**: Redis fail-open behavior under runtime Redis errors, pipeline compile error suppression, version/deprecation drift, FastAPI `on_event` deprecation, and incomplete DataTester/ExecTester evidence for any future adapter-readiness claim.
 - **Positive alignment**: production startup policy remains fail-closed for missing API token/CORS/rate-limit backend; browser credential collection remains disabled; execution lane models enforce manual review/reconciliation fields for live authority; AI draft prompts reject credential requests and browser LLM config rejects secret-bearing fields.
@@ -301,8 +301,8 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
 - **Risk**: compile failures lose structured error details, making operator/audit triage hard and hiding whether the issue was validation, compiler, filesystem, or unexpected runtime failure.
 - **Fix**: catch a typed compiler exception where possible; otherwise capture `type(exc).__name__` plus redacted message in `PipelineResult.error` or a new `PipelineStep.detail` field. Add a regression test asserting the compile failure reason survives.
 
-#### H-20260612-03: Required independent review approval evidence is unavailable
-- **Evidence**: the requested `superpowers:code-review` workflow requires independent `code-reviewer` and `architect` lanes, but both native agent types returned unavailable in this session.
+#### H-20260612-03: Required independent review approval evidence was unavailable — SUPERSEDED
+- **Evidence**: the requested `superpowers:code-review` workflow requires independent `code-reviewer` and `architect` lanes, and both native agent types were unavailable in that historical session; superseded by the 2026-06-13 pass where both lanes completed.
 - **Risk**: review results can be committed as findings, but they must not be interpreted as an independent approval or merge-readiness sign-off.
 - **Fix**: rerun the review in an environment where `code-reviewer` and `architect` lanes are available before promoting any production-readiness or deployment approval claim.
 
@@ -367,4 +367,148 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
 - **code-reviewer lane**: unavailable.
 - **architect lane**: unavailable.
 - **Architectural status**: `WATCH` locally, because active production/runtime risks remain but no new CRITICAL blocker was found.
-- **Final recommendation**: `COMMENT`; do not treat this as merge-ready approval until independent lanes and active high findings are resolved.
+- **Final recommendation**: `COMMENT`; do not treat this as merge-ready approval until active high findings are resolved; independent lanes completed in the 2026-06-13 pass.
+
+---
+
+# 2026-06-13 Deep Code Review — Independent NT / Architecture Pass
+
+## Review scope
+
+- **Primary repo/ledger edited**: `/home/mok/projects/nautilus_builder`
+- **Implementation reference inspected**: `/home/mok/projects/Nautilus-Daedalus`
+- **Independent lanes completed**: `code-reviewer` (`REQUEST CHANGES`) and `architect` (`BLOCK` for production-readiness claims)
+- **Local inventory**: semantic legacy/deprecation scan, security grep, adapter/runtime evidence grep, module-size inventory, readiness/test-contract checks.
+- **External authority**: NautilusTrader official adapter guide, Data Testing Spec, Execution Testing Spec, and upstream Hyperliquid Rust adapter layout. EvoMap/LangChain/LangGraph are process-only references for auditable/durable advisory workflows.
+
+## Executive verdict
+
+**Recommendation: REQUEST CHANGES / NOT PRODUCTION-READY.** No CRITICAL vulnerability was found in this documentation/code review pass, but active HIGH findings remain. Production-readiness approval is blocked until fail-open safety gates, silent execution-path failures, SQL hardening, and adapter evidence gaps are closed with tests.
+
+### Severity summary
+
+| Severity | Count | Current disposition |
+|---|---:|---|
+| CRITICAL | 0 | None found in this pass |
+| HIGH | 6 total / 5 active | H-20260613-01 closed by this ledger update; H-20260613-02 through H-20260613-06 remain active |
+| MEDIUM | 14 | Existing 10 plus 4 new review findings |
+| LOW | 9 | Existing 6 plus 3 new review findings |
+
+## HIGH findings
+
+### H-20260613-01: Catalog replay ledger phrase missing from all ledgers — CLOSED BY THIS DOC UPDATE
+
+- **Evidence**: `tests/integration/test_catalog_replay_ledger_updates.py` asserts all three ledgers include `Master reconciliation — catalog-backed Nautilus replay`, and `handguard.md` includes `CATALOG_BACKED_REPLAY_SMOKE_MODE`.
+- **Fix applied here**: This 2026-06-13 update adds `Master reconciliation — catalog-backed Nautilus replay` to `structure.md`, `findings.md`, and `handguard.md`, and preserves `CATALOG_BACKED_REPLAY_SMOKE_MODE` in `handguard.md`.
+- **Risk**: CI/documentation contract failure if removed again.
+- **Status**: Closed pending verification command.
+
+### H-20260613-02: Pipeline compilation swallows all exceptions silently — ACTIVE
+
+- **Repo/file**: Builder, `packages/pipeline/service.py:68-69`.
+- **Issue**: `except Exception:` appends `PipelineStep(name="compile", status="failed")` without exception type or redacted message.
+- **Risk**: Root-cause evidence is lost; security- or correctness-relevant failures can be hidden.
+- **Fix**: Record `type(exc).__name__` and a redacted message in `PipelineStep.detail`; add regression coverage.
+
+### H-20260613-03: Redis rate limiter fails open in production — ACTIVE
+
+- **Repo/file**: Builder, `packages/auth/redis_rate_limit.py:1-5,44-73`.
+- **Issue**: The class explicitly documents fail-open behavior and allows requests when Redis errors unless constructed otherwise.
+- **Risk**: Production API throttling disappears during Redis outage.
+- **Fix**: Force `fail_closed=True` for production construction and add a production-mode Redis-failure test expecting denial/503.
+
+### H-20260613-04: Schema identifier interpolation remains fragile — ACTIVE
+
+- **Repo/file**: Builder, `packages/postgres/migrations.py:84-119`.
+- **Issue**: Schema names are validated by `safe_postgres_identifier()` but then interpolated into SQL f-strings.
+- **Risk**: Any future bypass of validation can become SQL injection; the pattern invites unsafe copy/paste.
+- **Fix**: Centralize identifier quoting/formatting and test all callers; keep the safe identifier guard mandatory.
+
+### H-20260613-05: Missing runtime health defaults to healthy in live graph runner — ACTIVE
+
+- **Repo/file**: Daedalus, `nautilus_runtime/live/graph_runner.py:436,456`.
+- **Issue**: `_coerce_runtime_bool(..., default=True)` treats missing `api_connected` and `data_quality_ok` as healthy.
+- **Risk**: Kill-switch / data-quality decisions can proceed when monitoring data is absent or malformed.
+- **Fix**: Default missing safety telemetry to `False`/unknown and add tests for absent micro-health payloads.
+
+### H-20260613-06: Execution adapters swallow order-processing exceptions — ACTIVE
+
+- **Repo/files**: Daedalus, `nautilus_adapters/adapters/apex_omni/execution.py`, `edgex/execution.py`, `ethereal/execution.py`, `extended/execution.py`.
+- **Evidence**: Broad `except Exception` / `pass` around submit/modify/cancel paths at e.g. `apex_omni:318,360,366`, `edgex:318,360,366`, `ethereal:260,302,308`, `extended:240,282,288`.
+- **Risk**: Failed order submission/cancel/modify can disappear without NT engine propagation or operator visibility.
+- **Fix**: Use typed adapter errors, structured error logging, and generate rejection/failure events where Nautilus expects them.
+
+## MEDIUM findings
+
+| ID | Area | Evidence | Action |
+|---|---|---|---|
+| M-20260613-01 | Builder/Daedalus NT version drift | Builder pins `nautilus_trader==1.227.0`; Daedalus pins `1.228.0` | Align or document divergence with a migration deadline |
+| M-20260613-02 | Daedalus adapter test coverage | Adapter readiness specs exist, but venue coverage is replay-heavy and lacks full DataTester/ExecTester artifacts | Establish minimum adapter evidence per venue/capability |
+| M-20260613-03 | Adapter WebSocket clients use `print()` | `apex_omni`, `pacifica`, `edgex` clients print connection/parse events | Replace with structured NT logger usage |
+| M-20260613-04 | Production composition root ambiguity | `run_full_stack` is manifest/dry-run/local-only, not supervisor | Keep docs explicit; add a separate supervisor only if needed |
+| M-20260613-05 | AI/Telegram storage-chain coupling | AI and Telegram read PostgreSQL archive projections | Version schemas; keep one-way no-write-back DAG |
+| M-20260613-06 | Dual execution-report paths | `execution_lane_process.py` and `execution_lane_bridge.py` are adjacent report paths | Pin canonical production path and label support/test path |
+| M-20260613-07 | Large modules slow ownership | Multiple Daedalus modules exceed 250 pure LOC, including execution/advisory/graph modules | Decompose when touched; avoid new dumping grounds |
+| M-20260613-08 | Credential failure continuation | Prior finding: credential resolution warning can continue in execution lane | Fail closed where credentials are required |
+| M-20260613-09 | Startup evidence guard narrowness | Prior finding: evidence ledger guard fires mainly at app factory level | Enforce at every production repository construction seam |
+| M-20260613-10 | Thread/session shutdown joins | Prior finding: session runner lacks robust join/timeout | Add bounded stop/join and double-stop tests |
+| M-20260613-11 | Cold-start data warmup | Prior finding: paper strategy subscribes without `request_bars()` warmup | Add warmup if indicators become authority-bearing |
+| M-20260613-12 | Wall-clock timing in streaming surfaces | Daedalus streaming aggregator uses `time.time()` for elapsed calculations | Use monotonic time for elapsed durations |
+| M-20260613-13 | URL transport hardening | Prior finding: `urllib.request.urlopen` without explicit SSL context | Prefer `httpx`/explicit SSL context |
+| M-20260613-14 | Lifecycle status duplication | Prior finding: status and lifecycle_status can drift | Collapse to one authoritative state |
+
+## LOW findings
+
+| ID | Area | Evidence | Action |
+|---|---|---|---|
+| L-20260613-01 | FastAPI `on_event` deprecation | Builder still has startup decorator surfaces | Migrate to lifespan when touched |
+| L-20260613-02 | Telegram `as_legacy_dict()` | `nautilus_runtime/live/telegram_gateway/events.py:24-35` | Remove after typed consumers migrate |
+| L-20260613-03 | Topic alias mapping | `topic_stream_mapping.py:58-61,105-112` | Add owner/expiry for each alias |
+| L-20260613-04 | Probability model fallback | `allow_heston_fallback=True` in config | Log/model-switch evidence when fallback activates |
+| L-20260613-05 | TUI naive local time | `streaming/tui.py` uses `datetime.now()` | Use timezone-aware UTC |
+| L-20260613-06 | Historical docs in semantic search | Archived NT 1.223/1.227 references remain | Label as historical evidence only |
+| L-20260613-07 | Placeholder readiness claims | Some docs retain placeholder roadmap wording | Keep warning labels until executable evidence exists |
+| L-20260613-08 | Paper strategy lifecycle logging | Prior finding: no logs in lifecycle hooks | Add low-noise lifecycle logs |
+| L-20260613-09 | Spec-to-strategy flow | Prior finding: flow not obvious to new agents | Add short architecture diagram when touched |
+
+## NautilusTrader alignment review
+
+- **Adapter structure**: Official NT adapter docs require a Rust core for HTTP/WebSocket/parsing/performance-sensitive operations plus a Python integration layer. Daedalus has Rust adapter crates, but Python adapter surfaces still need per-venue evidence before production claims.
+- **Data evidence**: Official Data Testing Spec says adapters must pass supported `DataTester` subsets; groups 1-4 are baseline data compliance. Daedalus has readiness definitions and some tests, but no complete per-venue DataTester artifact matrix.
+- **Execution evidence**: Official Execution Testing Spec says adapters must pass supported `ExecTester` subsets; groups 1-5 are baseline execution compliance, and reconciliation should be enabled for state consistency. Daedalus live execution remains guarded and cannot claim readiness without these artifacts.
+- **Live runtime**: Rust-backed PyO3 adapter evidence should prefer `LiveNode`/factory registration where applicable; Python `TradingNode` paths must be labeled integration-specific and bounded.
+- **No blocking / no hidden execution**: AI, Telegram, persistence, and evidence surfaces remain downstream; no reviewed AI/LangGraph/EvoMap sidecar was found with execution authority.
+
+## Semantic legacy / deprecation closure inventory
+
+| Item | Status | Evidence | Closure action |
+|---|---|---|---|
+| `legacy_menu_service` filename/path | Closed | `tests/test_active_code_legacy_symbol_guard.py` asserts absence | Keep absent |
+| Retired CLI modes (`full`, `bot_only`, `price_worker`, `paper`, `run_solo`) | Closed | `tests/test_runtime_cli_legacy_modes_removed.py` | Keep parser strict |
+| Redis stream legacy closure | Closed | `tests/test_redis_stream_legacy_closure.py` | Keep closed |
+| `PostgresWorkflowRepository` naming drift | Closed | Builder deprecation inventory / `workflow_spine` comment | Do not reintroduce alias |
+| `allow_legacy_fixture_refs` | Closed | Strict fixture-ref tests remain | Keep strict scoped artifact refs |
+| Telegram `menu_service` compatibility lifecycle | Active shim | `telegram_gateway/menu_service.py:23-28` | Add owner/expiry and remove after callers migrate |
+| `TelegramDownstreamEvent.as_legacy_dict()` | Active shim | `telegram_gateway/events.py:24-35` | Replace with typed canonical serialization |
+| Topic alias mapping | Active transitional alias | `topic_stream_mapping.py:58-61,105-112` | Add owner/expiry per alias |
+| FastAPI `on_event` | Active deprecation | Builder FastAPI startup surfaces | Migrate to lifespan context |
+| Builder NT 1.227 vs Daedalus NT 1.228 | Active drift | Builder/Daedalus `pyproject.toml` pins differ | Align or document migration deadline |
+| DataTester/ExecTester artifacts | Gap | Daedalus readiness specs exist, but artifact matrix incomplete | Gate adapter claims behind executable evidence |
+| Rust paper execution placeholder / live claim boundary | Active guard | Existing ledgers say paper/forward-paper only | Preserve no-live-order claim until proven |
+
+## Security summary
+
+- **No hardcoded production secrets found** in reviewed source surfaces; `.env.example` uses placeholder token/key names.
+- **Active HIGH security risks**: Redis fail-open behavior, schema interpolation hardening, and missing-health default-to-healthy behavior.
+- **Positive controls**: Secret redaction regex exists in promotion evidence actor; execution live startup validates readiness IDs; AI lane rejects authoritative topic publication; Telegram formatter avoids claiming order status without execution reports.
+
+## Required priority order
+
+1. Fix fail-open safety defaults: Redis rate limiter and Daedalus graph-runner missing telemetry.
+2. Fix silent order-processing exception swallowing in adapters.
+3. Fix pipeline compile exception evidence loss.
+4. Harden schema identifier handling.
+5. Build per-venue DataTester/ExecTester/reconciliation evidence before production adapter claims.
+6. Close or time-box active compatibility shims.
+
+Master reconciliation — catalog-backed Nautilus replay

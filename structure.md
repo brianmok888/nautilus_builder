@@ -1,4 +1,4 @@
-# Nautilus Builder — Repository Structure (2026-06-12)
+# Nautilus Builder — Repository Structure (2026-06-13)
 
 ## Overview
 
@@ -132,3 +132,72 @@ Purpose: semantic inventory for the current Builder repo against NautilusTrader 
 
 ### Independent review status
 The requested `code-reviewer` and `architect` native lanes were unavailable in this session. Treat `findings.md` as an evidence-backed local review update, not an independent approval artifact.
+
+---
+
+## 2026-06-13 Deep Review Addendum — Nautilus-Daedalus Reference Snapshot
+
+### Scope and authority
+
+This addendum records the latest Superpowers/NT code-review pass over the current Builder ledger repo with `/home/mok/projects/Nautilus-Daedalus` as the implementation reference. It used independent `code-reviewer` and `architect` native lanes plus local inventory scans. Official NautilusTrader documentation remains the trading-system authority; EvoMap/LangChain/LangGraph references are process-only and cannot override Nautilus execution/readiness rules.
+
+Authoritative NT anchors used for this review:
+
+- Adapter guide: Rust core for networking/performance-sensitive operations, Python layer for platform integration, `InstrumentProvider.load_all_async()`, execution reconciliation, mock-server tests, and PyO3 bindings.
+- Data Testing Spec: `DataTester` validates adapter data functionality; groups 1-4 are baseline data compliance for supported data types.
+- Execution Testing Spec: `ExecTester` validates execution functionality; groups 1-5 are baseline execution compliance for supported capabilities, and reconciliation should be enabled for state consistency.
+- Official Hyperliquid adapter tree: the current upstream Rust adapter shape includes `src/`, `examples/`, `test_data/`, `tests/`, `benches/`, and `Cargo.toml`, reinforcing the Rust-first adapter structure expected for production adapter work.
+
+Process-only AI anchors:
+
+- LangGraph's durable, human-in-the-loop, stateful workflow model supports the repo's evidence-ledger and manual-approval posture, but it is advisory orchestration rather than trading authority.
+- LangChain/EvoMap references support auditability/provenance patterns only; they must remain downstream of signal/gate/execution contracts.
+
+### Current Nautilus-Daedalus topology observed
+
+```text
+/home/mok/projects/Nautilus-Daedalus
+├── crates/adapters/               # Rust-first venue adapter crates, including limitless and several CEX/DEX adapters
+├── nautilus_adapters/adapters/     # Python adapter integration layers and compatibility shims
+├── nautilus_runtime/live/          # signal/gate/execution/runtime orchestration and validation
+├── nautilus_runtime/persistence_writer/ # Redis/PostgreSQL archive writer and latency persistence surfaces
+├── nautilus_runtime/ai_lane/       # advisory-only AI lane reading archived facts
+├── nautilus_runtime/live/telegram_gateway/ # downstream Telegram display/control surface
+├── nautilus_actors/                # MessageBus actors and Redis bridge actors
+├── nautilus_brain/                 # advisory/research/model pipelines, not execution authority
+├── docs/runbooks/                  # runtime process supervision and operational boundaries
+└── tests/                          # adapter evidence, runtime, execution, legacy-closure, and contract tests
+```
+
+### Runtime authority map
+
+```text
+Signal/Gate TradingNode
+  -> nd.gate_decision / core.gate_decision
+  -> approved intent only: nd.trade_action / core.trade_action
+  -> ExecutionLaneStrategy / Execution TradingNode/Profile is the only default submit_order surface
+  -> nd.execution_report / execution.report
+  -> persistence_writer archives after durable PostgreSQL commit
+  -> AI lane and Telegram projection read archived/downstream facts only
+```
+
+`run_full_stack` remains a local manifest/dry-run boundary helper, not a production supervisor. `run_execution_lane --mode live` remains blocked unless paper/sim validation, DataTester-style data readiness, ExecTester-style execution readiness, reconciliation readiness, kill-switch/risk/credential evidence, and operator approval records are all present.
+
+### Current-stage evidence matrix
+
+| Area | Status | Evidence / notes | Production claim |
+|---|---:|---|---|
+| Master reconciliation — catalog-backed Nautilus replay | ✅ Ledger restored | This phrase is intentionally present in all three ledgers; `CATALOG_BACKED_REPLAY_SMOKE_MODE` remains a handguard token. | Documentation contract only |
+| Rust/PyO3 adapter standard alignment | ⚠️ Partial | Daedalus has Rust adapter crates, but active adapter evidence is uneven and not every venue has DataTester/ExecTester artifacts. | No full adapter production claim |
+| Live execution lane | ⚠️ Guarded | `execution_lane_validation.py` fail-closes live startup without readiness IDs and approval. | No live order-readiness claim |
+| Reconciliation | ⚠️ Required gate | NT execution spec expects reconciliation for state consistency; Daedalus keeps this as readiness input. | Not complete until per-venue artifacts exist |
+| AI/EvoMap/LangChain/LangGraph sidecars | ✅ Boundary coherent | Advisory/read-only/downstream in code and runbooks. | No execution authority |
+| Telegram / aiogram-dialog menus | ⚠️ Active compatibility surface | Telegram gateway remains downstream-only, but menu compatibility shim and legacy serialization helper remain active drift points. | Display/control only, no signal/order authority |
+| Semantic legacy closure | ⚠️ Mixed | Closed legacy names and CLI modes are tested; active shims still require owner/expiry. | Keep inventory active |
+
+### Structural risk summary
+
+- Strong lane separation exists, but production-readiness claims remain blocked by missing executable adapter evidence and active HIGH findings.
+- The most important architectural risk is fail-open behavior where missing health/rate-limit data is treated as healthy/allowed.
+- The most important maintainability risk is continued compatibility shim drift without owner/expiry, especially Telegram menu and topic alias surfaces.
+- The most important adapter-alignment risk is claiming Nautilus compliance before each adapter has DataTester/ExecTester/reconciliation evidence matching supported capabilities.

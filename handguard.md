@@ -1,4 +1,4 @@
-# Nautilus Builder — Handguard (2026-06-12)
+# Nautilus Builder — Handguard (2026-06-13)
 
 Active safety guardrails and invariants enforced by tests, validators, or runtime checks.
 
@@ -62,4 +62,46 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
 | R-4 | Nautilus dependency drift must be explicit | ⚠️ WATCH | `pyproject.toml:12` pins `1.227.0`; latest checked `v1.228.0` | Run compatibility tests before upgrading or documenting intentional pin. |
 | R-5 | DataTester/ExecTester evidence required before adapter production-readiness claims | ✅ ACTIVE | No DataTester/ExecTester matrix in Builder review scope | Keep all current adapter/live labels as scaffold/contract-only. |
 | R-6 | AI advisory lanes must not become execution authority | ✅ ACTIVE | Credential prompt rejection and browser secret rejection remain present | Keep manual review/provenance gates before any behavior-changing use. |
-| R-7 | Independent code review lanes required for approval wording | ⚠️ ACTIVE | Native `code-reviewer`/`architect` lanes unavailable this run | Do not label this review as approved until both lanes return evidence. |
+| R-7 | Independent code review lanes required for approval wording | ✅ ACTIVE / SATISFIED FOR 2026-06-13 REVIEW | Native `code-reviewer` and `architect` lanes completed; verdict remains REQUEST CHANGES / BLOCK production-readiness claims | Do not label production readiness as approved until active HIGH findings are fixed. |
+
+---
+
+## 2026-06-13 Handguard Update — Deep Review / Legacy Closure
+
+### Current verdict guard
+
+Independent `code-reviewer` and `architect` lanes completed on 2026-06-13. Their combined verdict is **REQUEST CHANGES / BLOCK production-readiness claims** until active HIGH findings and adapter evidence gaps are closed. This supersedes the older note that native review lanes were unavailable; lane availability is no longer the blocker.
+
+### Non-negotiable active guards
+
+| ID | Guard | Status | Enforcement / evidence | Required action before promotion |
+|---|---|---:|---|---|
+| HG-20260613-01 | Master reconciliation — catalog-backed Nautilus replay ledger phrase must remain present in all ledgers | ✅ ACTIVE | `tests/integration/test_catalog_replay_ledger_updates.py` | Do not remove phrase without updating the contract test |
+| HG-20260613-02 | `CATALOG_BACKED_REPLAY_SMOKE_MODE` must remain documented | ✅ ACTIVE | `tests/integration/test_catalog_replay_ledger_updates.py` | Keep token in this handguard until test contract changes |
+| HG-20260613-03 | No production adapter claim without DataTester evidence for supported data types | ✅ ACTIVE | NT Data Testing Spec; Daedalus readiness docs | Produce per-venue artifact IDs |
+| HG-20260613-04 | No production adapter claim without ExecTester evidence for supported execution capabilities | ✅ ACTIVE | NT Execution Testing Spec; Daedalus readiness docs | Produce per-venue artifact IDs |
+| HG-20260613-05 | Reconciliation is required for live execution readiness | ✅ ACTIVE | NT Execution Testing Spec; `execution_lane_validation.py` | Provide reconciliation readiness record |
+| HG-20260613-06 | Missing health data must fail closed, not default healthy | ⚠️ ACTIVE RISK | `graph_runner.py` defaults for `api_connected` / `data_quality_ok` | Change defaults and add regression tests |
+| HG-20260613-07 | Redis production rate limiting must fail closed when Redis is unavailable | ⚠️ ACTIVE RISK | `packages/auth/redis_rate_limit.py` | Force production `fail_closed=True` and test it |
+| HG-20260613-08 | Pipeline compile failures must preserve redacted root cause | ⚠️ ACTIVE RISK | `packages/pipeline/service.py` | Record exception type/message and test it |
+| HG-20260613-09 | Adapter submit/modify/cancel exceptions must not be swallowed | ⚠️ ACTIVE RISK | Daedalus adapter execution modules | Emit typed errors / rejection events / logs |
+| HG-20260613-10 | `run_full_stack` is local manifest/dry-run only | ✅ ACTIVE | `run_full_stack.py`; runtime runbook | Do not promote it as a production supervisor |
+| HG-20260613-11 | AI/EvoMap/LangChain/LangGraph lanes are advisory/process-only | ✅ ACTIVE | AI lane topic authority guard | No TradeAction, order routing, active config mutation, or core stream ACKs from AI |
+| HG-20260613-12 | Telegram/aiogram-dialog menus stay downstream-only | ✅ ACTIVE | Telegram gateway runbook and formatter | Menus may display/request operator actions, never generate signals or submit orders |
+| HG-20260613-13 | Compatibility shims require explicit owner/expiry | ⚠️ WATCH | `menu_service`, `as_legacy_dict`, topic aliases | Add owner/expiry and closure tests |
+| HG-20260613-14 | Builder/Daedalus NT version drift must be tracked | ⚠️ WATCH | Builder `1.227.0` vs Daedalus `1.228.0` | Align pins or document migration deadline |
+
+### Promotion checklist added by this review
+
+Before any future “ready” or “merge-ready” wording, require all of:
+
+1. `uv run pytest tests/integration/test_catalog_replay_ledger_updates.py -q` passes in Builder.
+2. Active HIGH findings in `findings.md` are either fixed with tests or explicitly accepted with owner/deadline.
+3. Each claimed adapter has DataTester and ExecTester artifact IDs for the subset of supported capabilities.
+4. Each live execution profile has reconciliation readiness, kill-switch/risk/credential evidence, and operator approval IDs.
+5. AI/Telegram projection schemas are versioned and remain one-way downstream.
+6. Active semantic legacy/deprecation shims have owner, expiry, and removal tests.
+
+Master reconciliation — catalog-backed Nautilus replay
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token.
