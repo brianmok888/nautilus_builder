@@ -184,18 +184,24 @@ class TestTradeActionParser:
         assert result.action == "OPEN_LONG"
         assert result.created_by == "run_gate_engine"
 
-    def test_missing_hash_defaults_to_empty(self):
-        """Missing trade_action_hash defaults to empty string (not rejected).
-        This is evidence display — empty hash means source didn't provide it."""
+    def test_missing_trade_action_hash_rejects(self):
+        """Missing trade_action_hash must reject (return None).
+        trade_action_hash is a required provenance field."""
         data = {
             "action_id": "a1", "action": "OPEN_LONG", "side": "buy",
             "price": "50001", "qty": "0.5",
             "source_gate_decision_hash": "gdh1", "ts_event_ns": str(TS),
         }
-        result = _parse_trade_action(data)
-        assert result is not None
-        assert result.trade_action_hash == ""
-        assert result.source_gate_decision_hash == "gdh1"
+        assert _parse_trade_action(data) is None
+
+    def test_missing_source_gate_decision_hash_rejects(self):
+        """Missing source_gate_decision_hash must also reject."""
+        data = {
+            "action_id": "a1", "action": "OPEN_LONG", "side": "buy",
+            "price": "50001", "qty": "0.5",
+            "trade_action_hash": "tah1", "ts_event_ns": str(TS),
+        }
+        assert _parse_trade_action(data) is None
 
 
 class TestExecutionParser:
@@ -305,3 +311,152 @@ class TestAdapterReadOnly:
         forbidden = [".xadd(", ".xdel(", ".xtrim(", ".publish(", "flushdb", "flushall", ".eval("]
         for cmd in forbidden:
             assert cmd not in source, f"Forbidden Redis command in adapter: {cmd}"
+
+
+class TestOpenOrdersParser:
+    """Tests for _parse_open_orders - nd.order.snapshot parsing."""
+
+    def test_valid_order_snapshot(self):
+        """Valid nd.order.snapshot record parses correctly."""
+        data = {
+            "orders": [
+                {
+                    "order_id": "ord-001",
+                    "client_order_id": "coid-001",
+                    "symbol": "BTCUSDT-PERP",
+                    "venue": "BINANCE",
+                    "side": "buy",
+                    "order_type": "LIMIT",
+                    "price": "50000",
+                    "qty": "1.5",
+                    "filled_qty": "0.3",
+                    "status": "PARTIAL_FILL",
+                    "ts_event_ns": str(TS),
+                }
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 1
+        o = result[0]
+        assert o.order_id == "ord-001"
+        assert o.client_order_id == "coid-001"
+        assert o.symbol == "BTCUSDT-PERP"
+        assert o.venue == "BINANCE"
+        assert o.side == "buy"
+        assert o.order_type == "LIMIT"
+        assert o.price == 50000.0
+        assert o.qty == 1.5
+        assert o.filled_qty == 0.3
+        assert o.status == "PARTIAL_FILL"
+        assert o.source_status == "live"
+        assert o.provenance == "redis"
+
+    def test_multiple_orders(self):
+        """Multiple orders in a snapshot all parse."""
+        data = {
+            "orders": [
+                {"order_id": "o1", "price": "50000", "qty": "1.0", "ts_event_ns": str(TS)},
+                {"order_id": "o2", "price": "50100", "qty": "0.5", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 2
+        assert result[0].order_id == "o1"
+        assert result[1].order_id == "o2"
+
+    def test_single_order_as_dict(self):
+        """Single order as a dict (not list) parses."""
+        data = {
+            "order_id": "o-single",
+            "price": "50000",
+            "qty": "1.0",
+            "ts_event_ns": str(TS),
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 1
+        assert result[0].order_id == "o-single"
+
+    def test_missing_qty_does_not_become_zero(self):
+        """Order with missing qty must be skipped, NOT silently become 0."""
+        data = {
+            "orders": [
+                {
+                    "order_id": "no-qty-order",
+                    "price": "50000",
+                    "ts_event_ns": str(TS),
+                }
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 0, "Missing qty must reject the order, not default to 0"
+
+    def test_missing_qty_does_not_become_zero_partial(self):
+        """Valid order + missing-qty order: only valid one survives."""
+        data = {
+            "orders": [
+                {"order_id": "good", "price": "50000", "qty": "1.0", "ts_event_ns": str(TS)},
+                {"order_id": "no-qty", "price": "50100", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 1
+        assert result[0].order_id == "good"
+
+    def test_missing_price_skips(self):
+        """Order with missing price is skipped."""
+        data = {
+            "orders": [
+                {"order_id": "no-price", "qty": "1.0", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 0
+
+    def test_missing_ts_skips(self):
+        """Order with missing ts is skipped."""
+        data = {
+            "orders": [
+                {"order_id": "no-ts", "price": "50000", "qty": "1.0"},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 0
+
+    def test_empty_qty_string_skips(self):
+        """Empty string qty is treated as missing."""
+        data = {
+            "orders": [
+                {"order_id": "x", "price": "50000", "qty": "", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 0
+
+    def test_zero_qty_is_valid(self):
+        """Explicit zero qty (not missing) is valid - true_zero vs missing."""
+        data = {
+            "orders": [
+                {"order_id": "zero-qty", "price": "50000", "qty": "0", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 1
+        assert result[0].qty == 0.0
+
+    def test_filled_qty_defaults_to_zero_when_missing(self):
+        """Missing filled_qty defaults to 0.0 (not aliased to qty)."""
+        data = {
+            "orders": [
+                {"order_id": "o", "price": "50000", "qty": "1.5", "ts_event_ns": str(TS)},
+            ]
+        }
+        result = _parse_open_orders(data)
+        assert len(result) == 1
+        assert result[0].filled_qty == 0.0
+        assert result[0].qty == 1.5
+
+    def test_empty_orders_list(self):
+        """Empty orders list returns empty."""
+        data = {"orders": []}
+        result = _parse_open_orders(data)
+        assert result == []

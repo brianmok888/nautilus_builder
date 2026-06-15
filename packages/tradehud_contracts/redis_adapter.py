@@ -272,6 +272,10 @@ def _parse_open_orders(data: dict[str, Any]) -> list[OpenOrderSnapshotModel]:
         ts = to_optional_int(o.get("ts_event_ns"))
         if ts is None:
             continue
+        qty = to_optional_float(o.get("qty"))
+        if qty is None:
+            continue
+        filled_qty = to_optional_float(o.get("filled_qty"))
         orders.append(OpenOrderSnapshotModel(
             order_id=to_optional_str(o.get("order_id")) or "unknown",
             client_order_id=to_optional_str(o.get("client_order_id")) or "unknown",
@@ -281,7 +285,7 @@ def _parse_open_orders(data: dict[str, Any]) -> list[OpenOrderSnapshotModel]:
             order_type=to_optional_str(o.get("order_type")) or "LIMIT",
             price=price,
             qty=qty,
-            filled_qty=qty,
+            filled_qty=filled_qty if filled_qty is not None else 0.0,
             status=to_optional_str(o.get("status")) or "LIVE",
             ts_event_ns=ts,
             source_available=True,
@@ -362,7 +366,13 @@ def _parse_trade_action(data: dict[str, Any]) -> TradeActionEvidenceModel | None
     price = to_optional_float(data.get("price"))
     qty = to_optional_float(data.get("qty"))
     ts = to_optional_int(data.get("ts_event_ns"))
+    trade_action_hash = to_optional_str(data.get("trade_action_hash"))
+    source_gate_decision_hash = to_optional_str(data.get("source_gate_decision_hash"))
     if price is None or qty is None or ts is None:
+        return None
+    if not trade_action_hash:
+        return None
+    if not source_gate_decision_hash:
         return None
     return TradeActionEvidenceModel(
         action_id=to_optional_str(data.get("action_id")) or "unknown",
@@ -370,8 +380,8 @@ def _parse_trade_action(data: dict[str, Any]) -> TradeActionEvidenceModel | None
         side=to_optional_str(data.get("side")) or "buy",
         price=price,
         qty=qty,
-        trade_action_hash=to_optional_str(data.get("trade_action_hash")) or "",
-        source_gate_decision_hash=to_optional_str(data.get("source_gate_decision_hash")) or "",
+        trade_action_hash=trade_action_hash,
+        source_gate_decision_hash=source_gate_decision_hash,
         created_by=to_optional_str(data.get("created_by")) or "run_gate_engine",
         ts_event_ns=ts,
         source_available=True,
