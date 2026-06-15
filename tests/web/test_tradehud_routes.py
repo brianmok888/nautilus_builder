@@ -30,7 +30,7 @@ class TestTradehudHealthEndpoint:
     def test_returns_health(self):
         data = tradehud_health_payload()
         assert data["status"] == "ok"
-        assert data["mode"] == "mock"
+        assert data["mode"] in ("mock", "observational")
 
 
 class TestTradehudReplayEndpoint:

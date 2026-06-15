@@ -253,6 +253,7 @@ class TradeHudSnapshot(BaseModel):
     latest_execution_report: ExecutionReportModel | None = None
     account: AccountSnapshotModel | None = None
     positions: list[PositionSnapshotModel] = Field(default_factory=list)
+    trades: list[MarketTradeModel] = Field(default_factory=list)
     open_orders: list[OpenOrderSnapshotModel] = Field(default_factory=list)
     assets: list[AssetSnapshotModel] = Field(default_factory=list)
     quant_levels: QuantLevelsContextModel | None = None

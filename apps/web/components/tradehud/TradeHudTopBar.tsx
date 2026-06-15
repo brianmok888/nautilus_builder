@@ -8,10 +8,15 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
   const book = state.bookTop;
   const latency = state.tickToTrade;
 
-  // Determine feed badge text based on mode + status
+  // Determine feed badge text based on mode + status + Redis state
   const feedBadge = (() => {
     if (state.feedMode === "mock") return "LOCAL MOCK";
     if (state.feedMode === "sse") {
+      if (state.feedStatus === "redis_live") return "SSE REDIS";
+      if (state.feedStatus === "redis_degraded") return "REDIS DEGRADED";
+      if (state.feedStatus === "redis_disconnected") return "REDIS DISCONNECTED";
+      if (state.feedStatus === "stream_stale") return "STREAM STALE";
+      if (state.feedStatus === "stream_missing") return "STREAM MISSING";
       if (state.feedStatus === "live") return "SSE SYNTHETIC";
       if (state.feedStatus === "reconnecting") return "SSE RECONNECTING";
       if (state.feedStatus === "fallback") return "SSE FALLBACK → MOCK";
@@ -20,6 +25,13 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
     }
     if (state.feedMode === "snapshot") return "SNAPSHOT API";
     return "UNKNOWN";
+  })();
+
+  const feedBadgeClass = (() => {
+    if (state.feedStatus === "redis_degraded" || state.feedStatus === "redis_disconnected") return "tradehud-neg";
+    if (state.feedStatus === "stream_stale" || state.feedStatus === "stream_missing") return "tradehud-amber";
+    if (state.feedStatus === "redis_live") return "tradehud-pos";
+    return "";
   })();
 
   return (
@@ -50,7 +62,7 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
       </div>
       <div className="tradehud-topbar-section">
         <span className="tradehud-topbar-label">Status</span>
-        <span className="tradehud-topbar-value">{feedBadge}</span>
+        <span className={`tradehud-topbar-value ${feedBadgeClass}`}>{feedBadge}</span>
       </div>
       {book && (
         <>
@@ -79,7 +91,7 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
         </>
       )}
       <div className="tradehud-no-authority">
-        ⚠ NO BROWSER ORDER AUTHORITY
+        ⚠ NO BROWSER ORDER AUTHORITY · OBSERVATIONAL · NOT EXECUTABLE
       </div>
     </div>
   );

@@ -4,49 +4,44 @@ Reads observational runtime events from Nautilus-Daedalus Redis Streams
 and converts them into TradeHUD contract models for SSE delivery.
 
 SAFETY BOUNDARIES:
-- READ-ONLY: uses XREAD only. Never XADD, never publish, never write.
+- READ-ONLY: uses XREAD/XREVRANGE only. Never XADD, never publish, never write.
 - No credentials exposed. Redis URL stays server-side only.
 - No order authority. No submit_order. No TradeAction creation.
-- No write to Redis. No write to PostgreSQL. No exchange calls.
 - Graceful fallback: if Redis unavailable, returns None → caller falls back to mock.
+- Missing numeric fields become None, never 0 (missing != true_zero).
 
-Redis Stream naming convention (ND runtime → Redis Streams):
-    nautilus:tradehud:book_top      — MarketBookTopModel events
-    nautilus:tradehud:book_l2       — MarketBookL2Model events
-    nautilus:tradehud:account       — AccountSnapshotModel events
-    nautilus:tradehud:positions     — PositionSnapshotModel[] events
-    nautilus:tradehud:open_orders   — OpenOrderSnapshotModel[] events
-    nautilus:tradehud:signal        — StrategySignalPreviewModel events
-    nautilus:tradehud:gate          — GateDecisionModel events
-    nautilus:tradehud:trade_action  — TradeActionEvidenceModel events
-    nautilus:tradehud:execution     — ExecutionReportModel events
-    nautilus:tradehud:quant_levels  — QuantLevelsContextModel events
-    nautilus:tradehud:tick_to_trade — TickToTradeTraceModel events
-    nautilus:tradehud:runtime_health — RuntimeHealthModel events
-
-Each stream entry is a Redis hash with fields matching the contract model.
-The adapter reads the latest entry (XREAD BLOCK, last id) and converts to models.
-
-This module NEVER imports from browser/frontend code.
-Redis URL comes from environment variable REDIS_URL (server-side only).
+Source selection:
+- TRADEHUD_FEED_SOURCE=redis → adapter activates (if REDIS_URL configured)
+- TRADEHUD_FEED_SOURCE=mock (default) → adapter does NOT activate
+- REDIS_URL alone does NOT activate the adapter.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import time
 from typing import Any
 
+from packages.tradehud_contracts.config import TradeHudRedisConfig
+from packages.tradehud_contracts.normalizer import (
+    parse_stream_fields,
+    to_optional_float,
+    to_optional_int,
+    to_optional_str,
+    unwrap_payload,
+    detect_force_liquidation,
+    detect_trade_flags,
+    requires_fields,
+)
+from packages.tradehud_contracts.stream_health import StreamHealthTracker
 from packages.tradehud_contracts.models import (
     AccountSnapshotModel,
-    AssetSnapshotModel,
     BookLevelModel,
     ExecutionReportModel,
     GateDecisionModel,
     MarketBookL2Model,
     MarketBookTopModel,
+    MarketTradeModel,
     OpenOrderSnapshotModel,
     PositionSnapshotModel,
     QuantLevelModel,
@@ -61,466 +56,459 @@ from packages.tradehud_contracts.models import (
 
 logger = logging.getLogger(__name__)
 
-# Stream key prefix — must match ND runtime publisher convention.
-_STREAM_PREFIX = "nautilus:tradehud:"
-
-# Streams consumed by the adapter — all read-only XREAD.
-_STREAM_KEYS: list[str] = [
-    "book_top",
-    "book_l2",
-    "account",
-    "positions",
-    "open_orders",
-    "signal",
-    "gate",
-    "trade_action",
-    "execution",
-    "quant_levels",
-    "tick_to_trade",
-    "runtime_health",
-]
-
-# Maximum entries to read per XREAD per stream.
-_MAX_READ_COUNT = 1
-# Block timeout for XREAD in milliseconds — keeps the read responsive.
-_XREAD_BLOCK_MS = 500
+# Reverse map: redis_stream_key → logical_name
+def _build_reverse_map(config: TradeHudRedisConfig) -> dict[str, str]:
+    return {v: k for k, v in config.get_stream_map().items()}
 
 
-def _get_redis_url() -> str | None:
-    """Return Redis URL from environment. Server-side only — never browser-exposed."""
-    return os.environ.get("REDIS_URL") or os.environ.get("REDIS_CONNECTION_STRING")
+# ─── Model parsers ─────────────────────────────────────────────────────────────
 
-
-def _is_redis_configured() -> bool:
-    """Check if Redis is configured without connecting."""
-    return _get_redis_url() is not None
-
-
-def _parse_stream_entry(fields: dict[bytes, bytes]) -> dict[str, Any]:
-    """Parse a Redis stream entry hash into a Python dict.
-
-    Redis stores hash fields as bytes; we decode keys and JSON-parse values
-    that look like JSON objects/arrays.
-    """
-    result: dict[str, Any] = {}
-    for key_b, val_b in fields.items():
-        key = key_b.decode("utf-8") if isinstance(key_b, bytes) else str(key_b)
-        val = val_b.decode("utf-8") if isinstance(val_b, bytes) else str(val_b)
-        # Try JSON parse for complex types
-        if val.startswith("{") or val.startswith("["):
-            try:
-                result[key] = json.loads(val)
-            except (json.JSONDecodeError, ValueError):
-                result[key] = val
-        else:
-            result[key] = val
-    return result
-
-
-def _to_int(val: Any, default: int = 0) -> int:
-    """Safely convert to int."""
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return default
-
-
-def _to_float(val: Any, default: float = 0.0) -> float:
-    """Safely convert to float."""
-    try:
-        return float(val)
-    except (TypeError, ValueError):
-        return default
+def _ns() -> int:
+    return int(time.time() * 1_000_000_000)
 
 
 def _parse_book_top(data: dict[str, Any]) -> MarketBookTopModel | None:
-    if "bid_price" not in data or "ask_price" not in data:
-        return None
-    try:
-        return MarketBookTopModel(
-            symbol=data.get("symbol", "UNKNOWN"),
-            bid_price=_to_float(data.get("bid_price")),
-            ask_price=_to_float(data.get("ask_price")),
-            bid_size=_to_float(data.get("bid_size")),
-            ask_size=_to_float(data.get("ask_size")),
-            mid_price=_to_float(data.get("mid_price")),
-            spread=_to_float(data.get("spread")),
-            spread_bps=_to_float(data.get("spread_bps")),
-            microprice=_to_float(data.get("microprice")),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            receive_ts_ns=int(time.time() * 1_000_000_000),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse book_top: %s", e)
-        return None
+    bid = to_optional_float(data.get("bid_price"))
+    ask = to_optional_float(data.get("ask_price"))
+    if bid is None or ask is None:
+        return None  # Missing critical fields — not zero-filled
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return MarketBookTopModel(
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        bid_price=bid,
+        ask_price=ask,
+        bid_size=to_optional_float(data.get("bid_size")) or 0.0,
+        ask_size=to_optional_float(data.get("ask_size")) or 0.0,
+        mid_price=to_optional_float(data.get("mid_price")) or ((bid + ask) / 2),
+        spread=to_optional_float(data.get("spread")) or (ask - bid),
+        spread_bps=to_optional_float(data.get("spread_bps")) or 0.0,
+        microprice=to_optional_float(data.get("microprice")) or ((bid + ask) / 2),
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_book_l2(data: dict[str, Any]) -> MarketBookL2Model | None:
-    try:
-        bids_raw = data.get("bids", [])
-        asks_raw = data.get("asks", [])
-        bids = [
-            BookLevelModel(
-                price=_to_float(b.get("price")),
-                size=_to_float(b.get("size")),
-                total=_to_float(b.get("total")),
-                age_ms=_to_int(b.get("age_ms")),
-                source=b.get("source", "redis"),
-            )
-            for b in bids_raw
-        ]
-        asks = [
-            BookLevelModel(
-                price=_to_float(a.get("price")),
-                size=_to_float(a.get("size")),
-                total=_to_float(a.get("total")),
-                age_ms=_to_int(a.get("age_ms")),
-                source=a.get("source", "redis"),
-            )
-            for a in asks_raw
-        ]
-        return MarketBookL2Model(
-            symbol=data.get("symbol", "UNKNOWN"),
-            bids=bids,
-            asks=asks,
-            spread=_to_float(data.get("spread")),
-            spread_bps=_to_float(data.get("spread_bps")),
-            microprice=_to_float(data.get("microprice")),
-            top5_imbalance=_to_float(data.get("top5_imbalance")),
-            checksum=data.get("checksum"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            receive_ts_ns=int(time.time() * 1_000_000_000),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse book_l2: %s", e)
+    bids_raw = data.get("bids", [])
+    asks_raw = data.get("asks", [])
+    if not bids_raw and not asks_raw:
         return None
+    bids = [
+        BookLevelModel(
+            price=to_optional_float(b.get("price")) or 0.0,
+            size=to_optional_float(b.get("size")) or 0.0,
+            total=to_optional_float(b.get("total")) or 0.0,
+            age_ms=to_optional_int(b.get("age_ms")) or 0,
+            source=b.get("source", "redis"),
+        )
+        for b in bids_raw
+    ]
+    asks = [
+        BookLevelModel(
+            price=to_optional_float(a.get("price")) or 0.0,
+            size=to_optional_float(a.get("size")) or 0.0,
+            total=to_optional_float(a.get("total")) or 0.0,
+            age_ms=to_optional_int(a.get("age_ms")) or 0,
+            source=a.get("source", "redis"),
+        )
+        for a in asks_raw
+    ]
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return MarketBookL2Model(
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        bids=bids,
+        asks=asks,
+        spread=to_optional_float(data.get("spread")) or 0.0,
+        spread_bps=to_optional_float(data.get("spread_bps")) or 0.0,
+        microprice=to_optional_float(data.get("microprice")) or 0.0,
+        top5_imbalance=to_optional_float(data.get("top5_imbalance")) or 0.0,
+        checksum=to_optional_str(data.get("checksum")),
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
+
+
+def _parse_trade(data: dict[str, Any]) -> MarketTradeModel | None:
+    data = unwrap_payload(data)
+    price = to_optional_float(data.get("price"))
+    qty = to_optional_float(data.get("qty"))
+    ts = to_optional_int(data.get("ts_event_ns"))
+
+    # Required fields — missing price/qty/ts = invalid record
+    if price is None or qty is None:
+        return None
+
+    is_liq, liq_side = detect_force_liquidation(data)
+    flags = detect_trade_flags(data)
+    side_raw = to_optional_str(data.get("side")) or "unknown"
+    aggressor_raw = to_optional_str(data.get("aggressor")) or "unknown"
+
+    return MarketTradeModel(
+        trade_id=to_optional_str(data.get("trade_id"))
+        or f"{ts or _ns()}-{price}",
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        price=price,
+        qty=qty,
+        notional=to_optional_float(data.get("notional")) or (price * qty),
+        side=side_raw.lower() if side_raw.lower() in ("buy", "sell") else "buy",
+        aggressor=aggressor_raw.lower() if aggressor_raw.lower() in ("buy", "sell") else "unknown",
+        source="redis",
+        is_large_trade=flags["is_large_trade"],
+        is_sweep=flags["is_sweep"],
+        is_liquidation=is_liq,
+        liq_side=liq_side,  # type: ignore
+        ts_event_ns=ts or 0,
+        source_available=True,
+        last_update_ts_ns=ts or 0,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_account(data: dict[str, Any]) -> AccountSnapshotModel | None:
-    try:
-        return AccountSnapshotModel(
-            account_id=data.get("account_id", "unknown"),
-            venue=data.get("venue", "UNKNOWN"),
-            balance=_to_float(data.get("balance")),
-            equity=_to_float(data.get("equity")),
-            available_margin=_to_float(data.get("available_margin")),
-            margin_used=_to_float(data.get("margin_used")),
-            unrealized_pnl=_to_float(data.get("unrealized_pnl")),
-            realized_pnl=_to_float(data.get("realized_pnl")),
-            currency=data.get("currency", "USDT"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            receive_ts_ns=int(time.time() * 1_000_000_000),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse account: %s", e)
+    bal = to_optional_float(data.get("balance"))
+    if bal is None:
         return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return AccountSnapshotModel(
+        account_id=to_optional_str(data.get("account_id")) or "unknown",
+        venue=to_optional_str(data.get("venue")) or "UNKNOWN",
+        balance=bal,
+        equity=to_optional_float(data.get("equity")) or bal,
+        available_margin=to_optional_float(data.get("available_margin")) or 0.0,
+        margin_used=to_optional_float(data.get("margin_used")) or 0.0,
+        unrealized_pnl=to_optional_float(data.get("unrealized_pnl")) or 0.0,
+        realized_pnl=to_optional_float(data.get("realized_pnl")) or 0.0,
+        currency=to_optional_str(data.get("currency")) or "USDT",
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_positions(data: dict[str, Any]) -> list[PositionSnapshotModel]:
-    try:
-        raw = data.get("positions", data)  # Accept either wrapper or direct list
-        if isinstance(raw, dict):
-            raw = [raw]
-        if not isinstance(raw, list):
+    raw = data.get("positions", data)
+    if isinstance(raw, str):
+        import json as _json
+        try:
+            raw = _json.loads(raw)
+        except Exception:
             return []
-        positions = []
-        for p in raw:
-            positions.append(PositionSnapshotModel(
-                symbol=p.get("symbol", "UNKNOWN"),
-                venue=p.get("venue", "UNKNOWN"),
-                side=p.get("side", "flat"),
-                qty=_to_float(p.get("qty")),
-                entry_price=_to_float(p.get("entry_price")),
-                mark_price=_to_float(p.get("mark_price")),
-                unrealized_pnl=_to_float(p.get("unrealized_pnl")),
-                realized_pnl=_to_float(p.get("realized_pnl")),
-                margin=_to_float(p.get("margin")),
-                ts_event_ns=_to_int(p.get("ts_event_ns")),
-                source_available=True,
-                last_update_ts_ns=_to_int(p.get("ts_event_ns")),
-                stale=False,
-                missing=False,
-                provenance="redis",
-                source_status="live",
-            ))
-        return positions
-    except Exception as e:
-        logger.warning("Failed to parse positions: %s", e)
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
         return []
+    positions = []
+    for p in raw:
+        qty = to_optional_float(p.get("qty"))
+        if qty is None:
+            continue
+        ts = to_optional_int(p.get("ts_event_ns")) or 0
+        positions.append(PositionSnapshotModel(
+            symbol=to_optional_str(p.get("symbol")) or "UNKNOWN",
+            venue=to_optional_str(p.get("venue")) or "UNKNOWN",
+            side=to_optional_str(p.get("side")) or "flat",
+            qty=qty,
+            entry_price=to_optional_float(p.get("entry_price")) or 0.0,
+            mark_price=to_optional_float(p.get("mark_price")) or 0.0,
+            unrealized_pnl=to_optional_float(p.get("unrealized_pnl")) or 0.0,
+            realized_pnl=to_optional_float(p.get("realized_pnl")) or 0.0,
+            margin=to_optional_float(p.get("margin")) or 0.0,
+            ts_event_ns=ts,
+            source_available=True,
+            last_update_ts_ns=ts,
+            receive_ts_ns=_ns(),
+            stale=False,
+            missing=False,
+            provenance="redis",
+            source_status="live",
+        ))
+    return positions
 
 
 def _parse_open_orders(data: dict[str, Any]) -> list[OpenOrderSnapshotModel]:
-    try:
-        raw = data.get("orders", data)
-        if isinstance(raw, dict):
-            raw = [raw]
-        if not isinstance(raw, list):
-            return []
-        orders = []
-        for o in raw:
-            orders.append(OpenOrderSnapshotModel(
-                order_id=o.get("order_id", "unknown"),
-                client_order_id=o.get("client_order_id", "unknown"),
-                symbol=o.get("symbol", "UNKNOWN"),
-                venue=o.get("venue", "UNKNOWN"),
-                side=o.get("side", "buy"),
-                order_type=o.get("order_type", "LIMIT"),
-                price=_to_float(o.get("price")),
-                qty=_to_float(o.get("qty")),
-                filled_qty=_to_float(o.get("filled_qty", 0)),
-                status=o.get("status", "LIVE"),
-                ts_event_ns=_to_int(o.get("ts_event_ns")),
-                source_available=True,
-                last_update_ts_ns=_to_int(o.get("ts_event_ns")),
-                stale=False,
-                missing=False,
-                provenance="redis",
-                source_status="live",
-            ))
-        return orders
-    except Exception as e:
-        logger.warning("Failed to parse open_orders: %s", e)
+    raw = data.get("orders", data)
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
         return []
+    orders = []
+    for o in raw:
+        price = to_optional_float(o.get("price"))
+        if price is None:
+            continue
+        ts = to_optional_int(o.get("ts_event_ns")) or 0
+        orders.append(OpenOrderSnapshotModel(
+            order_id=to_optional_str(o.get("order_id")) or "unknown",
+            client_order_id=to_optional_str(o.get("client_order_id")) or "unknown",
+            symbol=to_optional_str(o.get("symbol")) or "UNKNOWN",
+            venue=to_optional_str(o.get("venue")) or "UNKNOWN",
+            side=to_optional_str(o.get("side")) or "buy",
+            order_type=to_optional_str(o.get("order_type")) or "LIMIT",
+            price=price,
+            qty=to_optional_float(o.get("qty")) or 0.0,
+            filled_qty=to_optional_float(o.get("filled_qty")) or 0.0,
+            status=to_optional_str(o.get("status")) or "LIVE",
+            ts_event_ns=ts,
+            source_available=True,
+            last_update_ts_ns=ts,
+            receive_ts_ns=_ns(),
+            stale=False,
+            missing=False,
+            provenance="redis",
+            source_status="live",
+        ))
+    return orders
 
 
 def _parse_signal(data: dict[str, Any]) -> StrategySignalPreviewModel | None:
-    try:
-        return StrategySignalPreviewModel(
-            signal_id=data.get("signal_id", "unknown"),
-            symbol=data.get("symbol", "UNKNOWN"),
-            feature_hash=data.get("feature_hash", ""),
-            context_hash=data.get("context_hash", ""),
-            policy_hash=data.get("policy_hash", ""),
-            graph_trace_hash=data.get("graph_trace_hash", ""),
-            confidence_score=_to_float(data.get("confidence_score")),
-            direction=data.get("direction", "flat"),
-            target_hint=_to_float(data.get("target_hint")) if data.get("target_hint") is not None else None,
-            invalidation_hint=_to_float(data.get("invalidation_hint")) if data.get("invalidation_hint") is not None else None,
-            size_hint=_to_float(data.get("size_hint")) if data.get("size_hint") is not None else None,
-            preview_note=data.get("preview_note", "Preview only — NOT EXECUTABLE"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse signal: %s", e)
+    conf = to_optional_float(data.get("confidence_score"))
+    if conf is None:
         return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return StrategySignalPreviewModel(
+        signal_id=to_optional_str(data.get("signal_id")) or "unknown",
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        feature_hash=to_optional_str(data.get("feature_hash")) or "",
+        context_hash=to_optional_str(data.get("context_hash")) or "",
+        policy_hash=to_optional_str(data.get("policy_hash")) or "",
+        graph_trace_hash=to_optional_str(data.get("graph_trace_hash")) or "",
+        confidence_score=conf,
+        direction=to_optional_str(data.get("direction")) or "flat",
+        target_hint=to_optional_float(data.get("target_hint")),
+        invalidation_hint=to_optional_float(data.get("invalidation_hint")),
+        size_hint=to_optional_float(data.get("size_hint")),
+        preview_note=to_optional_str(data.get("preview_note")) or "Preview only — NOT EXECUTABLE",
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_gate(data: dict[str, Any]) -> GateDecisionModel | None:
-    try:
-        return GateDecisionModel(
-            decision_id=data.get("decision_id", "unknown"),
-            decision=data.get("decision", "HOLD"),
-            first_blocking_gate=data.get("first_blocking_gate"),
-            reason_code=data.get("reason_code", ""),
-            confidence_delta=_to_float(data.get("confidence_delta")),
-            size_modifier=_to_float(data.get("size_modifier")),
-            target_hint=_to_float(data.get("target_hint")) if data.get("target_hint") is not None else None,
-            invalidation_hint=_to_float(data.get("invalidation_hint")) if data.get("invalidation_hint") is not None else None,
-            gate_decision_hash=data.get("gate_decision_hash", ""),
-            source_signal_hash=data.get("source_signal_hash", ""),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse gate: %s", e)
+    decision = to_optional_str(data.get("decision"))
+    if decision is None:
         return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return GateDecisionModel(
+        decision_id=to_optional_str(data.get("decision_id")) or "unknown",
+        decision=decision,
+        first_blocking_gate=to_optional_str(data.get("first_blocking_gate")),
+        reason_code=to_optional_str(data.get("reason_code")) or "",
+        confidence_delta=to_optional_float(data.get("confidence_delta")) or 0.0,
+        size_modifier=to_optional_float(data.get("size_modifier")) or 1.0,
+        target_hint=to_optional_float(data.get("target_hint")),
+        invalidation_hint=to_optional_float(data.get("invalidation_hint")),
+        gate_decision_hash=to_optional_str(data.get("gate_decision_hash")) or "",
+        source_signal_hash=to_optional_str(data.get("source_signal_hash")) or "",
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_trade_action(data: dict[str, Any]) -> TradeActionEvidenceModel | None:
-    try:
-        return TradeActionEvidenceModel(
-            action_id=data.get("action_id", "unknown"),
-            action=data.get("action", ""),
-            side=data.get("side", "buy"),
-            price=_to_float(data.get("price")),
-            qty=_to_float(data.get("qty")),
-            trade_action_hash=data.get("trade_action_hash", ""),
-            source_gate_decision_hash=data.get("source_gate_decision_hash", ""),
-            created_by=data.get("created_by", "run_gate_engine"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse trade_action: %s", e)
+    action = to_optional_str(data.get("action"))
+    if action is None:
         return None
+    price = to_optional_float(data.get("price"))
+    qty = to_optional_float(data.get("qty"))
+    if price is None or qty is None:
+        return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return TradeActionEvidenceModel(
+        action_id=to_optional_str(data.get("action_id")) or "unknown",
+        action=action,
+        side=to_optional_str(data.get("side")) or "buy",
+        price=price,
+        qty=qty,
+        trade_action_hash=to_optional_str(data.get("trade_action_hash")) or "",
+        source_gate_decision_hash=to_optional_str(data.get("source_gate_decision_hash")) or "",
+        created_by=to_optional_str(data.get("created_by")) or "run_gate_engine",
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_execution(data: dict[str, Any]) -> ExecutionReportModel | None:
-    try:
-        return ExecutionReportModel(
-            report_id=data.get("report_id", "unknown"),
-            status=data.get("status", "SUBMITTED"),
-            exchange_order_id=data.get("exchange_order_id"),
-            client_order_id=data.get("client_order_id", "unknown"),
-            trade_action_hash=data.get("trade_action_hash", ""),
-            symbol=data.get("symbol", "UNKNOWN"),
-            side=data.get("side", "buy"),
-            filled_qty=_to_float(data.get("filled_qty", 0)),
-            avg_fill_price=_to_float(data.get("avg_fill_price")) if data.get("avg_fill_price") is not None else None,
-            submit_ts_ns=_to_int(data.get("submit_ts_ns")),
-            ack_ts_ns=_to_int(data.get("ack_ts_ns")) if data.get("ack_ts_ns") else None,
-            fill_ts_ns=_to_int(data.get("fill_ts_ns")) if data.get("fill_ts_ns") else None,
-            submit_to_ack_us=_to_int(data.get("submit_to_ack_us")) if data.get("submit_to_ack_us") else None,
-            ack_to_fill_us=_to_int(data.get("ack_to_fill_us")) if data.get("ack_to_fill_us") else None,
-            rejection_reason=data.get("rejection_reason"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse execution: %s", e)
+    status = to_optional_str(data.get("status"))
+    if status is None:
         return None
+    submit_ts = to_optional_int(data.get("submit_ts_ns"))
+    if submit_ts is None:
+        return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return ExecutionReportModel(
+        report_id=to_optional_str(data.get("report_id")) or "unknown",
+        status=status,
+        exchange_order_id=to_optional_str(data.get("exchange_order_id")),
+        client_order_id=to_optional_str(data.get("client_order_id")) or "unknown",
+        trade_action_hash=to_optional_str(data.get("trade_action_hash")) or "",
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        side=to_optional_str(data.get("side")) or "buy",
+        filled_qty=to_optional_float(data.get("filled_qty")) or 0.0,
+        avg_fill_price=to_optional_float(data.get("avg_fill_price")),
+        submit_ts_ns=submit_ts,
+        ack_ts_ns=to_optional_int(data.get("ack_ts_ns")),
+        fill_ts_ns=to_optional_int(data.get("fill_ts_ns")),
+        submit_to_ack_us=to_optional_int(data.get("submit_to_ack_us")),
+        ack_to_fill_us=to_optional_int(data.get("ack_to_fill_us")),
+        rejection_reason=to_optional_str(data.get("rejection_reason")),
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_quant_levels(data: dict[str, Any]) -> QuantLevelsContextModel | None:
-    try:
-        levels_raw = data.get("levels", [])
-        levels = [
-            QuantLevelModel(
-                label=l.get("label", ""),
-                price=_to_float(l.get("price")),
-                kind=l.get("kind", "pivot"),
-            )
-            for l in levels_raw
-        ]
-        return QuantLevelsContextModel(
-            symbol=data.get("symbol", "UNKNOWN"),
-            levels=levels,
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse quant_levels: %s", e)
+    levels_raw = data.get("levels", [])
+    if not levels_raw:
         return None
+    levels = [
+        QuantLevelModel(
+            label=l.get("label", ""),
+            price=to_optional_float(l.get("price")) or 0.0,
+            kind=l.get("kind", "pivot"),
+        )
+        for l in levels_raw
+    ]
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return QuantLevelsContextModel(
+        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        levels=levels,
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_tick_to_trade(data: dict[str, Any]) -> TickToTradeTraceModel | None:
-    try:
-        return TickToTradeTraceModel(
-            trace_id=data.get("trace_id", "unknown"),
-            tick_receive_ts_ns=_to_int(data.get("tick_receive_ts_ns")),
-            signal_ts_ns=_to_int(data.get("signal_ts_ns")),
-            gate_ts_ns=_to_int(data.get("gate_ts_ns")),
-            execution_ts_ns=_to_int(data.get("execution_ts_ns")),
-            tick_to_signal_us=_to_int(data.get("tick_to_signal_us")),
-            signal_to_gate_us=_to_int(data.get("signal_to_gate_us")),
-            gate_to_execution_us=_to_int(data.get("gate_to_execution_us")),
-            total_tick_to_trade_us=_to_int(data.get("total_tick_to_trade_us")),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
-        )
-    except Exception as e:
-        logger.warning("Failed to parse tick_to_trade: %s", e)
+    total = to_optional_int(data.get("total_tick_to_trade_us"))
+    if total is None:
         return None
+    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    return TickToTradeTraceModel(
+        trace_id=to_optional_str(data.get("trace_id")) or "unknown",
+        tick_receive_ts_ns=to_optional_int(data.get("tick_receive_ts_ns")) or 0,
+        signal_ts_ns=to_optional_int(data.get("signal_ts_ns")) or 0,
+        gate_ts_ns=to_optional_int(data.get("gate_ts_ns")) or 0,
+        execution_ts_ns=to_optional_int(data.get("execution_ts_ns")) or 0,
+        tick_to_signal_us=to_optional_int(data.get("tick_to_signal_us")) or 0,
+        signal_to_gate_us=to_optional_int(data.get("signal_to_gate_us")) or 0,
+        gate_to_execution_us=to_optional_int(data.get("gate_to_execution_us")) or 0,
+        total_tick_to_trade_us=total,
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
 def _parse_runtime_health(data: dict[str, Any]) -> RuntimeHealthModel | None:
-    try:
-        def _lane(prefix: str) -> LaneHealthModel:
-            return LaneHealthModel(
-                lane=data.get(f"{prefix}_lane", prefix),
-                status=data.get(f"{prefix}_status", "unknown"),
-                last_heartbeat_ts_ns=_to_int(data.get(f"{prefix}_heartbeat_ns")) if data.get(f"{prefix}_heartbeat_ns") else None,
-                age_ms=_to_int(data.get(f"{prefix}_age_ms")) if data.get(f"{prefix}_age_ms") else None,
-                stale=bool(data.get(f"{prefix}_stale", False)),
-                missing=bool(data.get(f"{prefix}_missing", False)),
-                reason_code=data.get(f"{prefix}_reason"),
-            )
-
-        return RuntimeHealthModel(
-            run_main_strategy_signal=_lane("main_strategy"),
-            run_gate_engine=_lane("gate_engine"),
-            run_execution_lane=_lane("execution_lane"),
-            ai_lane_advisory=_lane("ai_advisory"),
-            data_health=_lane("data"),
-            ts_event_ns=_to_int(data.get("ts_event_ns")),
-            source_available=True,
-            last_update_ts_ns=_to_int(data.get("ts_event_ns")),
-            stale=False,
-            missing=False,
-            provenance="redis",
-            source_status="live",
+    def _lane(prefix: str) -> LaneHealthModel:
+        return LaneHealthModel(
+            lane=data.get(f"{prefix}_lane", prefix),
+            status=data.get(f"{prefix}_status", "unknown"),
+            last_heartbeat_ts_ns=to_optional_int(data.get(f"{prefix}_heartbeat_ns")),
+            age_ms=to_optional_int(data.get(f"{prefix}_age_ms")),
+            stale=bool(data.get(f"{prefix}_stale", False)),
+            missing=bool(data.get(f"{prefix}_missing", False)),
+            reason_code=to_optional_str(data.get(f"{prefix}_reason")),
         )
-    except Exception as e:
-        logger.warning("Failed to parse runtime_health: %s", e)
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
         return None
+    return RuntimeHealthModel(
+        run_main_strategy_signal=_lane("main_strategy"),
+        run_gate_engine=_lane("gate_engine"),
+        run_execution_lane=_lane("execution_lane"),
+        ai_lane_advisory=_lane("ai_advisory"),
+        data_health=_lane("data"),
+        ts_event_ns=ts,
+        source_available=True,
+        last_update_ts_ns=ts,
+        receive_ts_ns=_ns(),
+        stale=False,
+        missing=False,
+        provenance="redis",
+        source_status="live",
+    )
 
 
-# Parser dispatch table — maps stream suffix → parser function.
-_PARSERS = {
+# Parser dispatch: logical_name → (snapshot_field, parser_fn)
+_PARSERS: dict[str, tuple[str, Any]] = {
     "book_top": ("book_top", _parse_book_top),
     "book_l2": ("book_l2", _parse_book_l2),
+    "trades": ("trades", _parse_trade),
     "account": ("account", _parse_account),
     "positions": ("positions", _parse_positions),
-    "open_orders": ("open_orders", _parse_open_orders),
+    "orders": ("open_orders", _parse_open_orders),
     "signal": ("latest_signal_preview", _parse_signal),
     "gate": ("latest_gate_decision", _parse_gate),
     "trade_action": ("latest_trade_action", _parse_trade_action),
     "execution": ("latest_execution_report", _parse_execution),
     "quant_levels": ("quant_levels", _parse_quant_levels),
     "tick_to_trade": ("tick_to_trade", _parse_tick_to_trade),
-    "runtime_health": ("runtime_health", _parse_runtime_health),
+    "health": ("runtime_health", _parse_runtime_health),
 }
 
 
-def parse_stream_entry(stream_suffix: str, fields: dict[bytes, bytes]) -> tuple[str, Any] | None:
-    """Parse a Redis stream entry into a (model_field, model) tuple.
-
-    Returns None if the stream suffix is unknown or parsing fails.
-    """
-    if stream_suffix not in _PARSERS:
-        logger.debug("Unknown stream suffix: %s", stream_suffix)
+def parse_stream_entry(logical_name: str, fields: dict[bytes, bytes]) -> tuple[str, Any] | None:
+    """Parse a Redis stream entry into a (field_name, model) tuple."""
+    if logical_name not in _PARSERS:
         return None
-    field_name, parser = _PARSERS[stream_suffix]
-    data = _parse_stream_entry(fields)
+    field_name, parser = _PARSERS[logical_name]
+    data = parse_stream_fields(fields)
     result = parser(data)
     if result is None:
         return None
@@ -528,18 +516,13 @@ def parse_stream_entry(stream_suffix: str, fields: dict[bytes, bytes]) -> tuple[
 
 
 def build_snapshot_from_redis(entries: dict[str, dict[bytes, bytes]]) -> TradeHudSnapshot:
-    """Build a TradeHudSnapshot from collected Redis stream entries.
-
-    entries: dict mapping stream_suffix → latest stream entry fields.
-    Missing streams result in None for that field (not zero).
-    """
+    """Build a TradeHudSnapshot from collected Redis stream entries."""
     snapshot_fields: dict[str, Any] = {}
-
     for suffix, fields in entries.items():
         parsed = parse_stream_entry(suffix, fields)
         if parsed:
-            snapshot_fields[parsed[0]] = parsed[1]
-
+            field_name, model = parsed
+            snapshot_fields[field_name] = model
     snapshot = TradeHudSnapshot(**snapshot_fields)
     snapshot.provenance = "redis"
     return snapshot
@@ -548,30 +531,41 @@ def build_snapshot_from_redis(entries: dict[str, dict[bytes, bytes]]) -> TradeHu
 class RedisStreamAdapter:
     """Read-only Redis Stream consumer for ND runtime TradeHUD events.
 
-    Uses XREAD to consume the latest entries from ND runtime streams.
-    Never writes to Redis. Never exposes credentials. Falls back gracefully.
+    Uses ONE multi-stream XREAD call covering all configured streams.
+    Seeds initial state via XREVRANGE on startup.
+    Tracks per-stream health.
+    Never writes to Redis. Never exposes credentials.
 
     Usage:
-        adapter = RedisStreamAdapter()  # auto-connects if REDIS_URL set
-        if adapter.is_connected():
-            snapshot = await adapter.get_snapshot("BTCUSDT-PERP")
+        config = TradeHudRedisConfig.from_env()
+        adapter = RedisStreamAdapter(config)
+        if await adapter.connect():
+            snapshot = await adapter.get_snapshot()
     """
 
-    def __init__(self, redis_url: str | None = None) -> None:
-        self._redis_url = redis_url or _get_redis_url()
+    def __init__(self, config: TradeHudRedisConfig | None = None) -> None:
+        self._config = config or TradeHudRedisConfig.from_env()
         self._client = None
-        self._last_ids: dict[str, str] = {}  # per-stream last consumed ID
-        self._cached: dict[str, dict[bytes, bytes] | None] = {}  # latest cached entry per stream
+        self._last_ids: dict[str, str] = {}  # per-stream last consumed ID (by stream_key)
+        self._cached: dict[str, dict[bytes, bytes] | None] = {}  # latest cached per logical_name
+        self._trades_buffer: list[MarketTradeModel] = []
         self._connected = False
         self._connect_error: str | None = None
+        self._health = StreamHealthTracker(self._config)
+        self._reverse_map = _build_reverse_map(self._config)
 
-        for key in _STREAM_KEYS:
-            self._last_ids[key] = "$"  # start from latest on first read
-            self._cached[key] = None
+        # Initialize last_ids to "$" (latest only) for all streams
+        for logical_name, stream_key in self._config.get_stream_map().items():
+            self._last_ids[stream_key] = "$"
+            self._cached[logical_name] = None
 
     async def connect(self) -> bool:
         """Attempt to connect to Redis. Returns True if connected."""
-        if not self._redis_url:
+        if not self._config.is_redis_enabled:
+            self._connected = False
+            self._connect_error = "feed_source is not redis"
+            return False
+        if not self._config.is_redis_configured:
             self._connected = False
             self._connect_error = "No REDIS_URL configured"
             return False
@@ -579,17 +573,19 @@ class RedisStreamAdapter:
         try:
             import redis.asyncio as aioredis
             self._client = aioredis.from_url(
-                self._redis_url,
+                self._config.redis_url,
                 decode_responses=False,
                 socket_connect_timeout=2,
                 socket_timeout=2,
                 retry_on_timeout=True,
             )
-            # Ping to verify connection
             await self._client.ping()
             self._connected = True
             self._connect_error = None
-            logger.info("RedisStreamAdapter connected to Redis")
+            self._health.mark_connected(True)
+            logger.info("RedisStreamAdapter connected to Redis (namespace=%s)", self._config.stream_namespace)
+            # Seed initial state
+            await self._seed_initial_state()
             return True
         except ImportError:
             self._connected = False
@@ -599,12 +595,35 @@ class RedisStreamAdapter:
         except Exception as e:
             self._connected = False
             self._connect_error = str(e)
+            self._health.mark_connected(False)
             logger.warning("Redis connection failed: %s — falling back to mock", e)
             self._client = None
             return False
 
+    async def _seed_initial_state(self) -> None:
+        """Seed initial cache with latest entry per stream via XREVRANGE."""
+        if not self.is_connected():
+            return
+        stream_map = self._config.get_stream_map()
+        for logical_name, stream_key in stream_map.items():
+            try:
+                result = await self._client.xrevrange(stream_key, count=1)
+                if result:
+                    entry_id, fields = result[0]
+                    entry_id_str = entry_id.decode() if isinstance(entry_id, bytes) else str(entry_id)
+                    self._last_ids[stream_key] = entry_id_str
+                    self._cached[logical_name] = dict(fields)
+                    event_ts = None
+                    parsed_fields = parse_stream_fields(dict(fields))
+                    event_ts = to_optional_int(parsed_fields.get("ts_event_ns"))
+                    self._health.record_seed(logical_name, entry_id_str, event_ts)
+                else:
+                    self._health.record_seed(logical_name, None, None)
+            except Exception as e:
+                logger.debug("XREVRANGE failed for %s: %s", stream_key, e)
+                self._health.record_error(logical_name, str(e))
+
     async def disconnect(self) -> None:
-        """Close Redis connection cleanly."""
         if self._client:
             try:
                 await self._client.aclose()
@@ -612,93 +631,122 @@ class RedisStreamAdapter:
                 pass
             self._client = None
         self._connected = False
+        self._health.mark_connected(False)
 
     def is_connected(self) -> bool:
-        """Check if adapter is connected to Redis."""
         return self._connected and self._client is not None
 
     def is_configured(self) -> bool:
-        """Check if Redis URL is configured (even if not connected)."""
-        return self._redis_url is not None
+        return self._config.is_redis_configured
 
     def get_connect_error(self) -> str | None:
-        """Return last connection error if any."""
         return self._connect_error
 
-    async def _read_stream(self, stream_suffix: str) -> dict[bytes, bytes] | None:
-        """Read latest entry from a single stream via XREAD.
+    async def _multi_stream_xread(self) -> dict[str, dict[bytes, bytes]]:
+        """ONE multi-stream XREAD covering all configured streams.
 
-        Returns the entry fields dict, or None if no new data.
+        Returns dict mapping logical_name → entry fields.
         """
         if not self.is_connected():
-            return None
+            return {}
 
-        stream_key = f"{_STREAM_PREFIX}{stream_suffix}"
-        last_id = self._last_ids.get(stream_suffix, "$")
+        stream_map = self._config.get_stream_map()
+        # Build the streams dict for XREAD: {stream_key: last_id}
+        xread_streams: dict[str, str] = {}
+        for logical_name, stream_key in stream_map.items():
+            xread_streams[stream_key] = self._last_ids.get(stream_key, "$")
 
         try:
             result = await self._client.xread(
-                {stream_key: last_id},
-                count=_MAX_READ_COUNT,
-                block=_XREAD_BLOCK_MS,
+                xread_streams,
+                count=self._config.redis_count,
+                block=self._config.redis_block_ms,
             )
         except Exception as e:
-            logger.warning("XREAD failed for %s: %s", stream_key, e)
-            return None
+            logger.warning("Multi-stream XREAD failed: %s", e)
+            self._health.mark_connected(False)
+            return {}
 
         if not result:
-            return None  # no new data — caller uses cached value
+            return {}
 
-        # result is [(stream_key, [(entry_id, {fields})])]
-        for _stream, entries in result:
-            for entry_id, fields in entries:
-                self._last_ids[stream_suffix] = entry_id.decode() if isinstance(entry_id, bytes) else str(entry_id)
-                self._cached[stream_suffix] = dict(fields)
-                return dict(fields)
-
-        return None
-
-    async def _read_all_streams(self) -> dict[str, dict[bytes, bytes]]:
-        """Read latest entries from all ND runtime streams.
-
-        Returns dict mapping stream_suffix → entry fields (from cache or fresh read).
-        Streams with no data are omitted from the result.
-        """
-        # Read all streams concurrently would be ideal, but we do sequential for simplicity
-        # since XREAD BLOCK is short (500ms).
         fresh: dict[str, dict[bytes, bytes]] = {}
+        for stream_key_bytes, entries in result:
+            stream_key = stream_key_bytes.decode() if isinstance(stream_key_bytes, bytes) else str(stream_key_bytes)
+            logical_name = self._reverse_map.get(stream_key)
+            if not logical_name:
+                continue
+            for entry_id, fields in entries:
+                entry_id_str = entry_id.decode() if isinstance(entry_id, bytes) else str(entry_id)
+                self._last_ids[stream_key] = entry_id_str
+                field_dict = dict(fields)
+                self._cached[logical_name] = field_dict
+                fresh[logical_name] = field_dict
 
-        for suffix in _STREAM_KEYS:
-            entry = await self._read_stream(suffix)
-            # Use fresh read if available, otherwise fall back to cached
-            if entry:
-                fresh[suffix] = entry
-            elif self._cached.get(suffix):
-                fresh[suffix] = self._cached[suffix]
+                # Update health
+                parsed_fields = parse_stream_fields(field_dict)
+                event_ts = to_optional_int(parsed_fields.get("ts_event_ns"))
+                self._health.record_event(logical_name, entry_id_str, event_ts)
+
+                # Buffer trades
+                if logical_name == "trades":
+                    trade = _parse_trade(parsed_fields)
+                    if trade:
+                        self._trades_buffer.append(trade)
+                        if len(self._trades_buffer) > 500:
+                            self._trades_buffer = self._trades_buffer[-500:]
 
         return fresh
 
     async def get_snapshot(self, symbol: str | None = None) -> TradeHudSnapshot | None:
-        """Build a TradeHudSnapshot from latest Redis stream data.
+        """Build a TradeHudSnapshot from latest Redis stream data."""
+        entries = await self._multi_stream_xread()
+        # Merge fresh entries with cached for all streams
+        merged: dict[str, dict[bytes, bytes]] = {}
+        for logical_name in self._config.get_stream_map():
+            if logical_name in entries:
+                merged[logical_name] = entries[logical_name]
+            elif self._cached.get(logical_name):
+                merged[logical_name] = self._cached[logical_name]
 
-        Returns None if no data is available from any stream.
-        """
-        entries = await self._read_all_streams()
-        if not entries:
+        if not merged:
             return None
-        return build_snapshot_from_redis(entries)
 
-    async def get_health(self) -> dict[str, object]:
-        """Return adapter health status for monitoring."""
+        snapshot_fields: dict[str, Any] = {}
+        for logical_name, fields in merged.items():
+            if logical_name not in _PARSERS:
+                continue
+            field_name, parser = _PARSERS[logical_name]
+            parsed_fields = parse_stream_fields(fields)
+            result = parser(parsed_fields)
+            if result is not None:
+                snapshot_fields[field_name] = result
+
+        # Add buffered trades
+        if self._trades_buffer:
+            snapshot_fields["trades"] = list(self._trades_buffer)
+
+        if not snapshot_fields:
+            return None
+
+        snapshot = TradeHudSnapshot(**snapshot_fields)
+        snapshot.provenance = "redis"
+        return snapshot
+
+    async def get_health(self) -> dict[str, Any]:
+        """Return adapter health status."""
+        health_eval = self._health.evaluate()
         return {
             "status": "connected" if self.is_connected() else "disconnected",
-            "redis_configured": self.is_configured(),
+            "feed_source": self._config.feed_source,
+            "redis_configured": self._config.is_redis_configured,
             "redis_connected": self.is_connected(),
             "has_runtime": self.is_connected(),
             "has_redis": self.is_connected(),
-            "has_postgres": False,  # adapter never touches postgres
+            "has_postgres": False,
             "mode": "redis" if self.is_connected() else "mock",
             "provenance": "redis" if self.is_connected() else "mock",
             "error": self._connect_error,
-            "streams": list(_STREAM_KEYS),
+            "stream_namespace": self._config.stream_namespace,
+            "stream_health": health_eval,
         }

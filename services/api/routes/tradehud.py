@@ -5,6 +5,7 @@ Read-only observational data. No order execution authority. No credentials.
 
 from __future__ import annotations
 
+from packages.tradehud_contracts.config import TradeHudRedisConfig
 from packages.tradehud_contracts.service import TradeHudService
 
 _service: TradeHudService | None = None
@@ -25,9 +26,35 @@ def tradehud_snapshot_payload(symbol: str | None = None) -> dict:
 
 
 def tradehud_health_payload() -> dict:
-    """GET /api/tradehud/health — service health."""
+    """GET /api/tradehud/health — service health.
+
+    Includes Redis adapter status when TRADEHUD_FEED_SOURCE=redis.
+    Never exposes credentials.
+    """
     svc = _get_service()
-    return svc.get_health()
+    health = svc.get_health()
+    config = TradeHudRedisConfig.from_env()
+
+    result = dict(health)
+    result["feed_source"] = config.feed_source
+    result["redis_configured"] = config.is_redis_configured
+    result["redis_connected"] = False  # Updated if adapter is active
+    result["stream_namespace"] = config.stream_namespace
+    result["mode"] = "observational"
+
+    # Sanitize Redis URL — never expose password
+    if config.is_redis_configured:
+        result["redis_url_sanitized"] = config.sanitize_redis_url()
+    else:
+        result["redis_url_sanitized"] = None
+
+    # Never return raw credentials
+    for key in list(result.keys()):
+        if any(bad in key.lower() for bad in ("password", "secret", "token", "redis_url", "postgres_url", "database_url")):
+            if key != "redis_url_sanitized":
+                del result[key]
+
+    return result
 
 
 def tradehud_replay_payload(symbol: str | None = None) -> dict:
@@ -39,6 +66,9 @@ def tradehud_replay_payload(symbol: str | None = None) -> dict:
         events.append({"type": "BOOK_TOP", "payload": snapshot.book_top.model_dump(mode="json")})
     if snapshot.book_l2:
         events.append({"type": "BOOK_L2", "payload": snapshot.book_l2.model_dump(mode="json")})
+    if snapshot.trades:
+        for t in snapshot.trades[-10:]:
+            events.append({"type": "TRADE", "payload": t.model_dump(mode="json")})
     if snapshot.latest_signal_preview:
         events.append({"type": "SIGNAL_PREVIEW", "payload": snapshot.latest_signal_preview.model_dump(mode="json")})
     if snapshot.latest_gate_decision:

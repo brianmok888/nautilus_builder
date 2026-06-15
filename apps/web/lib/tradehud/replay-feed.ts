@@ -3,7 +3,8 @@
  * Default: mock (safe, no backend required).
  *
  * SSE mode features:
- * - Named event listeners (snapshot, tradehud_event, ping)
+ * - Named event listeners (snapshot, tradehud_event, ping, stream_health)
+ * - Redis-aware feed status tracking (redis_live, redis_degraded, stream_stale, etc.)
  * - Auto-fallback to mock feed if SSE connection fails after bounded retries
  * - Bounded exponential backoff with jitter (500ms initial, 15s max)
  * - Connection status tracking via SET_FEED_STATUS events
@@ -15,7 +16,17 @@ import type { TradeHudEvent } from "./types";
 import { MockFeed } from "./mock-feed";
 
 export type FeedMode = "mock" | "snapshot" | "sse";
-export type FeedStatus = "connecting" | "live" | "reconnecting" | "fallback" | "mock";
+export type FeedStatus =
+  | "connecting"
+  | "live"
+  | "reconnecting"
+  | "fallback"
+  | "mock"
+  | "redis_live"
+  | "redis_degraded"
+  | "redis_disconnected"
+  | "stream_stale"
+  | "stream_missing";
 
 function getEnvMode(): FeedMode {
   const mode = process.env.NEXT_PUBLIC_TRADEHUD_FEED_MODE;
@@ -55,7 +66,6 @@ function createMockFeed(symbol: string): FeedController {
   return {
     mode: "mock",
     start(dispatch) {
-      // Emit initial snapshot
       dispatch({ type: "SET_BACKEND", payload: false });
       dispatch({ type: "SET_FEED_STATUS", payload: { status: "mock", mode: "mock" } });
       dispatch({
@@ -80,7 +90,6 @@ function createMockFeed(symbol: string): FeedController {
       dispatch({ type: "EXECUTION_REPORT", payload: feed.getExecutionReport() });
       feed.getTrades().forEach((t) => dispatch({ type: "TRADE", payload: t }));
 
-      // Periodic updates
       timer = setInterval(() => {
         feed.tick();
         dispatch({ type: "BOOK_TOP", payload: feed.getBookTop() });
@@ -92,11 +101,9 @@ function createMockFeed(symbol: string): FeedController {
         dispatch({ type: "TICK_TO_TRADE", payload: feed.getTickToTrade() });
         dispatch({ type: "QUANT_LEVELS", payload: feed.getQuantLevels() });
 
-        // Emit recent trade
         const trades = feed.getTrades().slice(0, 3);
         trades.forEach((t) => dispatch({ type: "TRADE", payload: t }));
 
-        // Periodically emit new evidence
         if (gateCycle % 10 === 0) {
           dispatch({ type: "SIGNAL_PREVIEW", payload: feed.getSignalPreview() });
           const gate = feed.getGateDecision(gateCycle);
@@ -148,16 +155,15 @@ function createSnapshotFeed(symbol: string): FeedController {
   };
 }
 
-// ─── SSE feed controller with bounded backoff + auto-fallback ──────────────────
+// ─── SSE feed controller with bounded backoff + Redis awareness ──────────────────
 
 const SSE_MAX_RETRIES = 5;
 const SSE_BACKOFF_INITIAL = 500;
 const SSE_BACKOFF_MAX = 15000;
 
-/** Bounded exponential backoff with small jitter. */
 function backoffDelay(attempt: number): number {
   const base = Math.min(SSE_BACKOFF_INITIAL * 2 ** attempt, SSE_BACKOFF_MAX);
-  const jitter = base * 0.1 * (Math.random() * 2 - 1); // ±10%
+  const jitter = base * 0.1 * (Math.random() * 2 - 1);
   return Math.round(base + jitter);
 }
 
@@ -173,6 +179,23 @@ function dispatchSseEvent(data: any, dispatch: (event: TradeHudEvent) => void) {
   if (data.gate_decision) dispatch({ type: "GATE_DECISION", payload: data.gate_decision });
 }
 
+/** Dispatch Redis trade events. */
+function dispatchRedisTrades(data: any, dispatch: (event: TradeHudEvent) => void) {
+  const trades = data.trades;
+  if (Array.isArray(trades)) {
+    trades.forEach((t: any) => dispatch({ type: "TRADE", payload: t }));
+  }
+}
+
+/** Derive feed status from SSE event provenance and stream health. */
+function deriveFeedStatus(data: any): string {
+  const provenance = data.provenance;
+  const sourceStatus = data.source_status;
+  if (provenance === "redis" && sourceStatus === "live") return "redis_live";
+  if (provenance === "redis") return "redis_degraded";
+  return "live";
+}
+
 function createSseFeed(symbol: string): FeedController {
   let es: EventSource | null = null;
   let mockFallback: FeedController | null = null;
@@ -184,7 +207,10 @@ function createSseFeed(symbol: string): FeedController {
   function connect(dispatch: (event: TradeHudEvent) => void) {
     if (stopped) return;
 
-    dispatch({ type: "SET_FEED_STATUS", payload: { status: reconnectAttempts > 0 ? "reconnecting" : "connecting", mode: "sse" } });
+    dispatch({
+      type: "SET_FEED_STATUS",
+      payload: { status: reconnectAttempts > 0 ? "reconnecting" : "connecting", mode: "sse" },
+    });
 
     try {
       es = new EventSource(`${base}/api/tradehud/stream?symbol=${encodeURIComponent(symbol)}`);
@@ -197,7 +223,6 @@ function createSseFeed(symbol: string): FeedController {
       reconnectAttempts = 0;
       dispatch({ type: "SET_BACKEND", payload: true });
       dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "sse" } });
-      // Stop mock fallback if it was running
       if (mockFallback) {
         mockFallback.stop();
         mockFallback = null;
@@ -208,39 +233,65 @@ function createSseFeed(symbol: string): FeedController {
       es?.close();
       es = null;
       dispatch({ type: "SET_BACKEND", payload: false });
+      dispatch({ type: "SET_FEED_STATUS", payload: { status: "redis_disconnected", mode: "sse" } });
 
       if (reconnectAttempts < SSE_MAX_RETRIES) {
-        dispatch({ type: "SET_FEED_STATUS", payload: { status: "reconnecting", mode: "sse" } });
         const delay = backoffDelay(reconnectAttempts++);
         reconnectTimer = setTimeout(() => connect(dispatch), delay);
       } else {
-        // All reconnection attempts exhausted — fall back to mock
         attemptFallback(dispatch);
       }
     });
 
-    // Named event: snapshot — initial full state
+    // Named event: snapshot
     es.addEventListener("snapshot", (ev: MessageEvent) => {
       try {
         const data = JSON.parse(ev.data);
         dispatch({ type: "SET_BACKEND", payload: true });
         dispatchSseEvent(data, dispatch);
+        dispatchRedisTrades(data, dispatch);
+        const status = deriveFeedStatus(data);
+        dispatch({ type: "SET_FEED_STATUS", payload: { status, mode: "sse" } });
       } catch {
         // ignore malformed
       }
     });
 
-    // Named event: tradehud_event — periodic updates
+    // Named event: tradehud_event
     es.addEventListener("tradehud_event", (ev: MessageEvent) => {
       try {
         const data = JSON.parse(ev.data);
         dispatchSseEvent(data, dispatch);
+        dispatchRedisTrades(data, dispatch);
+        const status = deriveFeedStatus(data);
+        dispatch({ type: "SET_FEED_STATUS", payload: { status, mode: "sse" } });
       } catch {
         // ignore malformed
       }
     });
 
-    // Named event: ping — keep-alive, just track connectivity
+    // Named event: stream_health (Redis mode only)
+    es.addEventListener("stream_health", (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data);
+        const health = data.stream_health;
+        if (!health) return;
+        // Derive aggregate status from stream health
+        if (health.streams_missing && health.streams_missing.length > 0) {
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "stream_missing", mode: "sse" } });
+        } else if (health.streams_stale && health.streams_stale.length > 0) {
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "stream_stale", mode: "sse" } });
+        } else if (data.redis_connected) {
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "redis_live", mode: "sse" } });
+        } else {
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "redis_degraded", mode: "sse" } });
+        }
+      } catch {
+        // ignore malformed
+      }
+    });
+
+    // Named event: ping
     es.addEventListener("ping", () => {
       dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "sse" } });
     });

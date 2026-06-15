@@ -33,7 +33,7 @@ class TestReadOnlyRoutes:
     def test_health_returns_read_only_state(self):
         result = tradehud_health_payload()
         assert result["status"] in ("ok", "degraded", "mock")
-        assert result["mode"] in ("mock", "snapshot", "sse")
+        assert result["mode"] in ("mock", "snapshot", "sse", "observational")
         assert "observational" in result["message"].lower()
         assert result["has_runtime"] is False
         assert result["has_redis"] is False
