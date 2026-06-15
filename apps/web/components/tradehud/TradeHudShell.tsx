@@ -65,6 +65,7 @@ export function TradeHudShell() {
           quantLevels={state.quantLevels}
           stale={bookStale}
           missing={bookMissing}
+          sourceStatus={state.bookL2?.source_status ?? 'missing'}
         />
         <OrderBookLadder bookL2={state.bookL2} />
         <TradeTape trades={recentTrades} />

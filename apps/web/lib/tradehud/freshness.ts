@@ -36,7 +36,7 @@ export function buildFreshness(
   const receiveNs = opts?.receiveNs ?? NOW();
   const ageMs = computeAge(lastUpdateNs, receiveNs);
   const stale = !unavailable && !trueZero && isStale(ageMs);
-  const missing = lastUpdateNs == null && !trueZero;
+  const missing = lastUpdateNs == null && !trueZero && !unavailable;
 
   let status: SourceStatus;
   if (unavailable) status = "unavailable";

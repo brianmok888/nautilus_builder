@@ -467,3 +467,125 @@
     overflow: visible;
   }
 }
+
+/* ─── Canvas overlay badge (Phase 4: stale/synthetic/missing/unavailable) ─── */
+
+.tradehud-canvas-overlay-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-family: var(--th-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace);
+  pointer-events: none;
+  z-index: 5;
+  background: rgba(10, 14, 23, 0.85);
+  border: 1px solid var(--th-amber, #fbbf24);
+  color: var(--th-amber, #fbbf24);
+}
+
+/* ─── Freshness badge distinction (Phase 5) ─── */
+
+.tradehud-freshness-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--th-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.tradehud-freshness-live {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.tradehud-freshness-stale {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.tradehud-freshness-missing {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.tradehud-freshness-synthetic {
+  background: rgba(251, 191, 36, 0.1);
+  color: #e5b567;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.tradehud-freshness-true_zero {
+  background: rgba(34, 211, 238, 0.12);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.tradehud-freshness-unavailable {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+/* unknown falls back to missing style */
+.tradehud-freshness-unknown {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+/* ─── Missing value display (Phase 5: never render as zero) ─── */
+
+.tradehud-missing-value {
+  color: #475569;
+  font-family: var(--th-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace);
+}
+
+/* ─── Visual polish: monospace numeric fields ─── */
+
+.tradehud-table td.tradehud-td-right {
+  font-family: var(--th-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Top-level safety badges polish ─── */
+
+.tradehud-safety-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: var(--th-mono, 'SF Mono', 'Cascadia Code', 'Consolas', monospace);
+}
+
+.tradehud-safety-badge-authority {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.tradehud-safety-badge-observational {
+  background: rgba(34, 211, 238, 0.1);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.tradehud-safety-badge-mock {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
