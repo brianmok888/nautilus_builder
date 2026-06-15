@@ -1,30 +1,54 @@
 /**
  * Tests for SSE feed controller — auto-fallback behavior.
- * Uses a mock EventSource to simulate connection lifecycle.
+ * Uses a mock EventSource that supports addEventListener with named events.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createFeed } from "./replay-feed";
 
-// Mock EventSource for testing
+// Mock EventSource for testing — supports addEventListener with named events
 class MockEventSource {
   static instances: MockEventSource[] = [];
   url: string;
-  onopen: ((ev: Event) => void) | null = null;
-  onerror: ((ev: Event) => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
   readyState = 0;
   private closed = false;
+  private listeners: Map<string, ((ev: Event | MessageEvent) => void)[]> = new Map();
 
   constructor(url: string) {
     this.url = url;
     MockEventSource.instances.push(this);
   }
+
+  addEventListener(type: string, listener: (ev: Event | MessageEvent) => void) {
+    if (!this.listeners.has(type)) this.listeners.set(type, []);
+    this.listeners.get(type)!.push(listener);
+  }
+
+  removeEventListener(type: string, listener: (ev: Event | MessageEvent) => void) {
+    const arr = this.listeners.get(type);
+    if (arr) {
+      const idx = arr.indexOf(listener);
+      if (idx >= 0) arr.splice(idx, 1);
+    }
+  }
+
   close() { this.closed = true; this.readyState = 2; }
   get isClosed() { return this.closed; }
-  // Test helpers
-  simulateOpen() { this.readyState = 1; this.onopen?.(new Event("open")); }
-  simulateError() { this.onerror?.(new Event("error")); }
-  simulateMessage(data: string) { this.onmessage?.({ data } as MessageEvent); }
+
+  // Test helpers — dispatch to addEventListener subscribers
+  simulateOpen() {
+    this.readyState = 1;
+    this.listeners.get("open")?.forEach((fn) => fn(new Event("open")));
+  }
+
+  simulateError() {
+    this.listeners.get("error")?.forEach((fn) => fn(new Event("error")));
+  }
+
+  /** Dispatch a named SSE event (snapshot, tradehud_event, ping) */
+  simulateNamedEvent(eventName: string, data: unknown) {
+    const payload = typeof data === "string" ? data : JSON.stringify(data);
+    this.listeners.get(eventName)?.forEach((fn) => fn({ data: payload } as MessageEvent));
+  }
 }
 
 describe("Feed mode selection", () => {
@@ -55,14 +79,9 @@ describe("Mock feed controller", () => {
     const feed = createFeed("BTCUSDT-PERP");
     let count = 0;
     feed.start(() => count++);
-    const before = count;
     feed.stop();
-    // After stop, no more events (wait a tick to verify)
     return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // count should not have grown significantly
-        resolve();
-      }, 100);
+      setTimeout(() => { resolve(); }, 100);
     });
   });
 });
@@ -70,9 +89,7 @@ describe("Mock feed controller", () => {
 describe("SSE feed controller", () => {
   beforeEach(() => {
     MockEventSource.instances = [];
-    // Inject mock EventSource onto global
     (globalThis as Record<string, unknown>).EventSource = MockEventSource;
-    // Set env to SSE mode
     process.env.NEXT_PUBLIC_TRADEHUD_FEED_MODE = "sse";
   });
 
@@ -116,17 +133,31 @@ describe("SSE feed controller", () => {
     feed.stop();
   });
 
-  it("dispatches data events from SSE messages", () => {
+  it("dispatches data from named 'snapshot' event", () => {
     const feed = createFeed("BTCUSDT-PERP");
     const events: { type: string; payload?: unknown }[] = [];
     feed.start((ev) => events.push(ev));
 
     const es = MockEventSource.instances[0];
     es.simulateOpen();
-    es.simulateMessage(JSON.stringify({ type: "BOOK_TOP", payload: { price: 50000 } }));
+    es.simulateNamedEvent("snapshot", { book_top: { price: 50000 }, provenance: "mock" });
 
     const bookEvent = events.find((e) => e.type === "BOOK_TOP");
     expect(bookEvent).toBeDefined();
+    feed.stop();
+  });
+
+  it("dispatches data from named 'tradehud_event' event", () => {
+    const feed = createFeed("BTCUSDT-PERP");
+    const events: { type: string; payload?: unknown }[] = [];
+    feed.start((ev) => events.push(ev));
+
+    const es = MockEventSource.instances[0];
+    es.simulateOpen();
+    es.simulateNamedEvent("tradehud_event", { account: { balance: 100000 }, provenance: "mock" });
+
+    const acctEvent = events.find((e) => e.type === "ACCOUNT");
+    expect(acctEvent).toBeDefined();
     feed.stop();
   });
 
@@ -142,6 +173,23 @@ describe("SSE feed controller", () => {
       (e) => e.type === "SET_BACKEND" && e.payload === false,
     );
     expect(backendEvent).toBeDefined();
+    feed.stop();
+  });
+
+  it("EventSource closes on cleanup", () => {
+    const feed = createFeed("BTCUSDT-PERP");
+    feed.start(() => {});
+
+    const es = MockEventSource.instances[0];
+    expect(es.isClosed).toBe(false);
+    feed.stop();
+    expect(es.isClosed).toBe(true);
+  });
+
+  it("mock remains default mode when env not set", () => {
+    delete process.env.NEXT_PUBLIC_TRADEHUD_FEED_MODE;
+    const feed = createFeed("BTCUSDT-PERP");
+    expect(feed.mode).toBe("mock");
     feed.stop();
   });
 });

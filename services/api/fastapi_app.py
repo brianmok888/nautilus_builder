@@ -29,7 +29,7 @@ from services.api.routes.market_catalog import adapters_payload, data_availabili
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
 from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.tradehud import tradehud_snapshot_payload, tradehud_health_payload, tradehud_replay_payload
-from services.api.routes.tradehud_sse import tradehud_event_stream
+from services.api.routes.tradehud_sse import tradehud_stream_response
 from fastapi.responses import StreamingResponse
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.readiness import readiness_payload
@@ -281,17 +281,22 @@ def create_fastapi_app(
         return health_payload()
 
     # --- TradeHUD observational routes ---
-    @app.get(/api/tradehud/snapshot)
+    @app.get("/api/tradehud/snapshot")
     def tradehud_snapshot(symbol: str | None = None) -> dict[str, object]:
         return tradehud_snapshot_payload(symbol)
 
-    @app.get(/api/tradehud/health)
+    @app.get("/api/tradehud/health")
     def tradehud_health() -> dict[str, object]:
         return tradehud_health_payload()
 
-    @app.get(/api/tradehud/events/replay)
+    @app.get("/api/tradehud/events/replay")
     def tradehud_replay(symbol: str | None = None) -> dict[str, object]:
         return tradehud_replay_payload(symbol)
+
+    @app.get("/api/tradehud/stream")
+    def tradehud_stream(symbol: str | None = None):
+        """SSE endpoint — read-only synthetic event stream."""
+        return tradehud_stream_response(symbol)
 
     @app.get("/health/live")
     def health_live() -> dict[str, object]:
@@ -307,7 +312,7 @@ def create_fastapi_app(
             checks["artifact_store_error"] = artifact_store_error
         return {"ready": artifact_store_status == "ok", "checks": checks}
 
-    @app.get(/health/build)
+    @app.get("/health/build")
     def health_build_PLACEHOLDER() -> dict[str, object]:
         from packages.builder_metadata.build_info import get_build_info as _get_build_info
         return _get_build_info().model_dump()
