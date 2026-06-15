@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   PlayCircleOutlined,
   SafetyCertificateOutlined,
+  LineChartOutlined,
   SettingOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
