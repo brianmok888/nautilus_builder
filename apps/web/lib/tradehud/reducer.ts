@@ -37,6 +37,7 @@ export function createInitialState(): TradeHudState {
 
     backendAvailable: false,
     feedMode: "mock",
+    feedStatus: "mock" as string,
   };
 }
 
@@ -109,6 +110,9 @@ export function reducer(state: TradeHudState, event: TradeHudEvent): TradeHudSta
 
     case "SET_BACKEND":
       return { ...state, backendAvailable: event.payload };
+
+    case "SET_FEED_STATUS":
+      return { ...state, feedStatus: event.payload.status, feedMode: event.payload.mode as 'mock' | 'snapshot' | 'sse' };
 
     default:
       return state;
