@@ -1,0 +1,2 @@
+{"order_id":"ord_001","client_order_id":"CL_ORD_001","symbol":"BTCUSDT-PERP","venue":"BINANCE_FUTURES","side":"buy","order_type":"LIMIT","price":49500.0,"qty":0.5,"filled_qty":0.5,"status":"FILLED","ts_event_ns":1700000000000000000}
+{"order_id":"ord_002","client_order_id":"CL_ORD_002","symbol":"ETHUSDT-PERP","venue":"BINANCE_FUTURES","side":"sell","order_type":"LIMIT","price":3050.0,"qty":2.0,"filled_qty":0.0,"status":"LIVE","ts_event_ns":1700000000000000000}

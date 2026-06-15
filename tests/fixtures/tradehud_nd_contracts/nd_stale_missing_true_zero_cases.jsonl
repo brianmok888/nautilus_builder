@@ -1,0 +1,4 @@
+{"event_type":"book_top","symbol":"BTCUSDT-PERP","bid_price":50000.0,"ask_price":50001.0,"bid_size":1.5,"ask_size":2.0,"mid_price":50000.5,"spread":1.0,"ts_event_ns":1699999000001000000}
+{"event_type":"trade","symbol":"BTCUSDT-PERP","price":50000.0,"qty":0.0,"side":"sell","trade_id":"zero_001","ts_event_ns":1700000000000000000,"is_liquidation":false}
+{"event_type":"book_top","symbol":"ETHUSDT-PERP","bid_price":3000.0,"ask_price":3000.1,"mid_price":3000.05,"spread":0.1,"ts_event_ns":1700000000000000000}
+{"event_type":"missing_stream","stream":"nd.market.bars"}

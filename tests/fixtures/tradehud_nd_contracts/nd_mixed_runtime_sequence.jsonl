@@ -1,0 +1,5 @@
+{"event_type":"book_top","symbol":"BTCUSDT-PERP","bid_price":50000.0,"ask_price":50001.0,"bid_size":1.5,"ask_size":2.0,"mid_price":50000.5,"spread":1.0,"ts_event_ns":1700000000000000000}
+{"event_type":"trade","symbol":"BTCUSDT-PERP","price":50000.5,"qty":0.3,"side":"buy","trade_id":"mix_001","ts_event_ns":1700000000000100000}
+{"event_type":"signal","signal_id":"mix_sig_001","symbol":"BTCUSDT-PERP","confidence_score":0.7,"direction":"long","feature_hash":"fh_mix_1","context_hash":"ch_mix_1","policy_hash":"ph_mix_1","graph_trace_hash":"gth_mix_1","ts_event_ns":1700000000000200000}
+{"event_type":"gate","decision_id":"mix_gate_001","decision":"APPROVED","reason_code":"ALL_GATES_PASSED","confidence_delta":0.05,"size_modifier":1.0,"gate_decision_hash":"gdh_mix_1","source_signal_hash":"fh_mix_1","ts_event_ns":1700000000000300000}
+{"event_type":"execution","report_id":"mix_exec_001","status":"FILLED","client_order_id":"mix_cl_001","trade_action_hash":"tah_mix_1","symbol":"BTCUSDT-PERP","side":"buy","filled_qty":0.3,"avg_fill_price":50000.5,"submit_ts_ns":1700000000000300000,"ts_event_ns":1700000000000400000}

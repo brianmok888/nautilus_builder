@@ -1,0 +1,2 @@
+{"action_id":"action_001","action":"OPEN_LONG","side":"buy","price":50001.0,"qty":0.5,"trade_action_hash":"tah_001","source_gate_decision_hash":"gdh_001","created_by":"run_gate_engine","ts_event_ns":1700000000000000000}
+{"action_id":"action_002","action":"CLOSE_LONG","side":"sell","price":51000.0,"qty":0.5,"trade_action_hash":"tah_002","source_gate_decision_hash":"gdh_004","created_by":"run_gate_engine","ts_event_ns":1700000000001000000}

@@ -1,0 +1,2 @@
+{"symbol":"BTCUSDT-PERP","venue":"BINANCE_FUTURES","bid_price":50000.0,"ask_price":50001.0,"bid_size":1.5,"ask_size":2.0,"mid_price":50000.5,"spread":1.0,"spread_bps":0.2,"microprice":50000.7,"ts_event_ns":1700000000000000000}
+{"symbol":"ETHUSDT-PERP","venue":"BINANCE_FUTURES","bid_price":3000.0,"ask_price":3000.1,"bid_size":10.0,"ask_size":15.0,"mid_price":3000.05,"spread":0.1,"spread_bps":0.33,"microprice":3000.06,"ts_event_ns":1700000000001000000}

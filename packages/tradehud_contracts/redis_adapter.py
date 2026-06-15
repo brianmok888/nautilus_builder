@@ -361,10 +361,8 @@ def _parse_trade_action(data: dict[str, Any]) -> TradeActionEvidenceModel | None
         return None
     price = to_optional_float(data.get("price"))
     qty = to_optional_float(data.get("qty"))
-    if price is None or qty is None or ts is None:
-        return None
     ts = to_optional_int(data.get("ts_event_ns"))
-    if ts is None:
+    if price is None or qty is None or ts is None:
         return None
     return TradeActionEvidenceModel(
         action_id=to_optional_str(data.get("action_id")) or "unknown",

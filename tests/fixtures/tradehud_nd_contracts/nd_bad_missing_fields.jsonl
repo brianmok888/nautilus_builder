@@ -1,0 +1,4 @@
+{"event_type":"book_top","symbol":"BTCUSDT-PERP","bid_price":50000.0,"ts_event_ns":1700000000000000000}
+{"event_type":"trade","symbol":"BTCUSDT-PERP","price":50000.0,"ts_event_ns":1700000000000000000}
+{"event_type":"trade","symbol":"BTCUSDT-PERP","price":50000.0,"qty":0.5}
+{"event_type":"signal","signal_id":"bad_sig","confidence_score":0.5,"direction":"long","feature_hash":"","context_hash":"","policy_hash":"","graph_trace_hash":""}

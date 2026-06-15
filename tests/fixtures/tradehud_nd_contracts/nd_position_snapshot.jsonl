@@ -1,0 +1,2 @@
+{"symbol":"BTCUSDT-PERP","venue":"BINANCE_FUTURES","side":"long","qty":0.5,"entry_price":49000.0,"mark_price":50000.0,"unrealized_pnl":500.0,"realized_pnl":0.0,"margin":24500.0,"ts_event_ns":1700000000000000000}
+{"symbol":"ETHUSDT-PERP","venue":"BINANCE_FUTURES","side":"short","qty":2.0,"entry_price":3100.0,"mark_price":3000.0,"unrealized_pnl":200.0,"realized_pnl":0.0,"margin":6200.0,"ts_event_ns":1700000000000000000}

@@ -1,0 +1,1 @@
+{"trace_id":"trace_001","tick_receive_ts_ns":1700000000000000000,"signal_ts_ns":1700000000000001000,"gate_ts_ns":1700000000000002000,"execution_ts_ns":1700000000000003000,"tick_to_signal_us":1,"signal_to_gate_us":1,"gate_to_execution_us":1,"total_tick_to_trade_us":3,"ts_event_ns":1700000000000003000}

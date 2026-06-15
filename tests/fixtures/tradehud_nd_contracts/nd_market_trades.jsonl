@@ -1,0 +1,3 @@
+{"symbol":"BTCUSDT-PERP","price":50000.5,"qty":0.5,"notional":25000.25,"side":"buy","aggressor":"buy","trade_id":"trade_001","ts_event_ns":1700000000000000000,"is_large_trade":false,"is_sweep":false,"is_liquidation":false}
+{"symbol":"BTCUSDT-PERP","price":50001.0,"qty":5.0,"notional":250005.0,"side":"sell","aggressor":"sell","trade_id":"trade_002","ts_event_ns":1700000000000500000,"is_large_trade":true,"is_sweep":false,"is_liquidation":false}
+{"symbol":"ETHUSDT-PERP","price":3000.05,"qty":20.0,"notional":60001.0,"side":"buy","aggressor":"buy","trade_id":"trade_003","ts_event_ns":1700000000001000000,"is_large_trade":false,"is_sweep":true,"is_liquidation":false}
