@@ -35,20 +35,20 @@ class MarketBookTopModel(SourceFreshnessMeta):
     symbol: str
     bid_price: float
     ask_price: float
-    bid_size: float
-    ask_size: float
+    bid_size: float | None = None
+    ask_size: float | None = None
     mid_price: float
     spread: float
-    spread_bps: float
-    microprice: float
+    spread_bps: float | None = None
+    microprice: float | None = None
     ts_event_ns: int
 
 
 class BookLevelModel(BaseModel):
     price: float
     size: float
-    total: float
-    age_ms: int
+    total: float | None = None
+    age_ms: int | None = None
     source: str = "mock"
 
 
@@ -57,9 +57,9 @@ class MarketBookL2Model(SourceFreshnessMeta):
     bids: list[BookLevelModel]
     asks: list[BookLevelModel]
     spread: float
-    spread_bps: float
-    microprice: float
-    top5_imbalance: float
+    spread_bps: float | None = None
+    microprice: float | None = None
+    top5_imbalance: float | None = None
     checksum: str | None = None
     ts_event_ns: int
 
@@ -103,8 +103,8 @@ class GateDecisionModel(SourceFreshnessMeta):
     decision: Literal["APPROVED", "HOLD", "REJECTED"]
     first_blocking_gate: str | None = None
     reason_code: str
-    confidence_delta: float
-    size_modifier: float
+    confidence_delta: float | None = None
+    size_modifier: float | None = None
     target_hint: float | None = None
     invalidation_hint: float | None = None
     gate_decision_hash: str
@@ -152,10 +152,10 @@ class AccountSnapshotModel(SourceFreshnessMeta):
     venue: str
     balance: float
     equity: float
-    available_margin: float
-    margin_used: float
-    unrealized_pnl: float
-    realized_pnl: float
+    available_margin: float | None = None
+    margin_used: float | None = None
+    unrealized_pnl: float | None = None
+    realized_pnl: float | None = None
     currency: str = "USDT"
     ts_event_ns: int
 
@@ -165,11 +165,11 @@ class PositionSnapshotModel(SourceFreshnessMeta):
     venue: str
     side: Literal["long", "short", "flat"]
     qty: float
-    entry_price: float
-    mark_price: float
-    unrealized_pnl: float
-    realized_pnl: float
-    margin: float
+    entry_price: float | None = None
+    mark_price: float | None = None
+    unrealized_pnl: float | None = None
+    realized_pnl: float | None = None
+    margin: float | None = None
     ts_event_ns: int
 
 

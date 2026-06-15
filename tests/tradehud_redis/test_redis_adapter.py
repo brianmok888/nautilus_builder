@@ -50,6 +50,7 @@ from packages.tradehud_contracts.redis_adapter import (
     _parse_signal,
     _parse_gate,
     _parse_trade_action,
+    _parse_book_l2,
     _parse_execution,
 )
 
@@ -427,11 +428,31 @@ def test_stream_health_unavailable_when_disconnected():
     assert "nd.market.book_top" in health["streams_unavailable"]
 
 
-def test_stream_health_seed_marks_synthetic():
+def test_stream_health_seed_fresh_is_live():
+    """Phase 3: Fresh XREVRANGE seeded Redis record is NOT synthetic — it's live."""
     config = TradeHudRedisConfig.from_env()
     tracker = StreamHealthTracker(config)
+    tracker.mark_connected(True)
     tracker.record_seed("book_top", "1-0", int(time.time() * 1e9))
-    assert tracker.get_stream_status("book_top") == "synthetic"
+    assert tracker.get_stream_status("book_top") == "live"
+
+
+def test_stream_health_seed_old_is_stale():
+    """Phase 3: Old XREVRANGE seeded Redis record is stale, not synthetic."""
+    config = TradeHudRedisConfig.from_env()
+    tracker = StreamHealthTracker(config)
+    tracker.mark_connected(True)
+    old_ts = int((time.time() - 9999) * 1e9)  # Very old timestamp
+    tracker.record_seed("book_top", "1-0", old_ts)
+    assert tracker.get_stream_status("book_top") == "stale"
+
+
+def test_stream_health_seed_no_timestamp_is_unknown():
+    """Phase 3: Seeded entry with no timestamp is unknown."""
+    config = TradeHudRedisConfig.from_env()
+    tracker = StreamHealthTracker(config)
+    tracker.record_seed("book_top", "1-0", None)
+    assert tracker.get_stream_status("book_top") == "unknown"
 
 
 def test_stream_health_seed_no_entry_marks_missing():
@@ -577,3 +598,108 @@ def test_config_no_next_public():
     src = inspect.getsource(__import__("packages.tradehud_contracts.config", fromlist=[""]))
     src_clean = _strip_docstrings(src)
     assert "NEXT_PUBLIC_" not in src_clean
+
+
+# ─── Phase 1: Missing trade timestamp must not become zero ────────────────────
+
+def test_missing_trade_ts_rejected():
+    """Phase 1: Trade with missing ts_event_ns is rejected (returns None)."""
+    result = _parse_trade({"price": "50000", "qty": "0.5"})  # no ts_event_ns
+    assert result is None
+
+
+def test_missing_trade_ts_does_not_become_zero():
+    """Phase 1: Missing timestamp never emits ts_event_ns=0."""
+    result = _parse_trade({"price": "50000", "qty": "0.5"})
+    if result is not None:
+        assert result.ts_event_ns != 0
+
+
+def test_valid_trade_timestamp_passes():
+    """Phase 1: Valid trade with timestamp passes through correctly."""
+    result = _parse_trade({"price": "50000", "qty": "0.5", "ts_event_ns": "123456789"})
+    assert result is not None
+    assert result.ts_event_ns == 123456789
+
+
+# ─── Phase 2: Missing numeric fields must not become zero ─────────────────────
+
+def test_missing_book_top_bid_size_is_none():
+    """Phase 2: Missing bid_size becomes None, not 0.0."""
+    result = _parse_book_top({"bid_price": "100", "ask_price": "101", "ts_event_ns": "1000"})
+    assert result is not None
+    assert result.bid_size is None
+
+
+def test_missing_book_top_ask_size_is_none():
+    """Phase 2: Missing ask_size becomes None, not 0.0."""
+    result = _parse_book_top({"bid_price": "100", "ask_price": "101", "ts_event_ns": "1000"})
+    assert result is not None
+    assert result.ask_size is None
+
+
+def test_missing_book_top_spread_bps_is_none():
+    """Phase 2: Missing spread_bps becomes None, not 0.0."""
+    result = _parse_book_top({"bid_price": "100", "ask_price": "101", "ts_event_ns": "1000"})
+    assert result is not None
+    assert result.spread_bps is None
+
+
+def test_missing_account_margin_is_none():
+    """Phase 2: Missing available_margin becomes None, not 0.0."""
+    result = _parse_account({"balance": "10000", "ts_event_ns": "1000"})
+    assert result is not None
+    assert result.available_margin is None
+
+
+def test_missing_position_entry_price_is_none():
+    """Phase 2: Missing entry_price becomes None, not 0.0."""
+    result = _parse_positions({"positions": [{"qty": "0.5", "ts_event_ns": "1000"}]})
+    assert len(result) == 1
+    assert result[0].entry_price is None
+
+
+def test_missing_l2_price_skips_level():
+    """Phase 2: L2 level with missing price is skipped, not zero-filled."""
+    data = {
+        "bids": [{"size": "1.0"}],  # missing price
+        "asks": [{"price": "101", "size": "1.0"}],
+        "ts_event_ns": "1000",
+    }
+    result = _parse_book_l2(data)
+    assert result is not None
+    assert len(result.bids) == 0  # level skipped
+    assert len(result.asks) == 1
+
+
+def test_explicit_zero_stays_zero_in_positions():
+    """Phase 2: Explicit 0.0 in position fields stays 0.0."""
+    result = _parse_positions({"positions": [{
+        "qty": "0.5", "ts_event_ns": "1000",
+        "entry_price": "0.0", "margin": "0.0",
+    }]})
+    assert len(result) == 1
+    assert result[0].entry_price == 0.0
+    assert result[0].margin == 0.0
+
+
+# ─── Phase 3: XREVRANGE seed health labeling ───────────────────────────────────
+
+def test_fresh_seed_is_not_synthetic():
+    """Phase 3: Fresh seeded Redis entry must not be labeled synthetic."""
+    config = TradeHudRedisConfig.from_env()
+    tracker = StreamHealthTracker(config)
+    tracker.mark_connected(True)
+    fresh_ts = int(time.time() * 1e9)
+    tracker.record_seed("trades", "1-0", fresh_ts)
+    status = tracker.get_stream_status("trades")
+    assert status != "synthetic"
+    assert status in ("live", "redis_seeded")
+
+
+def test_missing_stream_seed_is_missing():
+    """Phase 3: Empty stream seed is missing."""
+    config = TradeHudRedisConfig.from_env()
+    tracker = StreamHealthTracker(config)
+    tracker.record_seed("trades", None, None)
+    assert tracker.get_stream_status("trades") == "missing"

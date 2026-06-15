@@ -72,16 +72,18 @@ def _parse_book_top(data: dict[str, Any]) -> MarketBookTopModel | None:
     ask = to_optional_float(data.get("ask_price"))
     if bid is None or ask is None:
         return None  # Missing critical fields — not zero-filled
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return MarketBookTopModel(
         symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
         bid_price=bid,
         ask_price=ask,
-        bid_size=to_optional_float(data.get("bid_size")) or 0.0,
-        ask_size=to_optional_float(data.get("ask_size")) or 0.0,
+        bid_size=to_optional_float(data.get("bid_size")),
+        ask_size=to_optional_float(data.get("ask_size")),
         mid_price=to_optional_float(data.get("mid_price")) or ((bid + ask) / 2),
         spread=to_optional_float(data.get("spread")) or (ask - bid),
-        spread_bps=to_optional_float(data.get("spread_bps")) or 0.0,
+        spread_bps=to_optional_float(data.get("spread_bps")),
         microprice=to_optional_float(data.get("microprice")) or ((bid + ask) / 2),
         ts_event_ns=ts,
         source_available=True,
@@ -99,35 +101,41 @@ def _parse_book_l2(data: dict[str, Any]) -> MarketBookL2Model | None:
     asks_raw = data.get("asks", [])
     if not bids_raw and not asks_raw:
         return None
-    bids = [
-        BookLevelModel(
-            price=to_optional_float(b.get("price")) or 0.0,
-            size=to_optional_float(b.get("size")) or 0.0,
-            total=to_optional_float(b.get("total")) or 0.0,
-            age_ms=to_optional_int(b.get("age_ms")) or 0,
+    bids = []
+    for b in bids_raw:
+        bp = to_optional_float(b.get("price"))
+        bs = to_optional_float(b.get("size"))
+        if bp is None or bs is None:
+            continue
+        bids.append(BookLevelModel(
+            price=bp, size=bs,
+            total=to_optional_float(b.get("total")),
+            age_ms=to_optional_int(b.get("age_ms")),
             source=b.get("source", "redis"),
-        )
-        for b in bids_raw
-    ]
-    asks = [
-        BookLevelModel(
-            price=to_optional_float(a.get("price")) or 0.0,
-            size=to_optional_float(a.get("size")) or 0.0,
-            total=to_optional_float(a.get("total")) or 0.0,
-            age_ms=to_optional_int(a.get("age_ms")) or 0,
+        ))
+    asks = []
+    for a in asks_raw:
+        ap = to_optional_float(a.get("price"))
+        asz = to_optional_float(a.get("size"))
+        if ap is None or asz is None:
+            continue
+        asks.append(BookLevelModel(
+            price=ap, size=asz,
+            total=to_optional_float(a.get("total")),
+            age_ms=to_optional_int(a.get("age_ms")),
             source=a.get("source", "redis"),
-        )
-        for a in asks_raw
-    ]
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+        ))
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return MarketBookL2Model(
         symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
         bids=bids,
         asks=asks,
         spread=to_optional_float(data.get("spread")) or 0.0,
-        spread_bps=to_optional_float(data.get("spread_bps")) or 0.0,
-        microprice=to_optional_float(data.get("microprice")) or 0.0,
-        top5_imbalance=to_optional_float(data.get("top5_imbalance")) or 0.0,
+        spread_bps=to_optional_float(data.get("spread_bps")),
+        microprice=to_optional_float(data.get("microprice")),
+        top5_imbalance=to_optional_float(data.get("top5_imbalance")),
         checksum=to_optional_str(data.get("checksum")),
         ts_event_ns=ts,
         source_available=True,
@@ -147,7 +155,7 @@ def _parse_trade(data: dict[str, Any]) -> MarketTradeModel | None:
     ts = to_optional_int(data.get("ts_event_ns"))
 
     # Required fields — missing price/qty/ts = invalid record
-    if price is None or qty is None:
+    if price is None or qty is None or ts is None:
         return None
 
     is_liq, liq_side = detect_force_liquidation(data)
@@ -169,9 +177,9 @@ def _parse_trade(data: dict[str, Any]) -> MarketTradeModel | None:
         is_sweep=flags["is_sweep"],
         is_liquidation=is_liq,
         liq_side=liq_side,  # type: ignore
-        ts_event_ns=ts or 0,
+        ts_event_ns=ts,
         source_available=True,
-        last_update_ts_ns=ts or 0,
+        last_update_ts_ns=ts,
         receive_ts_ns=_ns(),
         stale=False,
         missing=False,
@@ -184,16 +192,18 @@ def _parse_account(data: dict[str, Any]) -> AccountSnapshotModel | None:
     bal = to_optional_float(data.get("balance"))
     if bal is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return AccountSnapshotModel(
         account_id=to_optional_str(data.get("account_id")) or "unknown",
         venue=to_optional_str(data.get("venue")) or "UNKNOWN",
         balance=bal,
         equity=to_optional_float(data.get("equity")) or bal,
-        available_margin=to_optional_float(data.get("available_margin")) or 0.0,
-        margin_used=to_optional_float(data.get("margin_used")) or 0.0,
-        unrealized_pnl=to_optional_float(data.get("unrealized_pnl")) or 0.0,
-        realized_pnl=to_optional_float(data.get("realized_pnl")) or 0.0,
+        available_margin=to_optional_float(data.get("available_margin")),
+        margin_used=to_optional_float(data.get("margin_used")),
+        unrealized_pnl=to_optional_float(data.get("unrealized_pnl")),
+        realized_pnl=to_optional_float(data.get("realized_pnl")),
         currency=to_optional_str(data.get("currency")) or "USDT",
         ts_event_ns=ts,
         source_available=True,
@@ -223,17 +233,19 @@ def _parse_positions(data: dict[str, Any]) -> list[PositionSnapshotModel]:
         qty = to_optional_float(p.get("qty"))
         if qty is None:
             continue
-        ts = to_optional_int(p.get("ts_event_ns")) or 0
+        ts = to_optional_int(p.get("ts_event_ns"))
+        if ts is None:
+            continue
         positions.append(PositionSnapshotModel(
             symbol=to_optional_str(p.get("symbol")) or "UNKNOWN",
             venue=to_optional_str(p.get("venue")) or "UNKNOWN",
             side=to_optional_str(p.get("side")) or "flat",
             qty=qty,
-            entry_price=to_optional_float(p.get("entry_price")) or 0.0,
-            mark_price=to_optional_float(p.get("mark_price")) or 0.0,
-            unrealized_pnl=to_optional_float(p.get("unrealized_pnl")) or 0.0,
-            realized_pnl=to_optional_float(p.get("realized_pnl")) or 0.0,
-            margin=to_optional_float(p.get("margin")) or 0.0,
+            entry_price=to_optional_float(p.get("entry_price")),
+            mark_price=to_optional_float(p.get("mark_price")),
+            unrealized_pnl=to_optional_float(p.get("unrealized_pnl")),
+            realized_pnl=to_optional_float(p.get("realized_pnl")),
+            margin=to_optional_float(p.get("margin")),
             ts_event_ns=ts,
             source_available=True,
             last_update_ts_ns=ts,
@@ -257,7 +269,9 @@ def _parse_open_orders(data: dict[str, Any]) -> list[OpenOrderSnapshotModel]:
         price = to_optional_float(o.get("price"))
         if price is None:
             continue
-        ts = to_optional_int(o.get("ts_event_ns")) or 0
+        ts = to_optional_int(o.get("ts_event_ns"))
+        if ts is None:
+            continue
         orders.append(OpenOrderSnapshotModel(
             order_id=to_optional_str(o.get("order_id")) or "unknown",
             client_order_id=to_optional_str(o.get("client_order_id")) or "unknown",
@@ -266,8 +280,8 @@ def _parse_open_orders(data: dict[str, Any]) -> list[OpenOrderSnapshotModel]:
             side=to_optional_str(o.get("side")) or "buy",
             order_type=to_optional_str(o.get("order_type")) or "LIMIT",
             price=price,
-            qty=to_optional_float(o.get("qty")) or 0.0,
-            filled_qty=to_optional_float(o.get("filled_qty")) or 0.0,
+            qty=qty,
+            filled_qty=qty,
             status=to_optional_str(o.get("status")) or "LIVE",
             ts_event_ns=ts,
             source_available=True,
@@ -285,7 +299,9 @@ def _parse_signal(data: dict[str, Any]) -> StrategySignalPreviewModel | None:
     conf = to_optional_float(data.get("confidence_score"))
     if conf is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return StrategySignalPreviewModel(
         signal_id=to_optional_str(data.get("signal_id")) or "unknown",
         symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
@@ -314,13 +330,15 @@ def _parse_gate(data: dict[str, Any]) -> GateDecisionModel | None:
     decision = to_optional_str(data.get("decision"))
     if decision is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return GateDecisionModel(
         decision_id=to_optional_str(data.get("decision_id")) or "unknown",
         decision=decision,
         first_blocking_gate=to_optional_str(data.get("first_blocking_gate")),
         reason_code=to_optional_str(data.get("reason_code")) or "",
-        confidence_delta=to_optional_float(data.get("confidence_delta")) or 0.0,
+        confidence_delta=to_optional_float(data.get("confidence_delta")),
         size_modifier=to_optional_float(data.get("size_modifier")) or 1.0,
         target_hint=to_optional_float(data.get("target_hint")),
         invalidation_hint=to_optional_float(data.get("invalidation_hint")),
@@ -343,9 +361,11 @@ def _parse_trade_action(data: dict[str, Any]) -> TradeActionEvidenceModel | None
         return None
     price = to_optional_float(data.get("price"))
     qty = to_optional_float(data.get("qty"))
-    if price is None or qty is None:
+    if price is None or qty is None or ts is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return TradeActionEvidenceModel(
         action_id=to_optional_str(data.get("action_id")) or "unknown",
         action=action,
@@ -373,7 +393,9 @@ def _parse_execution(data: dict[str, Any]) -> ExecutionReportModel | None:
     submit_ts = to_optional_int(data.get("submit_ts_ns"))
     if submit_ts is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return ExecutionReportModel(
         report_id=to_optional_str(data.get("report_id")) or "unknown",
         status=status,
@@ -382,7 +404,7 @@ def _parse_execution(data: dict[str, Any]) -> ExecutionReportModel | None:
         trade_action_hash=to_optional_str(data.get("trade_action_hash")) or "",
         symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
         side=to_optional_str(data.get("side")) or "buy",
-        filled_qty=to_optional_float(data.get("filled_qty")) or 0.0,
+        filled_qty=to_optional_float(data.get("filled_qty")) or 0,
         avg_fill_price=to_optional_float(data.get("avg_fill_price")),
         submit_ts_ns=submit_ts,
         ack_ts_ns=to_optional_int(data.get("ack_ts_ns")),
@@ -405,15 +427,19 @@ def _parse_quant_levels(data: dict[str, Any]) -> QuantLevelsContextModel | None:
     levels_raw = data.get("levels", [])
     if not levels_raw:
         return None
-    levels = [
-        QuantLevelModel(
+    levels = []
+    for l in levels_raw:
+        lp = to_optional_float(l.get("price"))
+        if lp is None:
+            continue
+        levels.append(QuantLevelModel(
             label=l.get("label", ""),
-            price=to_optional_float(l.get("price")) or 0.0,
+            price=lp,
             kind=l.get("kind", "pivot"),
-        )
-        for l in levels_raw
-    ]
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+        ))
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
     return QuantLevelsContextModel(
         symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
         levels=levels,
@@ -432,13 +458,21 @@ def _parse_tick_to_trade(data: dict[str, Any]) -> TickToTradeTraceModel | None:
     total = to_optional_int(data.get("total_tick_to_trade_us"))
     if total is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns")) or 0
+    ts = to_optional_int(data.get("ts_event_ns"))
+    if ts is None:
+        return None
+    tick_recv = to_optional_int(data.get("tick_receive_ts_ns"))
+    sig_ts = to_optional_int(data.get("signal_ts_ns"))
+    gate_ts = to_optional_int(data.get("gate_ts_ns"))
+    exec_ts = to_optional_int(data.get("execution_ts_ns"))
+    if any(v is None for v in (tick_recv, sig_ts, gate_ts, exec_ts)):
+        return None
     return TickToTradeTraceModel(
         trace_id=to_optional_str(data.get("trace_id")) or "unknown",
-        tick_receive_ts_ns=to_optional_int(data.get("tick_receive_ts_ns")) or 0,
-        signal_ts_ns=to_optional_int(data.get("signal_ts_ns")) or 0,
-        gate_ts_ns=to_optional_int(data.get("gate_ts_ns")) or 0,
-        execution_ts_ns=to_optional_int(data.get("execution_ts_ns")) or 0,
+        tick_receive_ts_ns=tick_recv,
+        signal_ts_ns=sig_ts,
+        gate_ts_ns=gate_ts,
+        execution_ts_ns=exec_ts,
         tick_to_signal_us=to_optional_int(data.get("tick_to_signal_us")) or 0,
         signal_to_gate_us=to_optional_int(data.get("signal_to_gate_us")) or 0,
         gate_to_execution_us=to_optional_int(data.get("gate_to_execution_us")) or 0,

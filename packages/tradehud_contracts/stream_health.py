@@ -48,7 +48,7 @@ class StreamHealthTracker:
         self._connected = connected
         if not connected:
             for entry in self._streams.values():
-                if entry.status not in ("synthetic", "unknown"):
+                if entry.status not in ("unknown",):
                     entry.status = "unavailable"
                     entry.last_error = "redis_unavailable"
         else:
@@ -70,7 +70,11 @@ class StreamHealthTracker:
             entry.status = "live"
 
     def record_seed(self, logical_name: str, entry_id: str | None, event_ts_ns: int | None) -> None:
-        """Record a seeded/initial entry from XREVRANGE."""
+        """Record a seeded/initial entry from XREVRANGE.
+
+        Real Redis data seeded via XREVRANGE is NOT synthetic.
+        Status is determined by freshness of the event timestamp.
+        """
         if logical_name not in self._streams:
             return
         entry = self._streams[logical_name]
@@ -80,10 +84,18 @@ class StreamHealthTracker:
             entry.last_event_ts_ns = event_ts_ns
         entry.last_receive_ts_ns = int(time.time() * 1_000_000_000)
         entry.events_seen += 1
-        if entry_id:
-            entry.status = "synthetic"  # seeded, not live
-        else:
+        if not entry_id:
             entry.status = "missing"
+        elif event_ts_ns:
+            now_ms = int(time.time() * 1_000)
+            age = now_ms - (event_ts_ns // 1_000_000)
+            entry.age_ms = age
+            if age > self._config.stream_stale_ms:
+                entry.status = "stale"
+            else:
+                entry.status = "live"  # Real Redis data, fresh
+        else:
+            entry.status = "unknown"  # Has entry but no timestamp
 
     def record_error(self, logical_name: str, error: str) -> None:
         if logical_name not in self._streams:
@@ -118,12 +130,10 @@ class StreamHealthTracker:
                 age = now_ms - event_ms
                 entry.age_ms = age
                 if age > self._config.stream_stale_ms:
-                    if entry.status != "synthetic":
-                        entry.status = "stale"
-                    if entry.status == "stale":
-                        stale.append(entry.stream_key)
+                    entry.status = "stale"
+                    stale.append(entry.stream_key)
                 else:
-                    if self._connected and entry.status != "synthetic":
+                    if self._connected:
                         entry.status = "live"
                 seen.append(entry.stream_key)
             elif entry.last_entry_id:
