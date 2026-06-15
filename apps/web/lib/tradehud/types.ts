@@ -339,6 +339,7 @@ export interface TradeHudState {
 
   backendAvailable: boolean;
   feedMode: "mock" | "snapshot" | "sse";
+  feedStatus: string;
 }
 
 // ─── Reducer events ────────────────────────────────────────────────────────────
@@ -364,7 +365,8 @@ export type TradeHudEvent =
   | { type: "RUNTIME_HEALTH"; payload: RuntimeHealth }
   | { type: "SNAPSHOT"; payload: Partial<TradeHudState> }
   | { type: "SET_MODE"; payload: "paper" | "live" | "backtest" }
-  | { type: "SET_BACKEND"; payload: boolean };
+  | { type: "SET_BACKEND"; payload: boolean }
+  | { type: "SET_FEED_STATUS"; payload: { status: string; mode: string } };
 
 // ─── Limits ────────────────────────────────────────────────────────────────────
 

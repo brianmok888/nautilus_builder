@@ -29,6 +29,8 @@ from services.api.routes.market_catalog import adapters_payload, data_availabili
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
 from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.tradehud import tradehud_snapshot_payload, tradehud_health_payload, tradehud_replay_payload
+from services.api.routes.tradehud_sse import tradehud_event_stream
+from fastapi.responses import StreamingResponse
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.readiness import readiness_payload
 from services.api.routes.evidence import create_evidence, get_evidence, verify_evidence, list_evidence_for_strategy
