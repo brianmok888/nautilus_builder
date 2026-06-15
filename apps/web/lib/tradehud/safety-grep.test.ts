@@ -121,3 +121,60 @@ describe("TradeHUD safety grep — hardened", () => {
     expect(violations).toEqual([]);
   });
 });
+
+/**
+ * SSE Gateway safety grep — scans backend SSE route + demo server.
+ * These must also be free of executable authority and credentials.
+ */
+const SSE_BACKEND_FILES = [
+  join(process.cwd(), "..", "..", "services", "api", "routes", "tradehud_sse.py"),
+  join(process.cwd(), "..", "..", "services", "api", "routes", "tradehud.py"),
+  join(process.cwd(), "..", "..", "sse_demo_server.py"),
+];
+
+const SSE_FORBIDDEN = [
+  { pattern: /submit_order\s*\(/i, label: "submit_order() call" },
+  { pattern: /force_approve\s*\(/i, label: "force_approve() call" },
+  { pattern: /exchange_api_key\s*[:=]/i, label: "exchange_api_key assignment" },
+  { pattern: /secret_key\s*[:=]/i, label: "secret_key assignment" },
+  { pattern: /private_key\s*[:=]/i, label: "private_key assignment" },
+  { pattern: /BINANCE_SECRET/i, label: "BINANCE_SECRET env reference" },
+  { pattern: /BYBIT_SECRET/i, label: "BYBIT_SECRET env reference" },
+  { pattern: /OKX_SECRET/i, label: "OKX_SECRET env reference" },
+  { pattern: /DERIBIT_SECRET/i, label: "DERIBIT_SECRET env reference" },
+  { pattern: /POLYMARKET_PRIVATE_KEY/i, label: "POLYMARKET_PRIVATE_KEY reference" },
+  { pattern: /NEXT_PUBLIC_REDIS_URL/i, label: "Redis URL in browser env" },
+  { pattern: /NEXT_PUBLIC_DATABASE_URL/i, label: "Database URL in browser env" },
+];
+
+describe("SSE backend safety grep", () => {
+  it("demo server is local-only documented", () => {
+    const demoPath = join(process.cwd(), "..", "..", "sse_demo_server.py");
+    if (!existsSync(demoPath)) return;
+    const content = readFileSync(demoPath, "utf-8");
+    expect(content).toContain("LOCAL DEVELOPMENT ONLY");
+    expect(content).toContain("Do not use this as production");
+  });
+
+  it("no forbidden patterns in SSE backend files", () => {
+    const violations: string[] = [];
+    for (const file of SSE_BACKEND_FILES) {
+      if (!existsSync(file)) continue;
+      const content = readFileSync(file, "utf-8");
+      for (const { pattern, label } of SSE_FORBIDDEN) {
+        if (pattern.test(content)) {
+          violations.push(`${file.split("/").slice(-2).join("/")}: ${label}`);
+        }
+      }
+    }
+    expect(violations, `Forbidden patterns in SSE backend:\n${violations.join("\n")}`).toEqual([]);
+  });
+
+  it("no POST route definitions in SSE route files", () => {
+    for (const file of SSE_BACKEND_FILES) {
+      if (!existsSync(file)) continue;
+      const content = readFileSync(file, "utf-8");
+      expect(content).not.toMatch(/@app\.(post|put|patch|delete)/i);
+    }
+  });
+});

@@ -2,12 +2,20 @@
  * Feed client — supports mock, snapshot API, and SSE modes.
  * Default: mock (safe, no backend required).
  *
+ * SSE mode features:
+ * - Named event listeners (snapshot, tradehud_event, ping)
+ * - Auto-fallback to mock feed if SSE connection fails after bounded retries
+ * - Bounded exponential backoff with jitter (500ms initial, 15s max)
+ * - Connection status tracking via SET_FEED_STATUS events
+ * - Clean teardown on component unmount — closes EventSource, clears timers
+ *
  * No browser secrets. No Redis URL. No exchange API key.
  */
 import type { TradeHudEvent } from "./types";
 import { MockFeed } from "./mock-feed";
 
 export type FeedMode = "mock" | "snapshot" | "sse";
+export type FeedStatus = "connecting" | "live" | "reconnecting" | "fallback" | "mock";
 
 function getEnvMode(): FeedMode {
   const mode = process.env.NEXT_PUBLIC_TRADEHUD_FEED_MODE;
@@ -49,6 +57,7 @@ function createMockFeed(symbol: string): FeedController {
     start(dispatch) {
       // Emit initial snapshot
       dispatch({ type: "SET_BACKEND", payload: false });
+      dispatch({ type: "SET_FEED_STATUS", payload: { status: "mock", mode: "mock" } });
       dispatch({
         type: "SNAPSHOT",
         payload: {
@@ -116,15 +125,18 @@ function createSnapshotFeed(symbol: string): FeedController {
   return {
     mode: "snapshot",
     start(dispatch) {
+      dispatch({ type: "SET_FEED_STATUS", payload: { status: "connecting", mode: "snapshot" } });
       const poll = async () => {
         try {
           const res = await fetch(`${base}/api/tradehud/snapshot?symbol=${encodeURIComponent(symbol)}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
           dispatch({ type: "SET_BACKEND", payload: true });
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "snapshot" } });
           dispatch({ type: "SNAPSHOT", payload: data });
         } catch {
           dispatch({ type: "SET_BACKEND", payload: false });
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "fallback", mode: "snapshot" } });
         }
       };
       poll();
@@ -136,33 +148,122 @@ function createSnapshotFeed(symbol: string): FeedController {
   };
 }
 
-// ─── SSE feed controller ──────────────────────────────────────────────────────
+// ─── SSE feed controller with bounded backoff + auto-fallback ──────────────────
+
+const SSE_MAX_RETRIES = 5;
+const SSE_BACKOFF_INITIAL = 500;
+const SSE_BACKOFF_MAX = 15000;
+
+/** Bounded exponential backoff with small jitter. */
+function backoffDelay(attempt: number): number {
+  const base = Math.min(SSE_BACKOFF_INITIAL * 2 ** attempt, SSE_BACKOFF_MAX);
+  const jitter = base * 0.1 * (Math.random() * 2 - 1); // ±10%
+  return Math.round(base + jitter);
+}
+
+/** Dispatch a single SSE tradehud_event payload field as individual reducer events. */
+function dispatchSseEvent(data: any, dispatch: (event: TradeHudEvent) => void) {
+  if (data.book_top) dispatch({ type: "BOOK_TOP", payload: data.book_top });
+  if (data.book_l2) dispatch({ type: "BOOK_L2", payload: data.book_l2 });
+  if (data.account) dispatch({ type: "ACCOUNT", payload: data.account });
+  if (data.positions) dispatch({ type: "POSITIONS", payload: data.positions });
+  if (data.quant_levels) dispatch({ type: "QUANT_LEVELS", payload: data.quant_levels });
+  if (data.runtime_health) dispatch({ type: "RUNTIME_HEALTH", payload: data.runtime_health });
+  if (data.signal_preview) dispatch({ type: "SIGNAL_PREVIEW", payload: data.signal_preview });
+  if (data.gate_decision) dispatch({ type: "GATE_DECISION", payload: data.gate_decision });
+}
 
 function createSseFeed(symbol: string): FeedController {
   let es: EventSource | null = null;
+  let mockFallback: FeedController | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempts = 0;
+  let stopped = false;
   const base = getApiBase();
+
+  function connect(dispatch: (event: TradeHudEvent) => void) {
+    if (stopped) return;
+
+    dispatch({ type: "SET_FEED_STATUS", payload: { status: reconnectAttempts > 0 ? "reconnecting" : "connecting", mode: "sse" } });
+
+    try {
+      es = new EventSource(`${base}/api/tradehud/stream?symbol=${encodeURIComponent(symbol)}`);
+    } catch {
+      attemptFallback(dispatch);
+      return;
+    }
+
+    es.addEventListener("open", () => {
+      reconnectAttempts = 0;
+      dispatch({ type: "SET_BACKEND", payload: true });
+      dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "sse" } });
+      // Stop mock fallback if it was running
+      if (mockFallback) {
+        mockFallback.stop();
+        mockFallback = null;
+      }
+    });
+
+    es.addEventListener("error", () => {
+      es?.close();
+      es = null;
+      dispatch({ type: "SET_BACKEND", payload: false });
+
+      if (reconnectAttempts < SSE_MAX_RETRIES) {
+        dispatch({ type: "SET_FEED_STATUS", payload: { status: "reconnecting", mode: "sse" } });
+        const delay = backoffDelay(reconnectAttempts++);
+        reconnectTimer = setTimeout(() => connect(dispatch), delay);
+      } else {
+        // All reconnection attempts exhausted — fall back to mock
+        attemptFallback(dispatch);
+      }
+    });
+
+    // Named event: snapshot — initial full state
+    es.addEventListener("snapshot", (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data);
+        dispatch({ type: "SET_BACKEND", payload: true });
+        dispatchSseEvent(data, dispatch);
+      } catch {
+        // ignore malformed
+      }
+    });
+
+    // Named event: tradehud_event — periodic updates
+    es.addEventListener("tradehud_event", (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data);
+        dispatchSseEvent(data, dispatch);
+      } catch {
+        // ignore malformed
+      }
+    });
+
+    // Named event: ping — keep-alive, just track connectivity
+    es.addEventListener("ping", () => {
+      dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "sse" } });
+    });
+  }
+
+  function attemptFallback(dispatch: (event: TradeHudEvent) => void) {
+    if (mockFallback) return;
+    dispatch({ type: "SET_FEED_STATUS", payload: { status: "fallback", mode: "sse" } });
+    mockFallback = createMockFeed(symbol);
+    mockFallback.start(dispatch);
+  }
 
   return {
     mode: "sse",
     start(dispatch) {
-      try {
-        es = new EventSource(`${base}/api/tradehud/stream?symbol=${encodeURIComponent(symbol)}`);
-        es.onopen = () => dispatch({ type: "SET_BACKEND", payload: true });
-        es.onerror = () => dispatch({ type: "SET_BACKEND", payload: false });
-        es.onmessage = (ev) => {
-          try {
-            const event = JSON.parse(ev.data) as TradeHudEvent;
-            dispatch(event);
-          } catch {
-            // ignore malformed
-          }
-        };
-      } catch {
-        dispatch({ type: "SET_BACKEND", payload: false });
-      }
+      stopped = false;
+      connect(dispatch);
     },
     stop() {
-      if (es) es.close();
+      stopped = true;
+      if (es) { es.close(); es = null; }
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      if (mockFallback) { mockFallback.stop(); mockFallback = null; }
     },
   };
 }

@@ -8,6 +8,20 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
   const book = state.bookTop;
   const latency = state.tickToTrade;
 
+  // Determine feed badge text based on mode + status
+  const feedBadge = (() => {
+    if (state.feedMode === "mock") return "LOCAL MOCK";
+    if (state.feedMode === "sse") {
+      if (state.feedStatus === "live") return "SSE SYNTHETIC";
+      if (state.feedStatus === "reconnecting") return "SSE RECONNECTING";
+      if (state.feedStatus === "fallback") return "SSE FALLBACK → MOCK";
+      if (state.feedStatus === "connecting") return "SSE CONNECTING";
+      return "SSE SYNTHETIC";
+    }
+    if (state.feedMode === "snapshot") return "SNAPSHOT API";
+    return "UNKNOWN";
+  })();
+
   return (
     <div className="tradehud-topbar">
       <div className="tradehud-topbar-section">
@@ -33,6 +47,10 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
       <div className="tradehud-topbar-section">
         <span className="tradehud-topbar-label">Feed</span>
         <span className="tradehud-topbar-value">{state.feedMode.toUpperCase()}</span>
+      </div>
+      <div className="tradehud-topbar-section">
+        <span className="tradehud-topbar-label">Status</span>
+        <span className="tradehud-topbar-value">{feedBadge}</span>
       </div>
       {book && (
         <>
