@@ -28,6 +28,7 @@ from services.api.routes.health import health_payload
 from services.api.routes.market_catalog import adapters_payload, data_availability_payload, instruments_payload, validate_backtest_profile_payload
 from services.api.routes.llm_config import get_llm_config_payload, save_llm_config_payload
 from packages.runtime_events.service import RuntimeEventService
+from services.api.routes.tradehud import tradehud_snapshot_payload, tradehud_health_payload, tradehud_replay_payload
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.readiness import readiness_payload
 from services.api.routes.evidence import create_evidence, get_evidence, verify_evidence, list_evidence_for_strategy
@@ -277,6 +278,19 @@ def create_fastapi_app(
     def health() -> dict[str, object]:
         return health_payload()
 
+    # --- TradeHUD observational routes ---
+    @app.get(/api/tradehud/snapshot)
+    def tradehud_snapshot(symbol: str | None = None) -> dict[str, object]:
+        return tradehud_snapshot_payload(symbol)
+
+    @app.get(/api/tradehud/health)
+    def tradehud_health() -> dict[str, object]:
+        return tradehud_health_payload()
+
+    @app.get(/api/tradehud/events/replay)
+    def tradehud_replay(symbol: str | None = None) -> dict[str, object]:
+        return tradehud_replay_payload(symbol)
+
     @app.get("/health/live")
     def health_live() -> dict[str, object]:
         return {"status": "alive"}
@@ -291,8 +305,8 @@ def create_fastapi_app(
             checks["artifact_store_error"] = artifact_store_error
         return {"ready": artifact_store_status == "ok", "checks": checks}
 
-    @app.get("/health/build")
-    def health_build() -> dict[str, object]:
+    @app.get(/health/build)
+    def health_build_PLACEHOLDER() -> dict[str, object]:
         from packages.builder_metadata.build_info import get_build_info as _get_build_info
         return _get_build_info().model_dump()
 
