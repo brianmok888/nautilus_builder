@@ -1,6 +1,6 @@
 """TradeHUD API routes — read-only observational endpoints.
 
-No submit_order. No TradeAction creation. No credentials exposed.
+Read-only observational data. No order execution authority. No credentials.
 """
 
 from __future__ import annotations

@@ -25,6 +25,7 @@ import type {
   LaneHealth,
   AssetSnapshot,
   BookLevel,
+  ExecutionStatusType,
 } from "./types";
 import { MAX_TRADES, MAX_ORDER_EVENTS, MAX_FILLS, MAX_BARS, MAX_LIQUIDATIONS } from "./types";
 import { syntheticFreshness } from "./freshness";
@@ -312,7 +313,7 @@ export class MockFeed {
     };
   }
 
-  getTradeAction(gateHash: string): TradeActionEvidence {
+  getTradeActionEvidence(gateHash: string): TradeActionEvidence {
     const ts = this.nowNs();
     return {
       action_id: `ta_${this.tickCount}`,
@@ -330,7 +331,7 @@ export class MockFeed {
 
   getExecutionReport(): ExecutionReport {
     const ts = this.nowNs();
-    const statuses = ["FILLED", "LIVE", "PARTIAL_FILL", "CANCELED", "REJECTED"] as const;
+    const statuses: ExecutionStatusType[] = ["FILLED", "LIVE", "PARTIAL_FILL", "CANCELED", "REJECTED"];
     const status = this.rng.pick(statuses);
     const submitTs = ts - this.rng.int(100_000, 5_000_000); // ns ago
     const ackTs = status === "REJECTED" ? null : submitTs + this.rng.int(50_000, 500_000);

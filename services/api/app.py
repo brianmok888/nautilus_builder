@@ -123,9 +123,9 @@ def create_app(
         "/api/workflow/lineages/{strategy_lineage_id}/status",
         lambda strategy_lineage_id: workflow_lineage_status_payload(workflow_repository, strategy_lineage_id),
     )
-    app.route(GET, /api/tradehud/snapshot, lambda symbol=None: tradehud_snapshot_payload(symbol))
-    app.route(GET, /api/tradehud/health, tradehud_health_payload)
-    app.route(GET, /api/tradehud/events/replay, lambda symbol=None: tradehud_replay_payload(symbol))
+    app.route("GET", "/api/tradehud/snapshot", lambda symbol=None: tradehud_snapshot_payload(symbol))
+    app.route("GET", "/api/tradehud/health", tradehud_health_payload)
+    app.route("GET", "/api/tradehud/events/replay", lambda symbol=None: tradehud_replay_payload(symbol))
     return app
 
 

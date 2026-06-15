@@ -1,7 +1,8 @@
 "use client";
 
 import type { TradeHudState } from "../../lib/tradehud/types";
-import { fmtPrice, fmtBps, fmtLatency } from "../../lib/tradehud/number-format";
+import { fmtPrice, fmtBps } from "../../lib/tradehud/number-format";
+import { fmtLatency } from "../../lib/tradehud/time-format";
 
 export function TradeHudTopBar({ state }: { state: TradeHudState }) {
   const book = state.bookTop;

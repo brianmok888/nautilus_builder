@@ -93,7 +93,7 @@ function createMockFeed(symbol: string): FeedController {
           const gate = feed.getGateDecision(gateCycle);
           dispatch({ type: "GATE_DECISION", payload: gate });
           if (gate.decision === "APPROVED") {
-            const ta = feed.getTradeAction(gate.gate_decision_hash);
+            const ta = feed.getTradeActionEvidence(gate.gate_decision_hash);
             dispatch({ type: "TRADE_ACTION", payload: ta });
             dispatch({ type: "EXECUTION_REPORT", payload: feed.getExecutionReport() });
           }

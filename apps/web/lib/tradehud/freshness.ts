@@ -53,7 +53,7 @@ export function buildFreshness(
     age_ms: ageMs,
     stale,
     missing,
-    true_zero,
+    true_zero: trueZero,
     provenance,
     source_status: status,
   };
