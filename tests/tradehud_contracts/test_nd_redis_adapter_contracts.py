@@ -314,10 +314,10 @@ class TestAdapterReadOnly:
 
 
 class TestOpenOrdersParser:
-    """Tests for _parse_open_orders - nd.order.snapshot parsing."""
+    """Tests for _parse_open_orders - open_orders parsing (legacy/unsupported in ND)."""
 
     def test_valid_order_snapshot(self):
-        """Valid nd.order.snapshot record parses correctly."""
+        """Valid open_orders record parses correctly."""
         data = {
             "orders": [
                 {

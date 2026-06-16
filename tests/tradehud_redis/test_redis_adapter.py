@@ -84,21 +84,15 @@ def test_nd_namespace_stream_map():
     with patch.dict(os.environ, {"TRADEHUD_STREAM_NAMESPACE": "nd"}, clear=True):
         config = TradeHudRedisConfig.from_env()
         sm = config.get_stream_map()
-        assert sm["book_top"] == "nd.market.book_top"
-        assert sm["book_l2"] == "nd.market.book_l2"
-        assert sm["trades"] == "nd.market.trades"
-        assert sm["bars"] == "nd.market.bars"
+        assert sm["book_top"] == "nd.public_quote_tick"
+        assert sm["book_l2"] == "nd.orderbook_hot_view.tui_state"
         assert sm["signal"] == "nd.strategy_signal_preview"
         assert sm["gate"] == "nd.gate_decision"
         assert sm["trade_action"] == "nd.trade_action"
         assert sm["execution"] == "nd.execution_report"
-        assert sm["health"] == "nd.health"
-        assert sm["account"] == "nd.account.snapshot"
-        assert sm["positions"] == "nd.position.snapshot"
-        assert sm["orders"] == "nd.order.snapshot"
-        assert sm["order_events"] == "nd.order.event"
-        assert sm["quant_levels"] == "nd.quant_levels.context"
-        assert sm["tick_to_trade"] == "nd.tick_to_trade.trace"
+        assert sm["account"] == "nd.state_bundle"
+        assert sm["positions"] == "nd.state_bundle"
+        assert sm["tick_to_trade"] == "nd.latency.tick_to_trade"
 
 
 def test_legacy_namespace_stream_map():
@@ -117,7 +111,7 @@ def test_custom_stream_override():
         config = TradeHudRedisConfig.from_env()
         sm = config.get_stream_map()
         assert sm["book_top"] == "custom.book.top"
-        assert sm["book_l2"] == "nd.market.book_l2"
+        assert sm["book_l2"] == "nd.orderbook_hot_view.tui_state"
 
 
 def test_feed_source_default_is_mock():
@@ -413,7 +407,7 @@ def test_stream_health_live_after_event():
     tracker.mark_connected(True)
     tracker.record_event("book_top", "1-0", int(time.time() * 1e9))
     health = tracker.evaluate()
-    assert "nd.market.book_top" in health["streams_seen"]
+    assert "nd.public_quote_tick" in health["streams_seen"]
 
 
 def test_stream_health_unavailable_when_disconnected():
@@ -425,7 +419,7 @@ def test_stream_health_unavailable_when_disconnected():
     health = tracker.evaluate()
     # stream_details is a dict keyed by stream name
     assert health["stream_details"]["book_top"]["status"] == "unavailable"
-    assert "nd.market.book_top" in health["streams_unavailable"]
+    assert "nd.public_quote_tick" in health["streams_unavailable"]
 
 
 def test_stream_health_seed_fresh_is_live():
@@ -494,8 +488,8 @@ def test_adapter_seed_on_connect():
 
     def _xrevrange_side_effect(key, **kw):
         key_bytes = key.encode() if isinstance(key, str) else key
-        if b"book_top" in key_bytes:
-            return [(b"1-0", {b"symbol": b"BTC", b"bid_price": b"50000", b"ask_price": b"50001", b"ts_event_ns": b"1000"})]
+        if b"quote_tick" in key_bytes or b"book_top" in key_bytes:
+            return [(b"1-0", {b"instrument_id": b"BTC", b"bid": b"50000", b"ask": b"50001", b"ts_event_ns": b"1000"})]
         return []
     mock_client.xrevrange = AsyncMock(side_effect=_xrevrange_side_effect)
 
@@ -691,8 +685,8 @@ def test_fresh_seed_is_not_synthetic():
     tracker = StreamHealthTracker(config)
     tracker.mark_connected(True)
     fresh_ts = int(time.time() * 1e9)
-    tracker.record_seed("trades", "1-0", fresh_ts)
-    status = tracker.get_stream_status("trades")
+    tracker.record_seed("signal", "1-0", fresh_ts)
+    status = tracker.get_stream_status("signal")
     assert status != "synthetic"
     assert status in ("live", "redis_seeded")
 
@@ -701,5 +695,5 @@ def test_missing_stream_seed_is_missing():
     """Phase 3: Empty stream seed is missing."""
     config = TradeHudRedisConfig.from_env()
     tracker = StreamHealthTracker(config)
-    tracker.record_seed("trades", None, None)
-    assert tracker.get_stream_status("trades") == "missing"
+    tracker.record_seed("signal", None, None)
+    assert tracker.get_stream_status("signal") == "missing"

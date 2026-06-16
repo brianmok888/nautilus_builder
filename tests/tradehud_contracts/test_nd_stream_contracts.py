@@ -16,14 +16,12 @@ class TestNDStreamNamespace:
         c = TradeHudRedisConfig()
         sm = c.get_stream_map()
         required = {
-            "book_top": "nd.market.book_top",
-            "book_l2": "nd.market.book_l2",
-            "trades": "nd.market.trades",
+            "book_top": "nd.public_quote_tick",
+            "book_l2": "nd.orderbook_hot_view.tui_state",
             "signal": "nd.strategy_signal_preview",
             "gate": "nd.gate_decision",
             "trade_action": "nd.trade_action",
             "execution": "nd.execution_report",
-            "health": "nd.health",
         }
         for logical, stream_key in required.items():
             assert sm.get(logical) == stream_key, f"{logical} should map to {stream_key}"
@@ -32,13 +30,9 @@ class TestNDStreamNamespace:
         c = TradeHudRedisConfig()
         sm = c.get_stream_map()
         optional = {
-            "account": "nd.account.snapshot",
-            "positions": "nd.position.snapshot",
-            "orders": "nd.order.snapshot",
-            "order_events": "nd.order.event",
-            "quant_levels": "nd.quant_levels.context",
-            "tick_to_trade": "nd.tick_to_trade.trace",
-            "bars": "nd.market.bars",
+            "account": "nd.state_bundle",
+            "positions": "nd.state_bundle",
+            "tick_to_trade": "nd.latency.tick_to_trade",
         }
         for logical, stream_key in optional.items():
             assert sm.get(logical) == stream_key, f"{logical} should map to {stream_key}"
@@ -47,7 +41,7 @@ class TestNDStreamNamespace:
         c = TradeHudRedisConfig()
         keys = c.get_redis_keys()
         assert any(k.startswith("nd.") for k in keys)
-        assert "nd.market.book_top" in keys
+        assert "nd.public_quote_tick" in keys
         assert "nd.strategy_signal_preview" in keys
 
 
@@ -65,15 +59,12 @@ class TestCustomOverrides:
         c = TradeHudRedisConfig(stream_overrides={"book_top": "custom:book_top"})
         sm = c.get_stream_map()
         assert sm["book_top"] == "custom:book_top"
-        assert sm["trades"] == "nd.market.trades"
 
     def test_custom_override_legacy_namespace(self):
         c = TradeHudRedisConfig(
             stream_namespace="nautilus_tradehud",
-            stream_overrides={"trades": "my:custom:trades"},
         )
         sm = c.get_stream_map()
-        assert sm["trades"] == "my:custom:trades"
         assert sm["book_top"] == "nautilus:tradehud:book_top"
 
 

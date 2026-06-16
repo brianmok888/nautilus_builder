@@ -68,15 +68,20 @@ def _ns() -> int:
 
 
 def _parse_book_top(data: dict[str, Any]) -> MarketBookTopModel | None:
-    bid = to_optional_float(data.get("bid_price"))
-    ask = to_optional_float(data.get("ask_price"))
+    """Parse nd.public_quote_tick payload.
+
+    ND shape: {instrument_id, bid, ask, bid_size, ask_size, ts_event_ns}
+    """
+    # ND uses "bid"/"ask" keys (not "bid_price"/"ask_price")
+    bid = to_optional_float(data.get("bid")) or to_optional_float(data.get("bid_price"))
+    ask = to_optional_float(data.get("ask")) or to_optional_float(data.get("ask_price"))
     if bid is None or ask is None:
         return None  # Missing critical fields — not zero-filled
     ts = to_optional_int(data.get("ts_event_ns"))
     if ts is None:
         return None
     return MarketBookTopModel(
-        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        symbol=to_optional_str(data.get("instrument_id")) or to_optional_str(data.get("symbol")) or "UNKNOWN",
         bid_price=bid,
         ask_price=ask,
         bid_size=to_optional_float(data.get("bid_size")),
@@ -97,42 +102,70 @@ def _parse_book_top(data: dict[str, Any]) -> MarketBookTopModel | None:
 
 
 def _parse_book_l2(data: dict[str, Any]) -> MarketBookL2Model | None:
-    bids_raw = data.get("bids", [])
-    asks_raw = data.get("asks", [])
-    if not bids_raw and not asks_raw:
+    """Parse nd.orderbook_hot_view.tui_state payload.
+
+    ND shape: {event_type, schema_version, book_view: {venue, instrument_id,
+    best_bid, best_ask, mid_price, spread_bps, bid_depth_top5, ask_depth_top5, ...}}
+    """
+    # Unwrap ND hot_view nested "book_view"
+    bv = data.get("book_view")
+    if isinstance(bv, dict):
+        data = {**bv, **{k: v for k, v in data.items() if k not in ("book_view",)}}
+
+    best_bid = to_optional_float(data.get("best_bid"))
+    best_ask = to_optional_float(data.get("best_ask"))
+    bid_depth_raw = data.get("bid_depth_top5", [])
+    ask_depth_raw = data.get("ask_depth_top5", [])
+    bids: list[BookLevelModel] = []
+    asks: list[BookLevelModel] = []
+
+    # If depth arrays present, parse them
+    for b in bid_depth_raw if isinstance(bid_depth_raw, list) else []:
+        bp = to_optional_float(b) if not isinstance(b, dict) else to_optional_float(b.get("price"))
+        bs = to_optional_float(b.get("size")) if isinstance(b, dict) else None
+        if bp is not None:
+            bids.append(BookLevelModel(price=bp, size=bs or 0.0, source="redis"))
+    for a in ask_depth_raw if isinstance(ask_depth_raw, list) else []:
+        ap = to_optional_float(a) if not isinstance(a, dict) else to_optional_float(a.get("price"))
+        asz = to_optional_float(a.get("size")) if isinstance(a, dict) else None
+        if ap is not None:
+            asks.append(BookLevelModel(price=ap, size=asz or 0.0, source="redis"))
+
+    # Backward compat: parse legacy bids/asks arrays if depth arrays were empty
+    if not bids:
+        bids_raw = data.get("bids", [])
+        for b in bids_raw if isinstance(bids_raw, list) else []:
+            bp = to_optional_float(b.get("price")) if isinstance(b, dict) else to_optional_float(b)
+            bs = to_optional_float(b.get("size")) if isinstance(b, dict) else None
+            if bp is not None:
+                bids.append(BookLevelModel(price=bp, size=bs or 0.0, source="redis"))
+    if not asks:
+        asks_raw = data.get("asks", [])
+        for a in asks_raw if isinstance(asks_raw, list) else []:
+            ap = to_optional_float(a.get("price")) if isinstance(a, dict) else to_optional_float(a)
+            asz = to_optional_float(a.get("size")) if isinstance(a, dict) else None
+            if ap is not None:
+                asks.append(BookLevelModel(price=ap, size=asz or 0.0, source="redis"))
+
+    # If no depth arrays but best_bid/best_ask present, synthesize top-of-book
+    if not bids and best_bid is not None:
+        bids.append(BookLevelModel(price=best_bid, size=0.0, source="redis"))
+    if not asks and best_ask is not None:
+        asks.append(BookLevelModel(price=best_ask, size=0.0, source="redis"))
+
+    if not bids and not asks:
         return None
-    bids = []
-    for b in bids_raw:
-        bp = to_optional_float(b.get("price"))
-        bs = to_optional_float(b.get("size"))
-        if bp is None or bs is None:
-            continue
-        bids.append(BookLevelModel(
-            price=bp, size=bs,
-            total=to_optional_float(b.get("total")),
-            age_ms=to_optional_int(b.get("age_ms")),
-            source=b.get("source", "redis"),
-        ))
-    asks = []
-    for a in asks_raw:
-        ap = to_optional_float(a.get("price"))
-        asz = to_optional_float(a.get("size"))
-        if ap is None or asz is None:
-            continue
-        asks.append(BookLevelModel(
-            price=ap, size=asz,
-            total=to_optional_float(a.get("total")),
-            age_ms=to_optional_int(a.get("age_ms")),
-            source=a.get("source", "redis"),
-        ))
+
     ts = to_optional_int(data.get("ts_event_ns"))
     if ts is None:
-        return None
+        # ND hot_view may not carry ts_event_ns; fall back to now
+        ts = _ns()
+
     return MarketBookL2Model(
-        symbol=to_optional_str(data.get("symbol")) or "UNKNOWN",
+        symbol=to_optional_str(data.get("instrument_id")) or to_optional_str(data.get("symbol")) or "UNKNOWN",
         bids=bids,
         asks=asks,
-        spread=to_optional_float(data.get("spread")) or 0.0,
+        spread=to_optional_float(data.get("spread")) or (best_ask - best_bid if best_bid and best_ask else 0.0),
         spread_bps=to_optional_float(data.get("spread_bps")),
         microprice=to_optional_float(data.get("microprice")),
         top5_imbalance=to_optional_float(data.get("top5_imbalance")),
@@ -189,14 +222,24 @@ def _parse_trade(data: dict[str, Any]) -> MarketTradeModel | None:
 
 
 def _parse_account(data: dict[str, Any]) -> AccountSnapshotModel | None:
+    """Parse nd.state_bundle payload (account_state sub-dict) or legacy account snapshot.
+
+    ND shape: {strategy_id, account_state: {balance, equity, ...}, micro_signals: {...}, ...}
+    """
+    # Unwrap ND state_bundle
+    acct = data.get("account_state")
+    if isinstance(acct, dict):
+        data = acct
+
     bal = to_optional_float(data.get("balance"))
     if bal is None:
         return None
-    ts = to_optional_int(data.get("ts_event_ns"))
+    ts = to_optional_int(data.get("ts_event_ns")) or to_optional_int(data.get("bundle_ts_ns"))
     if ts is None:
-        return None
+        # state_bundle may carry bundle_ts as ISO string — try timestamp from that
+        ts = _ns()
     return AccountSnapshotModel(
-        account_id=to_optional_str(data.get("account_id")) or "unknown",
+        account_id=to_optional_str(data.get("account_id")) or to_optional_str(data.get("strategy_id")) or "unknown",
         venue=to_optional_str(data.get("venue")) or "UNKNOWN",
         balance=bal,
         equity=to_optional_float(data.get("equity")) or bal,
@@ -217,7 +260,16 @@ def _parse_account(data: dict[str, Any]) -> AccountSnapshotModel | None:
 
 
 def _parse_positions(data: dict[str, Any]) -> list[PositionSnapshotModel]:
-    raw = data.get("positions", data)
+    """Parse positions from nd.state_bundle or legacy position snapshot.
+
+    ND state_bundle may carry positions inside account_state or micro_signals.
+    """
+    # Unwrap ND state_bundle
+    acct = data.get("account_state")
+    if isinstance(acct, dict):
+        data = acct
+
+    raw = data.get("positions", [])
     if isinstance(raw, str):
         import json as _json
         try:
@@ -227,15 +279,15 @@ def _parse_positions(data: dict[str, Any]) -> list[PositionSnapshotModel]:
     if isinstance(raw, dict):
         raw = [raw]
     if not isinstance(raw, list):
+        # ND state_bundle may not have positions array — return empty
         return []
+    ts_fallback = _ns()
     positions = []
     for p in raw:
         qty = to_optional_float(p.get("qty"))
         if qty is None:
             continue
-        ts = to_optional_int(p.get("ts_event_ns"))
-        if ts is None:
-            continue
+        ts = to_optional_int(p.get("ts_event_ns")) or ts_fallback
         positions.append(PositionSnapshotModel(
             symbol=to_optional_str(p.get("symbol")) or "UNKNOWN",
             venue=to_optional_str(p.get("venue")) or "UNKNOWN",
@@ -529,19 +581,16 @@ def _parse_runtime_health(data: dict[str, Any]) -> RuntimeHealthModel | None:
 
 # Parser dispatch: logical_name → (snapshot_field, parser_fn)
 _PARSERS: dict[str, tuple[str, Any]] = {
+    # Only streams that ND actually publishes
     "book_top": ("book_top", _parse_book_top),
     "book_l2": ("book_l2", _parse_book_l2),
-    "trades": ("trades", _parse_trade),
     "account": ("account", _parse_account),
     "positions": ("positions", _parse_positions),
-    "orders": ("open_orders", _parse_open_orders),
     "signal": ("latest_signal_preview", _parse_signal),
     "gate": ("latest_gate_decision", _parse_gate),
     "trade_action": ("latest_trade_action", _parse_trade_action),
     "execution": ("latest_execution_report", _parse_execution),
-    "quant_levels": ("quant_levels", _parse_quant_levels),
     "tick_to_trade": ("tick_to_trade", _parse_tick_to_trade),
-    "health": ("runtime_health", _parse_runtime_health),
 }
 
 

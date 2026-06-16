@@ -29,21 +29,16 @@ _LEGACY_STREAM_MAP: dict[str, str] = {
 # ─── ND namespace stream map (nd.*) ────────────────────────────────────────────
 
 _ND_STREAM_MAP: dict[str, str] = {
-    "book_top": "nd.market.book_top",
-    "book_l2": "nd.market.book_l2",
-    "trades": "nd.market.trades",
-    "bars": "nd.market.bars",
-    "account": "nd.account.snapshot",
-    "positions": "nd.position.snapshot",
-    "orders": "nd.order.snapshot",
-    "order_events": "nd.order.event",
+    # ND canonical stream names (topic_contracts.py / topic_stream_mapping.py)
+    "book_top": "nd.public_quote_tick",
+    "book_l2": "nd.orderbook_hot_view.tui_state",
+    "account": "nd.state_bundle",
+    "positions": "nd.state_bundle",
     "signal": "nd.strategy_signal_preview",
     "gate": "nd.gate_decision",
     "trade_action": "nd.trade_action",
     "execution": "nd.execution_report",
-    "quant_levels": "nd.quant_levels.context",
-    "tick_to_trade": "nd.tick_to_trade.trace",
-    "health": "nd.health",
+    "tick_to_trade": "nd.latency.tick_to_trade",
 }
 
 # All logical stream names the adapter supports.

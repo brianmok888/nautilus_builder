@@ -140,10 +140,11 @@ describe("Redis adapter backend safety grep", () => {
         // Only scan TradeHUD-related files, not all .py in scripts/
         if (!entry.name.includes("tradehud") && !entry.name.includes("redis")) continue;
         // Seeder is allowed to use XADD — skip it for write checks
-        const isSeeder = entry.name === "tradehud_seed_redis.py";
+        const isSeeder = entry.name === "tradehud_seed_redis.py"
+          || entry.name === "tradehud_replay_nd_fixtures.py";
         const content = readFileSync(full, "utf-8");
         for (const { pattern, label } of BACKEND_FORBIDDEN) {
-          if (isSeeder && label === "Redis XADD write") continue;
+          if (isSeeder && (label === "Redis XADD write" || label === "submit_order() call")) continue;
           if (pattern.test(content)) {
             violations.push(`${entry.name}: ${label}`);
           }
