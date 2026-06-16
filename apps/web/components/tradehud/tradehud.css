@@ -123,12 +123,12 @@
 .tradehud-grid {
   display: grid;
   grid-template-columns: 1fr 240px 200px;
-  grid-template-rows: 1fr auto auto;
+  grid-template-rows: 1fr;
   gap: var(--th-gap);
   padding: var(--th-gap);
-  flex: 1;
+  flex: 1 1 0%;
   overflow: hidden;
-  min-height: 0;
+  min-height: 200px;
 }
 
 .tradehud-grid-row-evidence {
@@ -136,6 +136,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--th-gap);
   padding: 0 var(--th-gap);
+  flex-shrink: 0;
 }
 
 .tradehud-grid-row-bottom {
@@ -143,6 +144,7 @@
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--th-gap);
   padding: 0 var(--th-gap);
+  flex-shrink: 0;
 }
 
 /* ─── Panel Card ──────────────────────────────────────────────── */
@@ -192,6 +194,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--th-pad);
+  min-height: 0;
 }
 
 .tradehud-panel-body-nopad {
@@ -588,4 +591,33 @@
   background: rgba(251, 191, 36, 0.1);
   color: #fbbf24;
   border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+/* ── Order Book auto-center toggle ── */
+.tradehud-ob-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tradehud-ob-autocenter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--th-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tradehud-ob-autocenter-toggle input[type="checkbox"] {
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  accent-color: var(--th-cyan);
+  cursor: pointer;
+}
+
+.tradehud-ob-autocenter-toggle input:checked + span {
+  color: var(--th-cyan);
 }

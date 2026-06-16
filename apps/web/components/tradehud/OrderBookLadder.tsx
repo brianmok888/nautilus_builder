@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { MarketBookL2 } from "../../lib/tradehud/types";
 import { fmtPrice, fmtQty, fmtBps, fmtAge } from "../../lib/tradehud/number-format";
 
@@ -11,6 +11,24 @@ interface OrderBookLadderProps {
 const MAX_LEVELS = 12;
 
 export const OrderBookLadder: React.FC<OrderBookLadderProps> = ({ bookL2 }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const midRef = useRef<HTMLTableRowElement>(null);
+  const [autoCenter, setAutoCenter] = useState(true);
+
+  // Keep mid summary row centered in the scroll viewport on every book update.
+  useEffect(() => {
+    if (!autoCenter || !scrollRef.current || !midRef.current) return;
+
+    const container = scrollRef.current;
+    const midRow = midRef.current;
+    const containerHeight = container.clientHeight;
+    const midTop = midRow.offsetTop;
+    const midHeight = midRow.offsetHeight;
+
+    // Scroll so the mid row is vertically centered.
+    container.scrollTop = midTop - containerHeight / 2 + midHeight / 2;
+  }, [bookL2, autoCenter]);
+
   const missing =
     !bookL2 || (bookL2 as any).missing === true || (bookL2 as any).source_available === false;
 
@@ -45,11 +63,21 @@ export const OrderBookLadder: React.FC<OrderBookLadderProps> = ({ bookL2 }) => {
     <section className="tradehud-panel">
       <header className="tradehud-panel-header">
         <span className="tradehud-panel-title">Order Book</span>
-        <span className="tradehud-panel-badge tradehud-panel-badge-info">
-          {bookL2.symbol}
-        </span>
+        <div className="tradehud-ob-header-controls">
+          <label className="tradehud-ob-autocenter-toggle">
+            <input
+              type="checkbox"
+              checked={autoCenter}
+              onChange={(e) => setAutoCenter(e.target.checked)}
+            />
+            <span>Auto-center</span>
+          </label>
+          <span className="tradehud-panel-badge tradehud-panel-badge-info">
+            {bookL2.symbol}
+          </span>
+        </div>
       </header>
-      <div className="tradehud-panel-body">
+      <div className="tradehud-panel-body tradehud-ob-scroll" ref={scrollRef}>
         <table className="tradehud-table">
           <thead>
             <tr>
@@ -77,7 +105,7 @@ export const OrderBookLadder: React.FC<OrderBookLadderProps> = ({ bookL2 }) => {
               </tr>
             ))}
 
-            <tr className="tradehud-ob-summary">
+            <tr className="tradehud-ob-summary" ref={midRef}>
               <td>
                 Spread{" "}
                 <span className="tradehud-amber">{fmtBps(bookL2.spread_bps)}</span>

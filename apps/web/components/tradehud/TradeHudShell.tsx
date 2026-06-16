@@ -48,11 +48,6 @@ export function TradeHudShell() {
     <div className="tradehud-root">
       <TradeHudTopBar state={state} />
       <LaneHealthStrip health={state.runtimeHealth} />
-      {!state.backendAvailable && (
-        <div className="tradehud-backend-warn">
-          Backend unavailable — displaying local synthetic replay
-        </div>
-      )}
 
       {/* Main grid: heatmap | order book | trade tape */}
       <div className="tradehud-grid">
