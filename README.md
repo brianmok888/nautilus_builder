@@ -17,6 +17,11 @@ This repository is intentionally **Builder-only**:
 - `tests/` — feature-mirrored pytest contract suite
 - `apps/web/app/` — minimal Next.js app shell mounted over Builder UI components
 - `apps/web/components/` — interactive/operator MVP TSX components that still do not own runtime authority
+- `apps/web/lib/tradehud/` — TradeHUD runtime reducer and feeds (SSE, redis, replay, mock)
+- `apps/web/components/tradehud/` — live TradeHUD observational monitor panel set (~25 panels)
+- `packages/tradehud_contracts/` — Python source of truth for the TradeHUD ND runtime contract (models, normalizer, redis adapter)
+- `scripts/` — operational, seed, demo, hygiene, and TradeHUD local-dev scripts
+- `docs/tradehud-*.md` — TradeHUD hardening runbooks (ND contracts, redis stream adapter, SSE gateway, v0 hardening)
 - `pyproject.toml` / `uv.lock` — Python package/dependency manifest and lockfile, including the Daedalus-matched NautilusTrader pin
 
 ## Architecture & Design
@@ -40,6 +45,8 @@ Implemented seam packages currently cover:
 - Builder-side promotion contracts
 - Python-backed UI contract surfaces
 - advisory AI drafting flow
+- TradeHUD ND runtime contracts, redis stream adapter, and observational monitor UI
+- TradeHUD ND runtime contract test suite (174 tests across 17 fixtures) plus redis adapter tests
 - MVP verification harness
 
 Representative modules:
