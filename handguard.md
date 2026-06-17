@@ -105,3 +105,51 @@ Before any future “ready” or “merge-ready” wording, require all of:
 Master reconciliation — catalog-backed Nautilus replay
 
 `CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token.
+
+---
+
+## 2026-06-17 Handguard Update — TradeHUD Seam Guards + Regression Gates
+
+### Current verdict guard (2026-06-17)
+
+Single-lane review (native dual-lane `code-reviewer`/`architect` subagents unavailable in this Codex environment). Verdict: **REQUEST CHANGES** — two new HIGH regressions (stale OpenAPI snapshot, removed root page) break CI. Do not treat `master` as green until H-20260617-01 and H-20260617-02 are fixed.
+
+### New TradeHUD-seam guards
+
+| ID | Guard | Status | Enforced By | Tests |
+|----|-------|--------|-------------|-------|
+| 32 | TradeHUD is read-only / no order authority | ACTIVE | `packages/tradehud_contracts/` has no submit surfaces; SSE route declares read-only | `tests/tradehud_contracts/test_nd_safety_contracts.py` |
+| 33 | `missing != true_zero` normalizer contract | ACTIVE | `normalizer.py` preserves None vs explicit 0 | `test_nd_normalizer_contracts.py` (174 contract tests) |
+| 34 | Redis URL never exposed in health/snapshot | ACTIVE | `config.sanitize_redis_url()`; SSE route `_SENSITIVE_SUFFIXES`/`_SENSITIVE_WORDS` redaction | `tests/tradehud_redis/test_health_sanitization.py` |
+| 35 | TS types mirror Python models | ACTIVE | `apps/web/lib/tradehud/types.ts` ↔ `packages/tradehud_contracts/models.py` | reducer/selectors tests |
+| 36 | TradeHUD seed/replay scripts local-dev only | ACTIVE (intent) | header docstrings | needs runtime localhost guard (M-20260617-05) |
+
+### New regression guards (must be restored)
+
+| ID | Guard | Status | Concern | Required action |
+|----|-------|--------|---------|-----------------|
+| HG-20260617-01 | OpenAPI snapshot must match live schema | BROKEN | `test_openapi_snapshot.py` fails — 4 tradehud paths added but not snapshotted | Regenerate `tests/api/openapi_snapshot.json` and commit |
+| HG-20260617-02 | Root `app/page.tsx` must satisfy web contract tests | BROKEN | 11 `tests/web/*` tests fail — root page removed by standalone merge | Restore root page OR update tests to assert `(builder)/page.tsx` |
+| HG-20260617-03 | CI must be green before merge-ready claims | BLOCKED | 12 failures across snapshot + web contracts | Fix HG-20260617-01 and -02 first |
+
+### Updated non-negotiable active guards (carry-forward + new)
+
+| ID | Guard | Status | Enforcement / evidence | Required action |
+|----|-------|--------|------------------------|-----------------|
+| HG-20260613-01..14 | (all prior guards) | unchanged | see 2026-06-13 table above | carry forward |
+| HG-20260617-04 | TradeHUD SSE route must sit behind auth middleware | WATCH | `services/api/routes/tradehud_sse.py` has no explicit `Depends(auth)` | Confirm middleware coverage or add dependency (M-20260617-03) |
+| HG-20260617-05 | `redis_adapter.py` LOC ceiling | WATCH | 843 LOC single module | Plan split once stable (M-20260617-01) |
+| HG-20260617-06 | Legacy stream map needs owner/expiry | WATCH | `config.py:14` `_LEGACY_STREAM_MAP` | Add owner/expiry header + opt-in test (M-20260617-02) |
+
+### Updated promotion checklist (2026-06-17)
+
+Before any future "ready" / "merge-ready" wording, require all of the 2026-06-13 checklist plus:
+
+7. `pytest tests/api/test_openapi_snapshot.py tests/web/ -q` is green in Builder.
+8. TradeHUD SSE route is confirmed behind auth middleware (or explicitly documented as gateway-auth-only).
+9. `tradehud_seed_redis.py` refuses non-local Redis (or carries an explicit override flag).
+10. Dead deprecated TS files (`apiClient.ts`, `OperatorAppShell.tsx`) are deleted or have a documented removal owner.
+
+Master reconciliation — catalog-backed Nautilus replay
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token.

@@ -201,3 +201,76 @@ Signal/Gate TradingNode
 - The most important architectural risk is fail-open behavior where missing health/rate-limit data is treated as healthy/allowed.
 - The most important maintainability risk is continued compatibility shim drift without owner/expiry, especially Telegram menu and topic alias surfaces.
 - The most important adapter-alignment risk is claiming Nautilus compliance before each adapter has DataTester/ExecTester/reconciliation evidence matching supported capabilities.
+
+---
+
+## 2026-06-17 Structure Refresh — TradeHUD Seam + AGENTS.md Hierarchy
+
+### What changed since the 2026-06-13 review
+
+The TradeHUD observational-monitor seam landed on `master` (commits `7d67bb3`..`10b5b90`) plus an `init-deep` AGENTS.md hierarchy pass (`34c6e7b`). The pre-existing structure map above remains accurate for the core domain; this section records the delta.
+
+### New: TradeHUD seam (observational ND runtime monitor)
+
+```
+nautilus_builder/
+├── packages/tradehud_contracts/         # NEW — Python source of truth for ND runtime contract
+│   ├── models.py                        #   262 LOC — Pydantic v2 models (SourceFreshnessMeta base)
+│   ├── normalizer.py                    #   missing != true_zero normalizer (Redis Stream entries)
+│   ├── redis_adapter.py                 #   843 LOC — RedisStreamAdapter (read-only async consumer)
+│   ├── service.py                       #   TradeHudService (snapshot provider, mock fallback)
+│   ├── config.py                        #   TradeHudRedisConfig (env stream map, URL sanitization)
+│   └── mock_data.py                     #   349 LOC deterministic mock fixtures
+├── apps/web/lib/tradehud/               # NEW — TS runtime (reducer, feeds, selectors, formatters)
+│   ├── reducer.ts                       #   pure reducer(state, event) over TradeHudEvent
+│   ├── replay-feed.ts / sse-feed.ts / mock-feed.ts  # FeedController implementations
+│   ├── selectors.ts / freshness.ts      # derived views + staleness logic
+│   ├── heatmap-buffer.ts / ring-buffer.ts           # bounded buffers
+│   └── number-format.ts / time-format.ts            # pure formatters
+├── apps/web/components/tradehud/        # NEW — 25 live panel TSX components
+│   ├── TradeHudShell.tsx                #   root layout + feed wiring
+│   ├── OrderBookLadder.tsx / BookmapHeatmapPanel.tsx / PriceChartOverlay.tsx
+│   ├── AccountSummaryPanel.tsx / PositionsPanel.tsx / OpenOrdersPanel.tsx
+│   ├── SignalPreviewPanel.tsx / GateDecisionPanel.tsx / TradeActionEvidencePanel.tsx
+│   └── RuntimeHealthPanel.tsx / FreshnessBadge.tsx / StatusChip.tsx / HashPill.tsx
+├── services/api/routes/tradehud_sse.py  # NEW — 235 LOC SSE gateway (read-only, sensitive-key redaction)
+├── tests/tradehud_contracts/            # NEW — 10 ND contract test modules
+├── tests/tradehud_redis/                # NEW — 3 redis adapter test modules
+├── tests/fixtures/tradehud_nd_contracts/# NEW — 17 ND jsonl fixtures
+├── scripts/tradehud_seed_redis.py       # NEW — LOCAL DEV ONLY Redis seeder
+├── scripts/tradehud_replay_nd_fixtures.py  # NEW — fixture replay through normalizer+adapter
+└── docs/tradehud-{v0-hardening,redis-stream-adapter,nd-runtime-contract-tests,sse-gateway}.md  # NEW runbooks
+```
+
+### New: AGENTS.md knowledge hierarchy (init-deep pass, 2026-06-17)
+
+```
+./AGENTS.md                                  (updated — 73 LOC)
+├── packages/AGENTS.md                       (unchanged)
+├── packages/tradehud_contracts/AGENTS.md    (NEW — 29 LOC)
+├── services/api/AGENTS.md                   (unchanged)
+├── scripts/AGENTS.md                        (NEW — 29 LOC)
+├── apps/web/AGENTS.md                       (unchanged)
+│   ├── apps/web/components/AGENTS.md        (unchanged)
+│   ├── apps/web/components/tradehud/AGENTS.md (NEW — 28 LOC)
+│   └── apps/web/lib/tradehud/AGENTS.md      (NEW — 31 LOC)
+├── doc/AGENTS.md                            (unchanged)
+├── docs/superpowers/AGENTS.md               (unchanged)
+└── tests/AGENTS.md
+    └── tests/tradehud_contracts/AGENTS.md   (NEW — 30 LOC)
+```
+
+### Updated metrics (2026-06-17)
+
+| Metric | 2026-06-13 | 2026-06-17 | Delta |
+|--------|-----------|-----------|-------|
+| Python packages | 36 | 37 (+tradehud_contracts) | +1 |
+| Total files (excl node_modules/.next/.git) | — | 7,619 | — |
+| Total LOC (TS+PY+GO+RS+JS) | — | ~1,567,000 | — |
+| NT version pin | 1.227.0 | 1.227.0 (latest upstream 1.228.0) | drift persists |
+| TS typecheck (apps/web) | green | green | — |
+| AGENTS.md files | 8 | 13 | +5 |
+
+### Master reconciliation — catalog-backed Nautilus replay
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token. This phrase is intentionally present in all three ledgers (structure.md, findings.md, handguard.md) and asserted by `tests/integration/test_catalog_replay_ledger_updates.py`.

@@ -512,3 +512,143 @@ The `catalog_backed_replay_smoke` module validates NautilusTrader replay using s
 6. Close or time-box active compatibility shims.
 
 Master reconciliation — catalog-backed Nautilus replay
+
+---
+
+## 2026-06-17 Deep Code Review — TradeHUD Seam + Regression Audit
+
+### Review authority and scope
+
+- **Repo reviewed**: `/home/mok/projects/nautilus_builder` on `master` at `34c6e7b`.
+- **Reference repo**: `/home/mok/projects/Nautilus-Daedalus` (Builder-side contract alignment only).
+- **Delta since last review**: commits `7d67bb3`..`34c6e7b` added the full TradeHUD observational-monitor seam plus an `init-deep` AGENTS.md hierarchy pass. The pre-existing findings (2026-06-13) remain in effect above; this section covers the TradeHUD seam and the regressions it introduced.
+- **Independent review lane status**: `multi_agent_v1` (native code-reviewer + architect subagent lanes) is **unavailable in this Codex environment** (`unsupported call`). This review is therefore single-lane, performed by the leader agent directly against current source and test evidence. Per the code-review skill contract, dual-lane evidence is NOT satisfied; treat the synthesis below as single-lane with that caveat.
+- **Authoritative refs re-checked (2026-06-17)**:
+  - NautilusTrader local pin: `nautilus_trader==1.227.0` (`pyproject.toml:12`). Latest upstream release remains `v1.228.0`. Drift persists (1 patch behind).
+  - EvoMap/evolver, LangChain, LangGraph: unchanged since 2026-06-13 check; AI surfaces remain advisory/process-only in code.
+
+### Executive synthesis (2026-06-17)
+
+- **Final recommendation**: `REQUEST CHANGES` — two new HIGH regressions from the TradeHUD standalone merge break the test contract; do not treat `master` as green/merge-ready for CI gating until fixed.
+- **Architectural status**: `WATCH` — the TradeHUD seam is well-bounded (read-only, Python-contract-first, defensive SSE redaction) and does not introduce execution authority. Residual risks are the stale snapshot, the removed root page, and the oversized `redis_adapter.py`.
+- **Positive**: missing!=zero contract is enforced by 174 tests; TS types mirror Python models; SSE route redacts sensitive keys; no order/credential authority leaked into the monitor.
+
+---
+
+### Status updates to prior findings
+
+| Prior ID | Status (2026-06-17) | Evidence |
+|----------|--------------------|----------|
+| H-01 (integration test failure) | **FIXED** | `pytest tests/integration/test_catalog_replay_ledger_updates.py` → 1 passed |
+| H-02 (pipeline exception swallowing) | **STILL ACTIVE** | `packages/pipeline/service.py:68` still `except Exception:` with no detail capture |
+| H-03 (Redis rate limiter fail-open) | **PARTIALLY ADDRESSED** | `packages/auth/redis_rate_limit.py:29` added `fail_closed: bool = False` param; default still open, but production callers can opt into closed. Default behavior unchanged. |
+| H-04 (schema interpolation) | **STILL WATCH** | Unchanged; `safe_postgres_identifier` guard remains the sole defense |
+| on_event deprecation | **STILL ACTIVE** | `services/api/fastapi_app.py:206-207` still uses `@app.on_event("startup")` |
+
+---
+
+### NEW HIGH (2) — TradeHUD standalone merge regressions
+
+#### H-20260617-01: OpenAPI snapshot test stale after TradeHUD route additions
+- **File**: `tests/api/test_openapi_snapshot.py:22` vs `tests/api/openapi_snapshot.json`
+- **Issue**: The snapshot was not regenerated when the TradeHUD routes were added. The test reports:
+  `added={'/api/tradehud/events/replay', '/api/tradehud/stream', '/api/tradehud/snapshot', '/api/tradehud/health'}`
+- **Risk**: CI cannot report green; the snapshot contract is broken; any future route change is masked by this pre-existing failure.
+- **Fix**: Regenerate the snapshot: `python3 -c "import json; from services.api.fastapi_app import create_fastapi_app; app=create_fastapi_app(); json.dump(app.openapi(), open('tests/api/openapi_snapshot.json','w'), indent=2, sort_keys=True)"` then commit. Verify the new paths are intentional.
+- **Category**: Bug / CI
+
+#### H-20260617-02: 11 web contract tests fail — root `app/page.tsx` removed by standalone merge
+- **Files**: `tests/web/test_app_shell_contract.py`, `test_antd_operator_ui_contract.py`, `test_ai_copilot_frontend.py`, `test_config_ui_contract.py`, `test_execution_lane_ui_contract.py`, `test_frontend_data_wiring.py`, `test_job_console_frontend.py`, `test_results_dashboard_frontend.py`, `test_sectioned_operator_ui.py` (11 test cases total)
+- **Root cause**: The `feat/tradehud-standalone` merge removed the root `apps/web/app/page.tsx`. The route group `app/(builder)/` is URL-transparent (parentheses), so the *app* still resolves `/` to `app/(builder)/page.tsx` at runtime — but the contract tests assert the presence of a literal `apps/web/app/page.tsx` file (file-existence + content checks), which no longer exists.
+- **Evidence**: `find apps/web/app -name "page.tsx"` shows pages only under `(builder)/` and `tradehud/`; no root `page.tsx`.
+- **Risk**: CI reports 11 failures; the operator-shell contract is unverifiable; the intent of the standalone merge (decouple TradeHUD from the builder shell) is sound but the contract tests were not updated.
+- **Fix** (pick one):
+  1. **Preferred**: Add back a thin root `apps/web/app/page.tsx` that re-exports or redirects to the builder shell, restoring the file the tests assert against; OR
+  2. Update the 11 web contract tests to assert against `app/(builder)/page.tsx` and document the route-group restructure.
+- **Category**: Bug / Alignment
+
+---
+
+### NEW MEDIUM (5) — TradeHUD seam
+
+#### M-20260617-01: `redis_adapter.py` is 843 LOC in a single module
+- **File**: `packages/tradehud_contracts/redis_adapter.py` (843 LOC)
+- **Issue**: Exceeds the 250 LOC ceiling the repo applies elsewhere (Daedalus precedent, `execution_lane` flagged the same way). Contains 13 `_parse_*` functions, the `RedisStreamAdapter` class, health tracking, and seed logic in one file.
+- **Risk**: Review difficulty, merge-conflict surface.
+- **Fix**: Split into `redis_adapter/{_parsers.py, _snapshot.py, adapter.py, _health.py}` once the module stabilizes. Add a LOC-boundary test like `execution_lane` should have.
+- **Category**: Maintainability / Architecture
+
+#### M-20260617-02: `_LEGACY_STREAM_MAP` has no owner/expiry
+- **File**: `packages/tradehud_contracts/config.py:14`
+- **Issue**: The `nautilus:tradehud:*` legacy stream namespace map is a backward-compat shim selected when `stream_namespace="nautilus_tradehud"`. It has no documented owner, expiry, or closure test asserting it can eventually be removed.
+- **Risk**: Shim drift — the pattern flagged across the repo (Telegram menus, topic aliases). Inconsistent with the owner/expiry discipline applied elsewhere.
+- **Fix**: Add an `# OWNER: <team> EXPIRY: <date>` header comment and a test that asserts the legacy map is only reachable via explicit env opt-in.
+- **Category**: Legacy / Maintainability
+
+#### M-20260617-03: SSE route has no auth dependency
+- **File**: `services/api/routes/tradehud_sse.py`
+- **Issue**: The route declares "Read-only. No order execution authority." and redacts sensitive keys, but does not wire an auth `Depends(...)` the way other route modules do. In a production deployment behind the API, any client that can reach `/api/tradehud/stream` can subscribe to live ND runtime state (positions, orders, PnL).
+- **Risk**: Information disclosure of account/position data to unauthenticated clients if the route is exposed without a gateway auth layer.
+- **Fix**: Add the same auth dependency the other read routes use (or document explicitly that TradeHUD SSE is intended to sit behind the existing audit/auth middleware and verify the middleware covers it). Confirm `services/api/middleware.py` applies to the tradehud router.
+- **Category**: Security
+
+#### M-20260617-04: Broad `except Exception` in `redis_adapter` parse paths (5 sites)
+- **File**: `packages/tradehud_contracts/redis_adapter.py:277, 686, 713, 721, 756`
+- **Issue**: Five broad exception catches. Most are defensible (JSON fallback → `[]`; `aclose()` swallow; XREAD → log + mark disconnected), but line 277 (`_json.loads` → return `[]`) silently drops malformed position/order arrays with no log.
+- **Risk**: Malformed ND payloads silently produce empty position/order lists, which the UI renders as "no positions" — a misleading observational state.
+- **Fix**: Add a `logger.debug("malformed %s payload: %s", ..., exc)` at line 277 so malformed payloads are at least diagnosable. The other four sites are acceptable as-is.
+- **Category**: Maintainability / Observability
+
+#### M-20260617-05: `tradehud_seed_redis.py` lacks a production-guard
+- **File**: `scripts/tradehud_seed_redis.py`
+- **Issue**: Header says "LOCAL DEVELOPMENT ONLY" but there is no runtime guard rejecting a non-local Redis URL (e.g., it will seed any `REDIS_URL` it's given).
+- **Risk**: Operator mistake seeds a shared/production Redis with mock data.
+- **Fix**: Add a guard that refuses to run unless `REDIS_URL` resolves to `localhost`/`127.0.0.1` or an explicit `--i-know-this-is-not-local` flag is passed. Mirror `tradehud_replay_nd_fixtures.py`'s local-only intent.
+- **Category**: Security / Safety
+
+---
+
+### NEW LOW (3)
+
+#### L-20260617-01: Two `@deprecated` TS files are now dead code
+- **Files**: `apps/web/lib/apiClient.ts` (`@deprecated Use apiFetch...`), `apps/web/components/shell/OperatorAppShell.tsx` (`@deprecated Use BuilderShell`)
+- **Issue**: `grep` confirms zero remaining importers outside the files themselves. They are pure dead code.
+- **Fix**: Delete both files (reversible via git). Remove the deprecation comments with them.
+- **Category**: Maintainability / Legacy closure
+
+#### L-20260617-02: `CATALOG_BACKED_REPLAY_SMOKE_MODE` duplication across 3 ledgers
+- **Issue**: The reconciliation phrase must be hand-maintained in `structure.md`, `findings.md`, and `handguard.md` simultaneously, enforced by one integration test. Duplicated invariant.
+- **Fix**: Acceptable as a documentation-contract pattern, but add a comment at each occurrence pointing to the enforcing test so future editors know it's load-bearing.
+- **Category**: Maintainability
+
+#### L-20260617-03: NT version drift persists (1.227.0 vs 1.228.0)
+- **Issue**: Unchanged since 2026-06-13. One patch behind upstream.
+- **Fix**: Run the test suite against 1.228.0 and bump, or document an intentional pin deadline.
+- **Category**: Alignment
+
+---
+
+### Updated legacy / deprecation closure inventory (2026-06-17)
+
+| Item | Status | Evidence | Action |
+|------|--------|----------|--------|
+| `_LEGACY_STREAM_MAP` (tradehud_contracts) | **NEW active shim** | `config.py:14` | Add owner/expiry |
+| `apiClient.ts` `@deprecated` | **Now dead code** | zero importers | Delete |
+| `OperatorAppShell.tsx` `@deprecated` | **Now dead code** | zero importers | Delete |
+| `legacy manifest` (artifact_bundle.py:39) | Active backward-compat | documented | Keep + owner/expiry |
+| `Legacy protocol: put/get` (s3_store.py:112) | Active backward-compat | documented | Keep + owner/expiry |
+| Prior closures (postgres workflow repo, demo tokens, browser creds, docker, on_event) | Unchanged from 2026-06-13 table above | see above | — |
+
+---
+
+### Updated priority order (2026-06-17)
+
+1. **Fix H-20260617-01** — regenerate OpenAPI snapshot (unblocks CI).
+2. **Fix H-20260617-02** — restore root `app/page.tsx` or update the 11 web contract tests (unblocks CI).
+3. **Fix H-02** — capture pipeline compile exception message (still open from 2026-06-13).
+4. **M-20260617-03** — confirm TradeHUD SSE route is covered by auth middleware.
+5. **M-20260617-05** — add localhost guard to `tradehud_seed_redis.py`.
+6. **L-20260617-01** — delete the two dead deprecated TS files.
+7. Prior H-03 (rate-limit default), H-04 (schema interp), architecture WATCH items — carry forward.
+
+Master reconciliation — catalog-backed Nautilus replay
