@@ -85,3 +85,47 @@ class TestReadinessService:
         nd = [e for e in matrix.entries if e.capability == "nd_runtime_changes"]
         assert len(nd) == 1
         assert nd[0].status == ReadinessStatus.OUT_OF_SCOPE
+
+
+class ReadinessOverstatementGuardTest:
+    """Lock the evidence-gated invariant: no capability may overstate
+    production/live readiness without its required evidence types, and the
+    production-deployment capability must never be READY in Builder."""
+
+    def test_production_deployment_is_never_ready(self) -> None:
+        matrix = get_readiness_matrix()
+        prod = [e for e in matrix.entries if e.capability == "production_deployment"]
+        assert prod, "production_deployment capability must exist in the matrix"
+        assert prod[0].status != ReadinessStatus.READY, (
+            "Builder must never label production_deployment as READY; it is "
+            "scaffold/contract/evidence-gated only until CI gates, auth "
+            "enforcement, object storage, and service supervision land."
+        )
+
+    def test_every_ready_entry_declares_required_evidence_types(self) -> None:
+        """A READY capability must still declare its required evidence types so
+        the payload cannot imply production/live readiness without an evidence
+        gate. This guards against future entries that flip to READY while
+        dropping the evidence contract."""
+        matrix = get_readiness_matrix()
+        for entry in matrix.entries:
+            if entry.status == ReadinessStatus.READY:
+                assert entry.required_evidence_types, (
+                    f"READY capability '{entry.capability}' declares no "
+                    "required_evidence_types; it may overstate production "
+                    "readiness without an evidence gate."
+                )
+
+    def test_no_capability_claims_live_or_production_in_name_as_ready(self) -> None:
+        """Defensive: any capability whose name implies live/production execution
+        must not be READY. Catches future naming that could overstate readiness."""
+        matrix = get_readiness_matrix()
+        sentinel_names = ("live_execution", "production_deployment", "live", "production")
+        for entry in matrix.entries:
+            name = entry.capability.lower()
+            if any(s in name for s in sentinel_names):
+                assert entry.status != ReadinessStatus.READY, (
+                    f"Capability '{entry.capability}' implies live/production "
+                    "readiness but is marked READY; Builder is evidence-gated "
+                    "scaffold/contract only and must not claim production/live."
+                )
