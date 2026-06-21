@@ -113,7 +113,14 @@ def test_validate_local_dev_guard_dev_env_values_allowed(monkeypatch):
 
 
 def test_main_logs_redacted_redis_url(monkeypatch, caplog):
-    """main() must log a REDACTED Redis URL even when a password is present."""
+    """main() must log a REDACTED Redis URL even when a password is present.
+
+    Note: replay_fixtures is patched (so no real Redis/fixture work happens) and
+    replay.asyncio.run is patched to a stub that drains the coroutine WITHOUT
+    touching the global event-loop policy. This avoids polluting the asyncio loop
+    state for later tests (the real asyncio.run would set/close the default
+    loop, which can break other tests that call asyncio.get_event_loop()).
+    """
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -131,6 +138,19 @@ def test_main_logs_redacted_redis_url(monkeypatch, caplog):
         captured["redis_url"] = kwargs["redis_url"]
 
     monkeypatch.setattr(replay, "replay_fixtures", fake_replay_fixtures)
+
+    def drain_without_event_loop(coro):
+        # Exhaust the coroutine synchronously without creating/closing an event
+        # loop, then return None like asyncio.run would.
+        try:
+            coro.send(None)
+        except StopIteration:
+            pass
+        finally:
+            coro.close()
+        return None
+
+    monkeypatch.setattr(replay.asyncio, "run", drain_without_event_loop)
 
     with caplog.at_level(logging.INFO):
         replay.main()
