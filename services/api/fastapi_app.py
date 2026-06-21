@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import os
-import sqlite3
 from typing import Any, Callable, Protocol
 
-from packages.ai_builder.provider import DraftAuditStoreProtocol, RecordedAiDraftStore, SqliteAiDraftAuditStore
+from packages.ai_builder.provider import DraftAuditStoreProtocol
 from packages.ai_builder.service import AiBuilderService
 from packages.artifact_store import LocalJsonArtifactStore, create_artifact_store
 from packages.auth import AuthTokenService, InvalidAuthTokenError, ProjectScopeError, UserProjectContext
-from packages.auth.policy import BuilderEnvironment, validate_builder_env, validate_cors_config, validate_production_token, validate_rate_limit_config
+from packages.auth.policy import BuilderEnvironment
 from packages.auth.audit_middleware import AuditMiddleware, AuthContextMiddleware, RequestIdMiddleware
 from packages.auth.rate_limit import InMemoryRateLimiter
 from packages.auth.redis_rate_limit import RedisRateLimiter
@@ -30,7 +28,6 @@ from services.api.routes.llm_config import get_llm_config_payload, save_llm_conf
 from packages.runtime_events.service import RuntimeEventService
 from services.api.routes.tradehud import tradehud_snapshot_payload, tradehud_health_payload, tradehud_replay_payload
 from services.api.routes.tradehud_sse import tradehud_stream_response
-from fastapi.responses import StreamingResponse
 from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.readiness import readiness_payload
 from services.api.routes.evidence import create_evidence, get_evidence, verify_evidence, list_evidence_for_strategy
@@ -954,93 +951,17 @@ def _rate_limit_key(context: UserProjectContext) -> str:
     return f"{context.user_id}:{context.project_id}"
 
 
-_UNSAFE_DEV_TOKENS = {"dev-token", "test-token", "changeme"}
+from services.api._app_env import (  # noqa: F401, E402  (re-exported for backward compat)
+    _UNSAFE_DEV_TOKENS,
+    _cors_origins_from_env,
+    _default_ai_audit_store,
+    _env_user_project_context,
+    _register_env_dev_token,
+    _strictest_configured_env,
+    _validate_startup_policy,
+)
 
 
-def _cors_origins_from_env() -> list[str]:
-    return [
-        origin.strip()
-        for origin in os.environ.get("BUILDER_CORS_ORIGINS", "").split(",")
-        if origin.strip()
-    ]
-
-
-def _validate_startup_policy() -> None:
-    env = _strictest_configured_env()
-    validate_production_token(
-        env=env,
-        token=os.environ.get("BUILDER_API_TOKEN"),
-        public_token=os.environ.get("NEXT_PUBLIC_BUILDER_API_TOKEN"),
-    )
-    validate_cors_config(env=env, origins=_cors_origins_from_env())
-    validate_rate_limit_config(
-        env=env,
-        backend=os.environ.get("BUILDER_RATE_LIMIT_BACKEND"),
-        redis_url=os.environ.get("BUILDER_REDIS_URL"),
-    )
-
-
-def _strictest_configured_env() -> BuilderEnvironment:
-    configured = [
-        validate_builder_env(raw)
-        for raw in (
-            os.environ.get("BUILDER_ENV", ""),
-            os.environ.get("APP_ENV", ""),
-        )
-        if raw.strip()
-    ]
-    if not configured:
-        return BuilderEnvironment.LOCAL
-    priority = {
-        BuilderEnvironment.LOCAL: 0,
-        BuilderEnvironment.STAGING: 1,
-        BuilderEnvironment.PRODUCTION: 2,
-    }
-    return max(configured, key=lambda env: priority[env])
-
-
-def _env_user_project_context() -> UserProjectContext:
-    return UserProjectContext(
-        user_id=os.environ.get("BUILDER_DEV_USER_ID", "local_user"),
-        project_id=os.environ.get("BUILDER_DEV_PROJECT_ID", "local_project"),
-        role=os.environ.get("BUILDER_DEV_ROLE", "builder"),
-    )
-
-
-def _register_env_dev_token(auth_token_service: AuthTokenService) -> None:
-    dev_auth_token = os.environ.get("BUILDER_DEV_AUTH_TOKEN")
-    token = (dev_auth_token or os.environ.get("BUILDER_API_TOKEN") or "").strip()
-    if not token:
-        return
-    environment = _strictest_configured_env()
-    if environment != BuilderEnvironment.LOCAL and dev_auth_token is not None:
-        raise ValueError(
-            f"Refusing BUILDER_DEV_AUTH_TOKEN '{token}' in {environment.value} environment. "
-            "Use BUILDER_API_TOKEN for staging/production server-side auth."
-        )
-    if environment != BuilderEnvironment.LOCAL and token in _UNSAFE_DEV_TOKENS:
-        raise ValueError(
-            f"Refusing to register known dev token '{token}' in {environment.value} environment. "
-            "Set BUILDER_API_TOKEN to a strong secret."
-        )
-    auth_token_service.register_token(
-        token=token,
-        user_id=os.environ.get("BUILDER_DEV_USER_ID", "local_user"),
-        project_id=os.environ.get("BUILDER_DEV_PROJECT_ID", "local_project"),
-        role=os.environ.get("BUILDER_DEV_ROLE", "builder"),
-    )
-
-
-def _default_ai_audit_store(ai_audit_store: DraftAuditStoreProtocol | None) -> DraftAuditStoreProtocol:
-    if ai_audit_store is not None:
-        return ai_audit_store
-    sqlite_path = os.environ.get("BUILDER_AI_AUDIT_SQLITE_PATH", "").strip()
-    if sqlite_path:
-        return SqliteAiDraftAuditStore(connection=sqlite3.connect(sqlite_path))
-    environment = _strictest_configured_env()
-    if environment == BuilderEnvironment.PRODUCTION:
-        raise ValueError("durable AI audit store is required in production")
-    return RecordedAiDraftStore()
 
 
 def _build_audit_writer(pg_conn: Any) -> Any:
