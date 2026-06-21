@@ -353,7 +353,7 @@ def create_fastapi_app(
 
     @app.get("/api/evidence")
     def list_evidence_route(strategy_lineage_id: str = "", authorization: str | None = Header(default=None)) -> Any:
-        _context, auth_error = require_context(authorization)
+        context, auth_error = require_context(authorization)
         if auth_error is not None:
             return _fastapi_response(auth_error, JSONResponse)
         return _fastapi_response(ApiResponse(list_evidence_for_strategy(strategy_lineage_id, project_id=context.project_id, repo=evidence_repo)), JSONResponse)

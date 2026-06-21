@@ -652,3 +652,37 @@ Master reconciliation — catalog-backed Nautilus replay
 7. Prior H-03 (rate-limit default), H-04 (schema interp), architecture WATCH items — carry forward.
 
 Master reconciliation — catalog-backed Nautilus replay
+
+
+---
+
+## Backlog closure pass — 2026-06-21 (segmented execution)
+
+Reference: this pass closes the 2026-06-21 Fix Backlog (P0–P4) plus the active
+findings above, segment by segment, TDD (red -> green) per segment.
+
+### Baseline captured (2026-06-21)
+- 1816 tests collected; **16 failing** on `master`:
+  - `test_openapi_snapshot::test_openapi_schema_matches_snapshot` (P1-1 / H-20260617-01)
+  - `test_route_auth_scope::test_every_registered_api_route_is_auth_tested` (P0-1)
+  - `test_strategies::test_strategy_detail_frontend_pages_are_present` (web contract)
+  - `test_nd_freshness_contracts::test_stale_threshold` + `::test_stale_after_threshold`
+    (root cause: `"trades"` logical stream missing from both stream maps in
+    `packages/tradehud_contracts/config.py`; consumed by `redis_adapter.py:783`
+    and the reducer but never registered -> tracker returns `unknown`)
+  - 11 `tests/web/*` contract tests (P1-2 / H-20260617-02: root `app/page.tsx`
+    removed by the standalone merge)
+
+### S1 — P0-2: `/api/evidence` NameError CLOSED
+- **File**: `services/api/fastapi_app.py:355-359`
+- **Bug**: route bound `_context` (underscore = intentionally unused) but the
+  body referenced `context.project_id`, raising `NameError` for every
+  authenticated caller.
+- **Fix**: rename `_context` -> `context` so the success path uses the resolved
+  project scope.
+- **Tests**: `tests/api/test_evidence_list_route.py` (2 cases)
+  - authenticated GET /api/evidence returns 200 (was NameError->500)
+  - returned evidence is project-scoped; cross-project evidence does not leak
+- **Regression check**: `tests/api/test_evidence_summary.py`,
+  `test_fastapi_app.py`, `test_security_hardening.py` green; only the pre-existing
+  `test_every_registered_api_route_is_auth_tested` (P0-1) remains red.
