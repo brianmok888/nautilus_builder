@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from tests.api.test_fastapi_app import _FakeFastAPI, _FakeJSONResponse
+from tests.api.test_fastapi_app import _FakeFastAPI, _FakeJSONResponse, _FakeStreamingResponse
 
 
 RouteKey = tuple[str, str]
@@ -116,13 +116,18 @@ PROTECTED_API_ROUTE_CALLS: dict[RouteKey, RouteCall] = {
     ("GET", "/api/results/{result_id}"): lambda route: route("res_missing"),
     ("GET", "/api/workflow/results/{result_id}/suggestions"): lambda route: route("res_missing"),
     ("GET", "/api/workflow/lineages/{strategy_lineage_id}/status"): lambda route: route("lineage_missing"),
+    # TradeHUD routes are read-only/observational but still auth + rate-limit gated (P0-1).
+    ("GET", "/api/tradehud/snapshot"): lambda route: route(),
+    ("GET", "/api/tradehud/health"): lambda route: route(),
+    ("GET", "/api/tradehud/events/replay"): lambda route: route(),
+    ("GET", "/api/tradehud/stream"): lambda route: route(),
 }
 
 
 def _install_fake_fastapi(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
 
 def _response_status(response: Any) -> int:

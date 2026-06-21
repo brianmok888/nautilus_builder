@@ -686,3 +686,27 @@ findings above, segment by segment, TDD (red -> green) per segment.
 - **Regression check**: `tests/api/test_evidence_summary.py`,
   `test_fastapi_app.py`, `test_security_hardening.py` green; only the pre-existing
   `test_every_registered_api_route_is_auth_tested` (P0-1) remains red.
+
+
+### S2 — P0-1: TradeHUD routes now route-level auth + rate-limit gated CLOSED
+- **Files**: `services/api/fastapi_app.py:284-322` (4 routes), test seam
+  `tests/api/test_fastapi_app.py` + `tests/api/test_route_auth_scope.py` +
+  new `tests/api/test_tradehud_route_auth.py`.
+- **Bug**: `/api/tradehud/{snapshot,health,events/replay,stream}` were registered
+  without `require_context(...)`; access depended on middleware only, the route
+  itself enforced nothing, and the stream could start before auth.
+- **Fix**: every TradeHUD route now calls `require_context(authorization)` and
+  early-returns the auth/rate-limit error, identical to the other `/api/*` routes.
+  The SSE route performs the check BEFORE constructing the `StreamingResponse`, so
+  a stream never starts for an unauthenticated caller.
+- **Contract**: the 4 routes are registered in `PROTECTED_API_ROUTE_CALLS`
+  (`test_route_auth_scope.py`), so
+  `test_every_registered_api_route_is_auth_tested` now passes (was failing because
+  the routes were registered but not in the expected/auth-tested set).
+- **Tests** (`tests/api/test_tradehud_route_auth.py`, 4 cases): missing-auth -> 401
+  for all 4; authenticated -> 200 for all 4; deny-all limiter -> 429 for all 4 keyed
+  on `user:project`; unauthenticated stream returns 401 and does NOT construct a
+  streaming response.
+- **Regression check**: `tests/api/` + `tests/tradehud_contracts/` +
+  `tests/tradehud_redis/` — only the pre-existing baseline failures remain
+  (OpenAPI snapshot P1-1, web contract, trades-stream freshness). No new failures.

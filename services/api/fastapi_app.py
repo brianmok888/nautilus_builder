@@ -282,20 +282,43 @@ def create_fastapi_app(
 
     # --- TradeHUD observational routes ---
     @app.get("/api/tradehud/snapshot")
-    def tradehud_snapshot(symbol: str | None = None) -> dict[str, object]:
+    def tradehud_snapshot(
+        symbol: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return tradehud_snapshot_payload(symbol)
 
     @app.get("/api/tradehud/health")
-    def tradehud_health() -> dict[str, object]:
+    def tradehud_health(authorization: str | None = Header(default=None)) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return tradehud_health_payload()
 
     @app.get("/api/tradehud/events/replay")
-    def tradehud_replay(symbol: str | None = None) -> dict[str, object]:
+    def tradehud_replay(
+        symbol: str | None = None,
+        authorization: str | None = Header(default=None),
+    ) -> Any:
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return tradehud_replay_payload(symbol)
 
     @app.get("/api/tradehud/stream")
-    def tradehud_stream(symbol: str | None = None):
-        """SSE endpoint — read-only synthetic event stream."""
+    def tradehud_stream(
+        symbol: str | None = None,
+        authorization: str | None = Header(default=None),
+    ):
+        """SSE endpoint — read-only event stream. Auth is enforced before the
+        StreamingResponse is constructed so a stream never starts for an
+        unauthenticated caller."""
+        _context, auth_error = require_context(authorization)
+        if auth_error is not None:
+            return _fastapi_response(auth_error, JSONResponse)
         return tradehud_stream_response(symbol)
 
     @app.get("/health/live")

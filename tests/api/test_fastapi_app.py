@@ -39,11 +39,25 @@ class _FakeJSONResponse:
         return self.content
 
 
+class _FakeStreamingResponse:
+    """Minimal stand-in for fastapi.responses.StreamingResponse under the stub.
+
+    Auth is enforced by the route before this is constructed, so we only need a
+    stable object with status_code 200. We never eagerly drain the (async) body.
+    """
+
+    def __init__(self, content=(), *args, **kwargs) -> None:
+        self.content = content
+        self.headers = kwargs.get("headers", {})
+        self.media_type = kwargs.get("media_type")
+        self.status_code = kwargs.get("status_code", 200)
+
+
 
 def test_fastapi_bootstrap_mounts_runtime_routes(monkeypatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -65,7 +79,7 @@ def test_fastapi_bootstrap_reuses_route_payload_helpers(monkeypatch) -> None:
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -88,7 +102,7 @@ def test_fastapi_bootstrap_reuses_strategy_repository_helpers(monkeypatch) -> No
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -113,7 +127,7 @@ def test_fastapi_bootstrap_preserves_error_status_codes(monkeypatch) -> None:
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -217,7 +231,7 @@ def test_fastapi_backtest_jobs_require_bearer_auth_and_ignore_spoofed_scope(monk
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -282,7 +296,7 @@ def test_fastapi_shadow_promotion_requires_auth_and_resolves_scoped_artifacts(mo
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -335,7 +349,7 @@ def test_fastapi_strategy_routes_require_auth_and_filter_by_project(monkeypatch)
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -372,7 +386,7 @@ def test_fastapi_strategy_approve_and_clone_are_project_scoped(monkeypatch) -> N
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -417,7 +431,7 @@ def test_fastapi_workflow_routes_require_auth_and_deny_cross_project(monkeypatch
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -479,7 +493,7 @@ def test_fastapi_demo_seed_uses_default_dev_token_scope(monkeypatch) -> None:
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
     monkeypatch.setenv("BUILDER_SEED_DEMO_STRATEGIES", "1")
     monkeypatch.setenv("BUILDER_API_TOKEN", "local-demo-token")
     monkeypatch.delenv("BUILDER_DATABASE_URL", raising=False)
@@ -503,7 +517,7 @@ def test_fastapi_runtime_ai_and_promotion_request_routes_require_auth(monkeypatc
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -539,7 +553,7 @@ def test_fastapi_ai_apply_requires_provenance_and_uses_injected_audit_store(monk
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -573,7 +587,7 @@ def test_fastapi_results_route_does_not_expose_fixture_fallback_as_production_re
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -590,7 +604,7 @@ def test_fastapi_results_route_does_not_expose_fixture_fallback_as_production_re
 def test_fastapi_bootstrap_registers_env_dev_bearer_token(monkeypatch) -> None:
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
     monkeypatch.setenv("BUILDER_DEV_AUTH_TOKEN", "nb_local_dev_token")
     monkeypatch.setenv("BUILDER_DEV_USER_ID", "user_123")
     monkeypatch.setenv("BUILDER_DEV_PROJECT_ID", "project_alpha")
@@ -615,7 +629,7 @@ def test_fastapi_backtest_run_route_ignores_client_worker_identity(monkeypatch) 
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -656,7 +670,7 @@ def test_fastapi_backtest_job_events_require_auth_and_project_scope(monkeypatch)
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -709,7 +723,7 @@ def test_fastapi_execution_lane_credential_slot_api_rejects_browser_credentials(
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -747,7 +761,7 @@ def test_fastapi_execution_lane_session_start_requires_auth_and_project_scope(mo
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
@@ -822,7 +836,7 @@ def test_fastapi_execution_lane_routes_filter_runtime_state_by_project(monkeypat
 
     fake_fastapi_module = types.SimpleNamespace(FastAPI=_FakeFastAPI, Header=lambda default=None: default)
     monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi_module)
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=_FakeJSONResponse, StreamingResponse=_FakeStreamingResponse))
 
     from services.api.fastapi_app import create_fastapi_app
 
