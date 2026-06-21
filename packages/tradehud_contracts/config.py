@@ -10,6 +10,18 @@ from dataclasses import dataclass, field
 
 
 # ─── Legacy namespace stream map (nautilus:tradehud:*) ────────────────────────
+#
+# Owner / expiry / removal criteria for the legacy stream namespace. The legacy
+# nautilus:tradehud:* aliases remain active only for backward compatibility with
+# producers that have not migrated to the canonical nd.* streams. Using the legacy
+# namespace requires an explicit TRADEHUD_STREAM_NAMESPACE=nautilus_tradehud opt-in
+# (the default is "nd"). Remove the legacy map once the removal criteria are met.
+_LEGACY_STREAM_MAP_OWNER = "tradehud-runtime"
+_LEGACY_STREAM_MAP_EXPIRES = "2026-07-31"
+_LEGACY_STREAM_MAP_REMOVAL_CRITERIA = [
+    "all producers publish nd.* streams",
+    "UI and replay tests no longer require nautilus:tradehud:* aliases",
+]
 
 _LEGACY_STREAM_MAP: dict[str, str] = {
     "trades": "nautilus:tradehud:trades",

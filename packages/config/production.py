@@ -17,6 +17,8 @@ _DEMO_TOKENS = {
     "dev-secret-change-me",
     "change-me-in-production",
     "my-secret-prod-key-2026",
+    # Unmistakable synthetic example so detection is never ambiguous. Never use in real envs.
+    "EXAMPLE_DO_NOT_USE_BUILDER_TOKEN_2026",
 }
 
 _MIN_TOKEN_LENGTH = 32

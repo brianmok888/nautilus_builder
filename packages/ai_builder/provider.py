@@ -4,6 +4,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from sqlite3 import Connection
@@ -262,7 +263,10 @@ def _urllib_json_transport(
     )
     try:
         # The endpoint is explicit operator configuration; never derived from model output.
-        with urllib.request.urlopen(request, timeout=timeout_secs) as response:  # noqa: S310
+        # Explicit TLS context: certificate verification is required and hostname
+        # checking is on. Never derived from model output.
+        _ssl_context = ssl.create_default_context()
+        with urllib.request.urlopen(request, timeout=timeout_secs, context=_ssl_context) as response:
             body = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace").strip()

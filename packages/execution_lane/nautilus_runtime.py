@@ -283,6 +283,8 @@ def _blank(value: object) -> bool:
 def _installed_nautilus_version() -> str | None:
     try:
         import nautilus_trader
-    except Exception:
+    except ImportError:
+        # NautilusTrader is not installed; that is expected in some environments.
+        # Other failures (corruption, attribute errors) must surface, not be swallowed.
         return None
     return str(getattr(nautilus_trader, "__version__", "") or "") or None

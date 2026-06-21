@@ -211,16 +211,21 @@ def test_fastapi_production_mode_requires_durable_ai_audit_store(monkeypatch) ->
     import types
 
     class FakeFastAPI:
-        def __init__(self, *, title: str, version: str) -> None:
+        def __init__(self, *, title: str, version: str, lifespan=None) -> None:
             self.title = title
             self.version = version
+            self.lifespan_passed = lifespan is not None
+            self.on_event_used = False
         def get(self, _path):
             return lambda handler: handler
         def post(self, _path):
             return lambda handler: handler
+        def on_event(self, _event_type):
+            self.on_event_used = True
+            return lambda handler: handler
 
     monkeypatch.setitem(sys.modules, "fastapi", types.SimpleNamespace(FastAPI=FakeFastAPI, Header=lambda default=None: default))
-    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=object))
+    monkeypatch.setitem(sys.modules, "fastapi.responses", types.SimpleNamespace(JSONResponse=object, StreamingResponse=object))
     monkeypatch.setenv("BUILDER_ENV", "production")
     monkeypatch.setenv("BUILDER_API_TOKEN", "prod-token-1234567890-1234567890")
     monkeypatch.setenv("BUILDER_CORS_ORIGINS", "https://builder.example.com")
