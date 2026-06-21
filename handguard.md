@@ -272,3 +272,46 @@ green test gate (zero regression). Full suite 1881 passed, 1 skipped, 0 failed.
 Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts per
 claimed venue/capability. Builder remains scaffold/contract/evidence-gated only.
 
+---
+## 2026-06-21 frontend/backend reconciliation ($omo:frontend)
+
+Reconciliation of the frontend API layer against the backend route surface (50
+backend routes). Full Python suite 1881 passed, 1 skipped, 0 failed; web contract
+tests 75 passed; lib/api.test.ts 12 passed; tsc clean.
+
+### Cleanup — dead artifacts removed
+- `apps/web/lib/apiClient.ts` (DELETED): explicitly-`@deprecated` backward-compat
+  shim superseded by `api.ts`; zero imports, zero test references.
+- `apps/web/components/shell/OperatorAppShell.tsx` (DELETED): superseded by
+  BuilderShell; zero component imports, zero test references (contract test
+  requires BuilderShell, not OperatorAppShell). Stale CSS comment updated.
+
+### Reconnected missing read-only API
+Added `api.ts` helpers + `types.ts` for safe observational backend routes that
+previously had no frontend connection (all READ-ONLY, verified live):
+- `fetchReadinessMatrix` -> GET /api/readiness (readiness matrix; live_execution
+  remains out_of_scope).
+- `fetchEvidenceForLineage` -> GET /api/evidence.
+- `fetchRuntimeEventsReplay` -> GET /api/runtime-events/replay.
+- `fetchWorkflowLineageStatus` -> GET /api/workflow/lineages/{id}/status.
+- `fetchWorkflowResultSuggestions` -> GET /api/workflow/results/{id}/suggestions.
+
+### Safety contract enforced (NOT reconnected)
+Execution-authority endpoints are deliberately NOT wired to the frontend, per the
+hard read-only/advisory contract enforced by `tests/web/test_execution_lane_ui_contract.py`:
+- No execution-lane SESSION modeling or lifecycle (start/stop) in the UI. An
+  attempted `ExecutionLaneSessionStatus` read-only helper was REVERTED after the
+  contract test caught it forbidding `ExecutionLaneSession` in the frontend.
+- No `submit_order`, no credential inputs, no session start/stop, no
+  `/api/execution-lane/sessions/start`, no worker run-once, no pipeline-mutating
+  endpoints.
+
+### Pre-existing (out of scope, noted)
+7 frontend vitest page tests fail on a pre-existing `vi.mock("next/navigation")`
+gap (`useRouter` not exported by the mock), unrelated to the API layer or this
+reconciliation. Touch no api.ts/types.ts symbols.
+
+### Still NOT production-ready
+Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
+per claimed venue/capability.
+

@@ -22,6 +22,9 @@ import type {
   StrategyEvidenceSummary,
   StrategyRecord,
   StrategySummary,
+  ReadinessMatrix,
+  EvidenceRecord,
+  RuntimeEventsReplay,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -382,4 +385,52 @@ export async function fetchStrategyEvidenceSummary(
   strategyId: string,
 ): Promise<StrategyEvidenceSummary> {
   return apiFetch<StrategyEvidenceSummary>(`/api/strategies/${strategyId}/evidence-summary`);
+}
+
+
+// ─── Read-only reconciliation helpers ────────────────────────────────────────
+// Reconnect safe observational backend routes that previously had no api.ts
+// helper. These are READ-ONLY surfaces. No execution/order-submit, session
+// start/stop, worker run-once, or pipeline-mutating endpoints are wired here —
+// those stay backend authority-only per the Builder safety contract.
+
+/** Fetch the Builder readiness matrix (capability readiness + evidence gates). */
+export async function fetchReadinessMatrix(): Promise<ReadinessMatrix> {
+  return apiFetch<ReadinessMatrix>("/api/readiness");
+}
+
+/** Fetch evidence records grouped by strategy lineage id (read-only). */
+export async function fetchEvidenceForLineage(
+  strategyLineageId = "",
+): Promise<Record<string, EvidenceRecord[]>> {
+  const query = strategyLineageId
+    ? `?strategy_lineage_id=${encodeURIComponent(strategyLineageId)}`
+    : "";
+  return apiFetch<Record<string, EvidenceRecord[]>>(`/api/evidence${query}`);
+}
+/** Fetch the observational runtime-events replay timeline for a job. */
+export async function fetchRuntimeEventsReplay(
+  jobId = "bt_001",
+): Promise<RuntimeEventsReplay> {
+  return apiFetch<RuntimeEventsReplay>(
+    `/api/runtime-events/replay?job_id=${encodeURIComponent(jobId)}`,
+  );
+}
+
+/** Fetch workflow lineage status (observational promotion/gate pipeline status). */
+export async function fetchWorkflowLineageStatus(
+  strategyLineageId: string,
+): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(
+    `/api/workflow/lineages/${encodeURIComponent(strategyLineageId)}/status`,
+  );
+}
+
+/** Fetch suggestions attached to a workflow result (read-only advisory). */
+export async function fetchWorkflowResultSuggestions(
+  resultId: string,
+): Promise<unknown[]> {
+  return apiFetch<unknown[]>(
+    `/api/workflow/results/${encodeURIComponent(resultId)}/suggestions`,
+  );
 }

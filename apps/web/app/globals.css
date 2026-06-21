@@ -1341,10 +1341,7 @@ pre {
 }
 
 /* ========== Operator shell — neutered to not override nb-* shell ========== */
-/* OperatorAppShell now delegates to BuilderShell, but operator-* CSS is kept
-   so that any stale references or E2E tests that check operator-shell DOM
-   still find valid (though unused) styling. These rules are intentionally
-   low-specificity and won't override nb-* classes. */
+/* operator-* CSS retained for layout stability; OperatorAppShell.tsx was removed (superseded by BuilderShell). */
 
 .operator-shell {
   min-height: 100vh;

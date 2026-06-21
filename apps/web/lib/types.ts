@@ -332,3 +332,39 @@ export const STRATEGY_STATUS_COLORS: Record<StrategyStatus, string> = {
   approved: "green",
   execution_ready: "gold",
 };
+
+
+// ─── Frontend/backend read-only reconciliation types ─────────────────────────
+// Added to reconnect safe observational backend routes that previously had no
+// api.ts helper. These are read-only surfaces only; no execution/order-submit
+// endpoints are wired to the frontend. Execution-lane SESSION lifecycle is
+// deliberately excluded entirely (backend authority): the UI must not model or
+// drive sessions (see tests/web/test_execution_lane_ui_contract.py).
+
+/** Readiness capability entry — mirrors packages.readiness.models.ReadinessEntry. */
+export interface ReadinessEntry {
+  capability: string;
+  status: "ready" | "partial" | "blocked" | "out_of_scope";
+  required_evidence_types: string[];
+  blocking_reasons: string[];
+  last_verified_at?: string | null;
+  verified_by_command?: string | null;
+}
+
+/** Readiness matrix — mirrors packages.readiness.models.ReadinessMatrix. */
+export interface ReadinessMatrix {
+  builder_version: string;
+  checked_at: string;
+  entries: ReadinessEntry[];
+}
+
+/** Evidence record — read-only view of a promotion/verification evidence entry. */
+export interface EvidenceRecord {
+  [field: string]: unknown;
+}
+
+/** Runtime-events replay payload (observational; job-timeline replay). */
+export interface RuntimeEventsReplay {
+  [field: string]: unknown;
+}
+
