@@ -7,7 +7,7 @@ const fetchBacktestJob = vi.fn();
 const fetchBacktestJobEvents = vi.fn();
 const cancelBacktestJob = vi.fn();
 
-vi.mock("../../../../lib/api", () => ({
+vi.mock("../../../lib/api", () => ({
   fetchBacktestJob: (...args: unknown[]) => fetchBacktestJob(...args),
   fetchBacktestJobEvents: (...args: unknown[]) => fetchBacktestJobEvents(...args),
   cancelBacktestJob: (...args: unknown[]) => cancelBacktestJob(...args),

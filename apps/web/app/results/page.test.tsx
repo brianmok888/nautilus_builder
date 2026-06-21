@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import ResultsPage from "./page";
 
-vi.mock("../../../components/results/ResultsListClient", () => ({
+vi.mock("../../components/results/ResultsListClient", () => ({
   ResultsListClient: () => <div data-testid="results-list">Results List</div>,
 }));
 

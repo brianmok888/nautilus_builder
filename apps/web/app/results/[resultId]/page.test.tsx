@@ -5,7 +5,7 @@ import ResultPage from "./page";
 
 const fetchResultSummary = vi.fn();
 
-vi.mock("../../../../lib/api", () => ({
+vi.mock("../../../lib/api", () => ({
   fetchResultSummary: (...args: unknown[]) => fetchResultSummary(...args),
 }));
 

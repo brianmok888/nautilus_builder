@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("../../components/dashboard/BuilderDashboard", () => ({
+vi.mock("../components/dashboard/BuilderDashboard", () => ({
   BuilderDashboard: ({ initialTab }: { readonly initialTab?: string }) => (
     <div data-testid="dashboard-initial-tab">{initialTab}</div>
   ),

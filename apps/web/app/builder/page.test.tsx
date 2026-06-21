@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import BuilderPage from "./page";
 
-vi.mock("../../../components/dashboard/BuilderDashboard", () => ({
+vi.mock("../../components/dashboard/BuilderDashboard", () => ({
   BuilderDashboard: ({ initialTab }: { readonly initialTab?: string }) => (
     <div data-testid="dashboard-initial-tab">{initialTab}</div>
   ),

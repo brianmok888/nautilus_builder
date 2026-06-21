@@ -306,10 +306,17 @@ hard read-only/advisory contract enforced by `tests/web/test_execution_lane_ui_c
   `/api/execution-lane/sessions/start`, no worker run-once, no pipeline-mutating
   endpoints.
 
-### Pre-existing (out of scope, noted)
-7 frontend vitest page tests fail on a pre-existing `vi.mock("next/navigation")`
-gap (`useRouter` not exported by the mock), unrelated to the API layer or this
-reconciliation. Touch no api.ts/types.ts symbols.
+### Resolved (frontend vitest page tests)
+The 7 frontend vitest page tests that previously failed now pass (206 passed |
+4 skipped | 0 failed). Root cause was NOT a `next/navigation`/`useRouter` mock
+gap; each page test's `vi.mock("...")` module specifier had one extra `../`
+relative to the import path the page-under-test uses, so the mock factory never
+matched and the real component/`lib/api` rendered (surfacing as `useRouter` /
+`invariant expected app router` / `parse URL` errors). Fix: corrected the
+`vi.mock` specifier in 7 test files to exactly match the page import path. Pure
+test-infrastructure change: no production code, no api.ts/types.ts symbols, no
+test assertions weakened, no execution authority wired (execution-lane UI
+contract still green). `tsc --noEmit` clean.
 
 ### Still NOT production-ready
 Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
