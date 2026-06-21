@@ -16,7 +16,7 @@ def test_exact_match_has_no_minor_drift() -> None:
 
 
 def test_minor_version_drift_detected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(importlib.metadata, "version", lambda pkg: "1.228.0")
+    monkeypatch.setattr(importlib.metadata, "version", lambda pkg: "1.229.0")
     status = check_nautilus_runtime_version()
     assert status.is_match is False
     assert status.is_minor_drift is True
@@ -24,7 +24,7 @@ def test_minor_version_drift_detected(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_patch_only_drift_is_not_minor_drift(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(importlib.metadata, "version", lambda pkg: "1.227.5")
+    monkeypatch.setattr(importlib.metadata, "version", lambda pkg: "1.228.5")
     status = check_nautilus_runtime_version()
     assert status.is_match is False
     assert status.is_minor_drift is False

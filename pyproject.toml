@@ -9,7 +9,7 @@ description = "Builder-side strategy authoring and observational runtime contrac
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "nautilus_trader==1.227.0",
+    "nautilus_trader==1.228.0",
     "pydantic>=2.9",
     "psycopg[binary]>=3.2",
     "redis>=5.1",
