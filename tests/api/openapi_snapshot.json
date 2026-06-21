@@ -58,7 +58,7 @@
   },
   "info": {
     "title": "Nautilus Builder API",
-    "version": "0.1.0"
+    "version": "0.5.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2675,6 +2675,237 @@
         "summary": "Strategy Registry External"
       }
     },
+    "/api/tradehud/events/replay": {
+      "get": {
+        "operationId": "tradehud_replay_api_tradehud_events_replay_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Tradehud Replay Api Tradehud Events Replay Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tradehud Replay"
+      }
+    },
+    "/api/tradehud/health": {
+      "get": {
+        "operationId": "tradehud_health_api_tradehud_health_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Tradehud Health Api Tradehud Health Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tradehud Health"
+      }
+    },
+    "/api/tradehud/snapshot": {
+      "get": {
+        "operationId": "tradehud_snapshot_api_tradehud_snapshot_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Tradehud Snapshot Api Tradehud Snapshot Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tradehud Snapshot"
+      }
+    },
+    "/api/tradehud/stream": {
+      "get": {
+        "description": "SSE endpoint \u2014 read-only event stream. Auth is enforced before the\nStreamingResponse is constructed so a stream never starts for an\nunauthenticated caller.",
+        "operationId": "tradehud_stream_api_tradehud_stream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "symbol",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tradehud Stream"
+      }
+    },
     "/api/workflow/lineages/{strategy_lineage_id}/status": {
       "get": {
         "operationId": "workflow_lineage_status_api_workflow_lineages__strategy_lineage_id__status_get",
@@ -2862,14 +3093,14 @@
     },
     "/health/build": {
       "get": {
-        "operationId": "health_build_health_build_get",
+        "operationId": "health_build_PLACEHOLDER_health_build_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "additionalProperties": true,
-                  "title": "Response Health Build Health Build Get",
+                  "title": "Response Health Build Placeholder Health Build Get",
                   "type": "object"
                 }
               }
@@ -2877,7 +3108,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Health Build"
+        "summary": "Health Build Placeholder"
       }
     },
     "/health/live": {

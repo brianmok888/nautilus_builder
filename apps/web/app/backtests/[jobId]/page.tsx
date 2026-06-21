@@ -1,8 +1,8 @@
 import {
   fetchBacktestJob,
   fetchBacktestJobEvents,
-} from "../../../../lib/api";
-import type { BacktestJobEvents, BacktestJobStatus } from "../../../../lib/types";
+} from "../../../lib/api";
+import type { BacktestJobEvents, BacktestJobStatus } from "../../../lib/types";
 import { BacktestJobClient } from "./BacktestJobClient";
 
 export default async function BacktestJobPage({

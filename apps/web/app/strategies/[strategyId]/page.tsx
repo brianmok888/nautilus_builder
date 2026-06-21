@@ -1,4 +1,4 @@
-import { StrategyDetailClient } from "../../../../components/strategies/StrategyDetailClient";
+import { StrategyDetailClient } from "../../../components/strategies/StrategyDetailClient";
 
 export default async function StrategyDetailPage({
   params,

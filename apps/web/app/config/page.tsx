@@ -1,7 +1,7 @@
 "use client";
 
-import { ModelConfigTabs } from "../../../components/config/ModelConfigTabs";
-import { PageHeader } from "../../../components/ui/PageHeader";
+import { ModelConfigTabs } from "../../components/config/ModelConfigTabs";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { SettingOutlined } from "@ant-design/icons";
 
 export default function ConfigPage() {

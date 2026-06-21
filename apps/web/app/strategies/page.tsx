@@ -1,8 +1,8 @@
 "use client";
 
-import { PageHeader } from "../../../components/ui/PageHeader";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { FileTextOutlined } from "@ant-design/icons";
-import { StrategyListClient } from "../../../components/strategies/StrategyListClient";
+import { StrategyListClient } from "../../components/strategies/StrategyListClient";
 
 export default function StrategiesPage() {
   return (

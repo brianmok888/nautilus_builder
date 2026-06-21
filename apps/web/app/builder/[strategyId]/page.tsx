@@ -1,4 +1,4 @@
-import { BuilderDashboard } from "../../../../components/dashboard/BuilderDashboard";
+import { BuilderDashboard } from "../../../components/dashboard/BuilderDashboard";
 
 export default async function BuilderStrategyPage({
   params,

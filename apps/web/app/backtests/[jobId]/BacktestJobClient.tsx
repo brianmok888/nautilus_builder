@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Alert, Button, Card, Descriptions, Space, Tag, Typography } from "antd";
-import { cancelBacktestJob } from "../../../../lib/api";
-import type { BacktestJobEvents, BacktestJobStatus } from "../../../../lib/types";
+import { cancelBacktestJob } from "../../../lib/api";
+import type { BacktestJobEvents, BacktestJobStatus } from "../../../lib/types";
 
 type BacktestEvent = {
   event_id?: string;

@@ -735,3 +735,27 @@ findings above, segment by segment, TDD (red -> green) per segment.
   detail/error_type None; extra="forbid" still rejects unknown fields.
 - **Regression check**: `tests/pipeline/` + `tests/api/test_pipeline_run.py` ->
   20 passed.
+
+
+### S4 — P1-1 OpenAPI snapshot + P1-2 web contracts CLOSED
+- **P1-1 / H-20260617-01 (OpenAPI)**: regenerated `tests/api/openapi_snapshot.json`
+  from `create_fastapi_app().openapi()` (52 paths). The snapshot now records the 4
+  TradeHUD routes AND their `authorization` header params + security requirements
+  (proof the S2 auth fix is reflected in the schema contract).
+  `test_openapi_schema_matches_snapshot` passes (was failing: 4 tradehud paths
+  were `added`).
+- **P1-2 / H-20260617-02 (web contracts)**: the `feat/tradehud-standalone` merge
+  had moved all builder pages into a `(builder)` route group and dropped the root
+  `app/page.tsx`, breaking 11 file-location contract tests. Root cause analysis:
+  the `(builder)` group is URL-transparent and gained nothing, while the contract
+  tests assert public flat route file locations (`app/page.tsx`,
+  `app/strategies/page.tsx`, `app/layout.tsx` must contain `BuilderShell`, etc.).
+  Fix: flatten the route group back into `app/` (22 files moved one level up,
+  relative imports recomputed by file depth, same-dir `./` and bare package
+  imports preserved) and merge the group's `<BuilderShell>` wrapper into the root
+  `app/layout.tsx`. TradeHUD remains standalone (`app/tradehud/page.tsx` with
+  `TradeHudShell`, untouched). Verified:
+  - `tests/web/` + `tests/api/test_strategies.py` -> 78 passed (was 11 failing).
+  - `tsc --noEmit` in `apps/web` -> exit 0 (imports are type-correct after the
+    relative-path recompute).
+- **Regression check**: `tests/api/` + `tests/web/` -> 265 passed, 1 skipped.

@@ -1,7 +1,7 @@
 "use client";
 
-import { ResultsListClient } from "../../../components/results/ResultsListClient";
-import { PageHeader } from "../../../components/ui/PageHeader";
+import { ResultsListClient } from "../../components/results/ResultsListClient";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { BarChartOutlined } from "@ant-design/icons";
 
 export default function ResultsPage() {

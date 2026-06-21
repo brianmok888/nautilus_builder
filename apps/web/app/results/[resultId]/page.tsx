@@ -1,5 +1,5 @@
-import { ResultsDashboard } from "../../../../components/results/ResultsDashboard";
-import { fetchResultSummary } from "../../../../lib/api";
+import { ResultsDashboard } from "../../../components/results/ResultsDashboard";
+import { fetchResultSummary } from "../../../lib/api";
 
 export default async function ResultPage({ params }: { params: Promise<{ resultId: string }> }) {
   const { resultId } = await params;
