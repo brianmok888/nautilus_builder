@@ -11,7 +11,6 @@ from services.api.routes.runtime_events import replay_runtime_events_payload
 from services.api.routes.strategy_registry import list_external_strategy_payloads
 from services.api.routes.strategies import create_strategy_payload, create_strategy_version_payload, list_strategies_payload, strategy_detail_payload, update_strategy_draft_payload
 from services.api.routes.tradehud import tradehud_snapshot_payload, tradehud_health_payload, tradehud_replay_payload
-from services.api.routes.tradehud_sse import tradehud_event_stream
 from services.api.routes.workflow_results import list_results_payload, workflow_lineage_status_payload, workflow_result_payload, workflow_result_suggestions_payload
 from packages.workflow_spine import InMemoryWorkflowRepository
 from packages.artifact_store import LocalJsonArtifactStore

@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from packages.builder_metadata.version import get_canonical_version
+from fastapi import FastAPI
+
 
 
 @runtime_checkable

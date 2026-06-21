@@ -1,6 +1,7 @@
 """FastAPI middleware configuration."""
 from __future__ import annotations
 
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from packages.auth.request_id import RequestIdMiddleware
@@ -8,7 +9,6 @@ from packages.auth.request_id import RequestIdMiddleware
 
 def add_cors_middleware(app: "FastAPI", origins: list[str]) -> None:
     """Add CORS middleware with explicit origins."""
-    from fastapi import FastAPI
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

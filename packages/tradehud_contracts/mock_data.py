@@ -14,7 +14,6 @@ from packages.tradehud_contracts.models import (
     MarketBookTopModel,
     MarketBookL2Model,
     BookLevelModel,
-    MarketTradeModel,
     StrategySignalPreviewModel,
     GateDecisionModel,
     TradeActionEvidenceModel,
@@ -135,8 +134,8 @@ def generate_snapshot(symbol: str = "BTCUSDT-PERP", seed: int = 42) -> TradeHudS
         a_s = rng.range(0.1, 30) * (1 - i * 0.05)
         ask_total += a_s
         asks.append(BookLevelModel(price=ap, size=a_s, total=ask_total, age_ms=rng.randint(0, 3000)))
-    top5_bid = sum(l.size for l in bids[:5])
-    top5_ask = sum(l.size for l in asks[:5])
+    top5_bid = sum(level.size for level in bids[:5])
+    top5_ask = sum(level.size for level in asks[:5])
     book_l2 = MarketBookL2Model(
         symbol=symbol,
         bids=bids,
@@ -313,15 +312,16 @@ def generate_snapshot(symbol: str = "BTCUSDT-PERP", seed: int = 42) -> TradeHudS
     )
 
     # Runtime health
-    mk_lane = lambda lane, healthy: LaneHealthModel(
-        lane=lane,
-        status="healthy" if healthy else "stale",
-        last_heartbeat_ts_ns=ts if healthy else ts - rng.randint(10_000_000_000, 30_000_000_000),
-        age_ms=rng.randint(0, 2000) if healthy else rng.randint(10_000, 30_000),
-        stale=not healthy,
-        missing=False,
-        reason_code=None if healthy else "HEARTBEAT_TIMEOUT",
-    )
+    def mk_lane(lane: str, healthy: bool) -> LaneHealthModel:
+        return LaneHealthModel(
+            lane=lane,
+            status="healthy" if healthy else "stale",
+            last_heartbeat_ts_ns=ts if healthy else ts - rng.randint(10_000_000_000, 30_000_000_000),
+            age_ms=rng.randint(0, 2000) if healthy else rng.randint(10_000, 30_000),
+            stale=not healthy,
+            missing=False,
+            reason_code=None if healthy else "HEARTBEAT_TIMEOUT",
+        )
     runtime_health = RuntimeHealthModel(
         run_main_strategy_signal=mk_lane("run_main_strategy_signal", True),
         run_gate_engine=mk_lane("run_gate_engine", True),

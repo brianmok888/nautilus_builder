@@ -7,7 +7,7 @@ Emits stream_health SSE events.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from packages.tradehud_contracts.config import TradeHudRedisConfig

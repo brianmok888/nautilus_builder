@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import json
 import os
-import re
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 _DEMO_TOKENS = {
@@ -64,7 +63,7 @@ class BuilderProductionConfig(BaseModel):
             )
         if self.api_token in _DEMO_TOKENS:
             raise ValueError(
-                f"api_token must not be a demo/dev token in production"
+                "api_token must not be a demo/dev token in production"
             )
 
         # Database

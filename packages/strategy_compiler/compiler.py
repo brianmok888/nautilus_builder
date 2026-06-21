@@ -8,7 +8,6 @@ import hashlib
 import json
 from typing import Any
 
-from packages.strategy_spec.microstructure import StrategySpecMicrostructureV1
 from packages.strategy_spec.models import StrategySpec
 from packages.strategy_spec.resolver import get_spec_family_name, parse_strategy_spec
 

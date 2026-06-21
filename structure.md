@@ -357,3 +357,32 @@ Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
 per claimed venue/capability. Builder remains scaffold/contract/evidence-gated
 only.
 
+---
+## 2026-06-21 $omo refactor pass — R2/R3/ruff closed
+
+Module-split and lint-gate refactor ($omo:refactor + $omo:programming), behind the
+green test gate (zero regression). Full suite 1881 passed, 1 skipped, 0 failed.
+
+### Closed this pass
+- **R3 — redis_adapter split (P2-3):** split the 843-LOC monolith into
+  `redis_normalizers.py` (parsers + `parse_stream_entry`), `redis_snapshot_builder.py`
+  (`build_snapshot_from_redis`), and a thin `redis_adapter.py` (264 LOC,
+  connection/IO only) with backward-compatible re-exports. Locked by 7 new
+  module-split invariants (public/internal symbol reachability, size <=400 LOC,
+  no parser re-definition in the adapter). tradehud tests 279 passed.
+- **R2 — fastapi_app helper extraction:** extracted the pure env/config startup
+  helpers (`_strictest_configured_env`, `_cors_origins_from_env`,
+  `_validate_startup_policy`, `_register_env_dev_token`, `_env_user_project_context`,
+  `_default_ai_audit_store`, `_UNSAFE_DEV_TOKENS`) into `services/api/_app_env.py`;
+  fastapi_app re-exports them (backward compat). fastapi_app 1090 -> 1014 LOC. The
+  create_fastapi_app route closures (shared closure state) were deliberately left in
+  place. tests/api 191 passed.
+- **Ruff lint gate:** added `[tool.ruff]` (select E4/E7/E9/F) + a `Lint (ruff)` step
+  in `.github/workflows/ci.yml` (backend job). Fixed all 22 pre-existing findings in
+  packages/services, including 3 real F821 "Undefined name FastAPI" latent bugs in
+  `app_factory.py`/`middleware.py`. `ruff check packages services` is clean.
+
+### Still NOT production-ready
+Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts per
+claimed venue/capability. Builder remains scaffold/contract/evidence-gated only.
+

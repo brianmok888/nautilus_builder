@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
 
 from packages.builder_metadata.models import BuilderBuildInfo
 from packages.builder_metadata.version import _read_version_from_metadata, _read_version_from_pyproject

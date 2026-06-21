@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from collections import OrderedDict
 from itertools import count
-from typing import Any
 
 from packages.auth.models import AuthToken, UserProjectContext
 
