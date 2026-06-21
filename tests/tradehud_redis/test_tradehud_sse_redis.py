@@ -118,10 +118,11 @@ def test_sse_route_no_next_public():
 
 
 @pytest.mark.asyncio
-async def test_sse_production_redis_unavailable_emits_stream_error():
-    """P2-4: in production, a configured-but-unavailable Redis feed must emit an
-    explicit degraded/stream_error event rather than silently presenting a
-    synthetic (alive-looking) stream. Local/dev may still fall back to mock."""
+async def test_sse_production_redis_unavailable_emits_stream_error_then_stops():
+    """P2-4 (tightened): in production, a configured-but-unavailable Redis feed must
+    emit an explicit stream_error event and then STOP the generator. It must NOT
+    continue into a synthetic/mock snapshot that makes a broken live feed look
+    alive. Local/dev may still fall back to mock."""
     env = {
         "TRADEHUD_FEED_SOURCE": "redis",
         "TRADEHUD_REDIS_URL": REDIS_URL_UNREACHABLE,
@@ -129,10 +130,53 @@ async def test_sse_production_redis_unavailable_emits_stream_error():
     }
     with patch.dict(os.environ, env, clear=True):
         gen = tradehud_event_stream("BTCUSDT-PERP")
-        # Collect the first few events; the production degraded signal must appear.
         seen_events = []
         try:
-            for _ in range(3):
+            # The very first event must be the explicit stream_error.
+            first = _parse_sse(await gen.__anext__())
+            seen_events.extend(first if isinstance(first, list) else [first])
+            # After the stream_error the generator must terminate; the next pull
+            # must raise StopAsyncIteration (no synthetic snapshot may follow).
+            stopped = False
+            try:
+                await gen.__anext__()
+            except StopAsyncIteration:
+                stopped = True
+            assert stopped, (
+                "Production Redis-unavailable stream continued past stream_error "
+                "instead of stopping the generator"
+            )
+        finally:
+            await gen.aclose()
+
+    event_names = {e["event"] for e in seen_events}
+    source_statuses = {
+        e["data"].get("source_status")
+        for e in seen_events
+        if isinstance(e.get("data"), dict)
+    }
+    # Production must surface the explicit degraded signal as the first event.
+    assert "stream_error" in event_names
+    assert "redis_unavailable" in source_statuses
+    # No synthetic/mock (alive-looking) snapshot may be emitted after the error.
+    assert "synthetic" not in source_statuses
+    assert "mock" not in {e["data"].get("provenance") for e in seen_events if isinstance(e.get("data"), dict)}
+
+
+@pytest.mark.asyncio
+async def test_sse_local_dev_redis_unavailable_still_falls_back_to_mock():
+    """P2-4 (complement): local/dev with Redis configured-but-unavailable must
+    keep the existing fallback to a synthetic/mock snapshot (unchanged behavior)."""
+    env = {
+        "TRADEHUD_FEED_SOURCE": "redis",
+        "TRADEHUD_REDIS_URL": REDIS_URL_UNREACHABLE,
+        "BUILDER_ENV": "local",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        gen = tradehud_event_stream("BTCUSDT-PERP")
+        seen_events = []
+        try:
+            for _ in range(2):
                 seen_events.append(_parse_sse(await gen.__anext__()))
         except StopAsyncIteration:
             pass
@@ -141,8 +185,8 @@ async def test_sse_production_redis_unavailable_emits_stream_error():
 
     flat = [e for batch in seen_events for e in batch]
     event_names = {e["event"] for e in flat}
-    source_statuses = {e["data"].get("source_status") for e in flat if isinstance(e.get("data"), dict)}
-    # Production must surface a degraded signal, not a silent "synthetic" stream.
-    assert "stream_error" in event_names or "redis_unavailable" in source_statuses
-    # And must NOT claim everything is fine with a plain "synthetic" provenance only.
-    assert not (source_statuses <= {"synthetic"})
+    # Local/dev must NOT emit a production-only stream_error; it falls back to mock.
+    assert "stream_error" not in event_names
+    assert flat[0]["event"] == "snapshot"
+    assert flat[0]["data"]["provenance"] == "mock"
+    assert flat[0]["data"]["source_status"] == "synthetic"

@@ -169,6 +169,11 @@ async def tradehud_event_stream(
                 "reason": "Redis feed configured but unavailable in production",
             },
         )
+        # P2-4 (tightened): in production a configured-but-unavailable Redis feed
+        # must NOT continue into a synthetic/mock snapshot that makes a broken
+        # live feed look alive. Surface the explicit stream_error, then STOP the
+        # generator. Local/dev keeps its existing mock fallback below.
+        return
 
     # Initial snapshot
     snapshot = None
