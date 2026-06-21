@@ -12,6 +12,7 @@ Standard SSE framing — every message uses a named ``event:`` field.
 from __future__ import annotations
 
 import json
+import os
 import logging
 import time
 from collections.abc import AsyncGenerator
@@ -98,7 +99,17 @@ def _snapshot_to_event_payload(snapshot, provenance: str = "mock", source_status
 def _is_redis_enabled() -> bool:
     """Redis adapter ONLY activates when TRADEHUD_FEED_SOURCE=redis."""
     config = TradeHudRedisConfig.from_env()
-    return config.is_redis_enabled and config.is_redis_configured
+    return bool(config.is_redis_enabled and config.is_redis_configured)
+
+
+def _is_production_env() -> bool:
+    """True when the strictest configured Builder environment is production.
+
+    In production, a configured-but-unavailable Redis feed must surface an explicit
+    degraded signal rather than silently presenting a synthetic (alive-looking) stream.
+    """
+    raw = (os.environ.get("BUILDER_ENV", "") or os.environ.get("APP_ENV", "")).strip().lower()
+    return raw == "production"
 
 
 async def _try_redis_adapter():
@@ -144,6 +155,20 @@ async def tradehud_event_stream(
     use_redis = redis_connected and redis_adapter is not None
     provenance = "redis" if use_redis else "mock"
     source_status = "live" if use_redis else "synthetic"
+
+    # P2-4: in production, a configured-but-unavailable Redis feed must surface an
+    # explicit degraded signal rather than silently presenting a synthetic stream.
+    if _is_redis_enabled() and not use_redis and _is_production_env():
+        provenance = "none"
+        source_status = "redis_unavailable"
+        yield _format_sse(
+            "stream_error",
+            {
+                "source_status": "redis_unavailable",
+                "provenance": "none",
+                "reason": "Redis feed configured but unavailable in production",
+            },
+        )
 
     # Initial snapshot
     snapshot = None

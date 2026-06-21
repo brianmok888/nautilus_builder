@@ -115,3 +115,34 @@ def test_sse_route_no_next_public():
     src = inspect.getsource(__import__("services.api.routes.tradehud_sse", fromlist=[""]))
     assert "NEXT_PUBLIC_REDIS_URL" not in src
     assert "NEXT_PUBLIC_DATABASE_URL" not in src
+
+
+@pytest.mark.asyncio
+async def test_sse_production_redis_unavailable_emits_stream_error():
+    """P2-4: in production, a configured-but-unavailable Redis feed must emit an
+    explicit degraded/stream_error event rather than silently presenting a
+    synthetic (alive-looking) stream. Local/dev may still fall back to mock."""
+    env = {
+        "TRADEHUD_FEED_SOURCE": "redis",
+        "TRADEHUD_REDIS_URL": REDIS_URL_UNREACHABLE,
+        "BUILDER_ENV": "production",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        gen = tradehud_event_stream("BTCUSDT-PERP")
+        # Collect the first few events; the production degraded signal must appear.
+        seen_events = []
+        try:
+            for _ in range(3):
+                seen_events.append(_parse_sse(await gen.__anext__()))
+        except StopAsyncIteration:
+            pass
+        finally:
+            await gen.aclose()
+
+    flat = [e for batch in seen_events for e in batch]
+    event_names = {e["event"] for e in flat}
+    source_statuses = {e["data"].get("source_status") for e in flat if isinstance(e.get("data"), dict)}
+    # Production must surface a degraded signal, not a silent "synthetic" stream.
+    assert "stream_error" in event_names or "redis_unavailable" in source_statuses
+    # And must NOT claim everything is fine with a plain "synthetic" provenance only.
+    assert not (source_statuses <= {"synthetic"})
