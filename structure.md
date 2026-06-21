@@ -274,3 +274,24 @@ nautilus_builder/
 ### Master reconciliation — catalog-backed Nautilus replay
 
 `CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token. This phrase is intentionally present in all three ledgers (structure.md, findings.md, handguard.md) and asserted by `tests/integration/test_catalog_replay_ledger_updates.py`.
+
+
+---
+
+## 2026-06-21 structural changes
+
+- `apps/web/app/`: the `(builder)` route group was flattened back into the root
+  `app/` directory (22 pages moved up one level; relative imports recomputed by
+  depth; root `app/page.tsx` restored; `BuilderShell` merged into root layout).
+  `app/tradehud/` remains standalone (`TradeHudShell`). `tsc --noEmit` is clean.
+- `packages/pipeline/redaction.py` (new): redaction helpers for pipeline errors.
+- `packages/evidence_ledger/factory.py` (new): environment-guarded repository factory.
+- `packages/execution_lane/sessions.py`: `TradingNodeStopResult.status` extended
+  with `NOT_FOUND` / `STOP_TIMEOUT`; stop() idempotent.
+- `packages/tradehud_contracts/config.py`: `trades` stream added to both maps;
+  legacy map has owner/expiry/removal-criteria metadata.
+- `packages/auth/redis_rate_limit.py`: default fail-closed.
+- `services/api/fastapi_app.py`: TradeHUD routes auth-gated; on_event -> lifespan.
+- `packages/py.typed` (new, PEP 561).
+- Deferred: execution_lane module split (P2-2) and tradehud redis_adapter module
+  split (P2-3) — behavior locked by the green test gate; splits are a follow-up.

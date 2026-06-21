@@ -153,3 +153,27 @@ Before any future "ready" / "merge-ready" wording, require all of the 2026-06-13
 Master reconciliation — catalog-backed Nautilus replay
 
 `CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay smoke guard token.
+
+
+---
+
+## 2026-06-21 backlog closure — guard status update
+
+The 2026-06-21 closure pass closed all P0 and P1 items with regression tests.
+Suite: 1850 passed, 1 skipped, 0 failed. Guards above remain ACTIVE; the closure
+added/verified:
+
+- TradeHUD `/api/tradehud/*` routes are now route-level auth + rate-limit gated
+  (SSE stream never starts before auth). Read-only/advisory posture intact.
+- Redis rate limiter defaults fail-closed (bare construction denies when Redis is
+  down). Production fail-closed behavior proven by default.
+- Evidence storage factory guard added (defense in depth for direct construction).
+- Pipeline compile failures preserve a redacted root cause; secrets scrubbed.
+- Native TradingNode stop is idempotent with NOT_FOUND / STOP_TIMEOUT guarantees.
+- LLM transport uses explicit TLS verification + timeout.
+- Legacy `nautilus:tradehud:*` stream map has owner / expiry / removal-criteria;
+  default namespace is `nd`, legacy requires explicit opt-in.
+- Authority scan remains green; AI/TradeHUD cannot submit orders or collect creds.
+
+Verdict may move from REQUEST CHANGES once adapter DataTester/ExecTester/
+reconciliation evidence per claimed venue is added (unchanged open work).

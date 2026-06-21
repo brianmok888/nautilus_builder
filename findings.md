@@ -797,3 +797,51 @@ findings above, segment by segment, TDD (red -> green) per segment.
 - **Regression check**: `tests/auth/` + `tests/execution_lane/` + fastapi/lifespan/
   route_auth_scope/openapi/production_safety -> 189 passed, 1 skipped; the
   on_event deprecation warning is gone.
+
+
+---
+
+## Master reconciliation — 2026-06-21 backlog closure (ALL P0+P1 CLOSED)
+
+**Suite result**: `pytest -q` -> **1850 passed, 1 skipped, 2 warnings** (baseline
+was 1816 collected / 16 failing). +34 new regression tests, 0 failures, 0 errors.
+
+### Closed items (with regression-test evidence)
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| P0-2 /api/evidence NameError | **CLOSED** | `tests/api/test_evidence_list_route.py` (2) |
+| P0-1 TradeHUD route auth + rate-limit; SSE auth-before-stream | **CLOSED** | `tests/api/test_tradehud_route_auth.py` (4); routes in `PROTECTED_API_ROUTE_CALLS` |
+| P0-3 pipeline compile error detail + redaction | **CLOSED** | `tests/pipeline/test_pipeline_compile_error_detail.py` (4) |
+| P1-1 OpenAPI snapshot | **CLOSED** | regenerated; `test_openapi_snapshot.py` green (4 tradehud paths + security) |
+| P1-2 web contracts (11 tests) | **CLOSED** | route group flattened, root `app/page.tsx` restored, `BuilderShell` in layout; `tsc --noEmit` exit 0; 78 passed |
+| P1-3 Redis fail-closed default | **CLOSED** | `tests/auth/test_redis_rate_limit_default.py` (2); existing fail-open test now explicit opt-in |
+| P1-4 on_event -> lifespan | **CLOSED** | `tests/api/test_fastapi_lifespan.py`; deprecation warning gone |
+| P1-5 session stop idempotency | **CLOSED** | `tests/execution_lane/test_native_session_stop.py` (4) |
+| P2-1 evidence factory guard | **CLOSED** | `tests/evidence_ledger/test_repository_factory_guard.py` (4) |
+| P2-4 SSE prod Redis-unavailable degraded event | **CLOSED** | `tests/tradehud_redis/test_tradehud_sse_redis.py` (+1) |
+| P2-5 LLM transport explicit TLS + timeout | **CLOSED** | `tests/ai_builder/test_llm_transport_ssl_timeout.py` (2); S310 removed |
+| P2-6 / P2-7 paper strategy lifecycle logging + warmup | **CLOSED** | `tests/execution_lane/test_paper_strategy_warmup_logging.py` (5) |
+| P3-1 legacy stream-map owner/expiry/removal-criteria | **CLOSED** | `tests/tradehud_contracts/test_legacy_stream_map_governance.py` (5) |
+| P3-3 Rust LiveNode labelled future-only | **VERIFIED** | existing `test_paper_profile_builds_python_tradingnode_plan_without_live_authority` enforces no false availability |
+| P3-4 AI advisory-only static guard | **VERIFIED** | existing authority scan + evidence/promotion gates; TradeHUD/AI cannot submit orders |
+| P4-1 duplicate status fields | **DOCUMENTED** | ExecutionLaneSession `status`/`lifecycle_status` kept; documented single-source-of-truth intent |
+| P4-2 `_installed_nautilus_version` except narrowed | **CLOSED** | Exception -> ImportError |
+| P4-3 demo token unmistakable name | **CLOSED** | `EXAMPLE_DO_NOT_USE_BUILDER_TOKEN_2026` in `_DEMO_TOKENS` |
+| P4-4 `py.typed` marker | **CLOSED** | `packages/py.typed` (PEP 561) |
+| trades stream-map gap (2 freshness tests) | **CLOSED** | `trades` added to both stream maps; `tests/tradehud_contracts` 271 passed |
+
+### Deferred (explicit, behind a green test gate)
+- **P2-2** execution_lane module split and **P2-3** tradehud redis_adapter module
+  split: large refactors. Behavior is now locked by the green test gate above; the
+  splits themselves are a follow-up. A boundary/LOC enforcement test should be added
+  when the split lands.
+
+### Production-readiness gate status
+All P0 items fixed with regression tests. OpenAPI and web contract tests pass.
+Redis fail-closed production behavior is proven by default. TradeHUD routes are
+explicitly auth/rate-limit protected. TradeHUD/AI remain downstream/advisory/
+read-only and cannot submit orders (authority scan green). Legacy/deprecation shims
+have owner, expiry, and closure tests. The remaining production-readiness items
+(adapter DataTester/ExecTester/reconciliation evidence per claimed venue) are
+unchanged from prior passes and remain the open work to claim full venue green.
