@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 # ─── Legacy namespace stream map (nautilus:tradehud:*) ────────────────────────
 
 _LEGACY_STREAM_MAP: dict[str, str] = {
+    "trades": "nautilus:tradehud:trades",
     "book_top": "nautilus:tradehud:book_top",
     "book_l2": "nautilus:tradehud:book_l2",
     "account": "nautilus:tradehud:account",
@@ -30,6 +31,7 @@ _LEGACY_STREAM_MAP: dict[str, str] = {
 
 _ND_STREAM_MAP: dict[str, str] = {
     # ND canonical stream names (topic_contracts.py / topic_stream_mapping.py)
+    "trades": "nd.public_trade_tick",
     "book_top": "nd.public_quote_tick",
     "book_l2": "nd.orderbook_hot_view.tui_state",
     "account": "nd.state_bundle",

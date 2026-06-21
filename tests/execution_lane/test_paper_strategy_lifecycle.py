@@ -111,9 +111,12 @@ class TestOnStartBarSubscription:
         config = _make_config(bar_type="BTCUSDT-PERP.BINANCE-5-MINUTE-LAST-EXTERNAL")
         strategy = _make_strategy(config)
         with self._patch_cache(strategy, MagicMock()), \
+             patch.object(strategy, "request_bars") as mock_req_bars, \
              patch.object(strategy, "subscribe_bars") as mock_sub_bars, \
              patch.object(strategy, "subscribe_quote_ticks") as mock_sub_ticks:
             strategy.on_start()
+            # Warmup: request_bars is called before subscribe_bars (P2-7).
+            mock_req_bars.assert_called_once_with(bar_type=config.bar_type)
             mock_sub_bars.assert_called_once_with(bar_type=config.bar_type)
             mock_sub_ticks.assert_not_called()
 

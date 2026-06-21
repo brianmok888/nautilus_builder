@@ -37,19 +37,39 @@ class ExecutionLanePaperStrategy(Strategy):
 
     def on_start(self) -> None:
         self.instrument = self.cache.instrument(self.config.instrument_id)
-        if self.instrument is not None:
-            if self.config.bar_type:
-                self.subscribe_bars(bar_type=self.config.bar_type)
-            else:
-                self.subscribe_quote_ticks(instrument_id=self.config.instrument_id)
+        if self.instrument is None:
+            self.log.warning(
+                f"Instrument not found in cache for paper strategy: {self.config.instrument_id}; "
+                "no subscriptions will be created until it is available."
+            )
+            return
+        self.log.info(
+            f"ExecutionLanePaperStrategy start: instrument={self.config.instrument_id} "
+            f"bar_type={self.config.bar_type} lineage={self.config.strategy_lineage_id}"
+        )
+        if self.config.bar_type:
+            # Warmup: request historical bars before subscribing so any future
+            # indicator logic has a populated buffer (NautilusTrader convention).
+            self.request_bars(bar_type=self.config.bar_type)
+            self.subscribe_bars(bar_type=self.config.bar_type)
+        else:
+            self.subscribe_quote_ticks(instrument_id=self.config.instrument_id)
 
     def on_stop(self) -> None:
+        self.log.info(
+            f"ExecutionLanePaperStrategy stop: instrument={self.config.instrument_id} "
+            f"bar_type={self.config.bar_type} lineage={self.config.strategy_lineage_id}"
+        )
         if self.config.bar_type:
             self.unsubscribe_bars(bar_type=self.config.bar_type)
         else:
             self.unsubscribe_quote_ticks(instrument_id=self.config.instrument_id)
 
     def on_reset(self) -> None:
+        self.log.info(
+            f"ExecutionLanePaperStrategy reset: instrument={self.config.instrument_id} "
+            f"lineage={self.config.strategy_lineage_id}"
+        )
         self.instrument = None
         self.observed_quote_ticks = 0
         self.observed_bars = 0
