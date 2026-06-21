@@ -845,3 +845,50 @@ read-only and cannot submit orders (authority scan green). Legacy/deprecation sh
 have owner, expiry, and closure tests. The remaining production-readiness items
 (adapter DataTester/ExecTester/reconciliation evidence per claimed venue) are
 unchanged from prior passes and remain the open work to claim full venue green.
+
+---
+## 2026-06-21 remaining findings closure (ultragoal pass)
+
+This pass resolves the remaining findings from the 2026-06-21 backlog using TDD.
+Historical NT version mentions above (1.227.0 vs 1.228.0) are superseded by this
+section: the 1.227.0->1.228.0 drift is now CLOSED (pin upgraded to 1.228.0,
+aligned with Nautilus-Daedalus; no API breaks; verified by the version-drift
+guard tests passing with the new pin).
+
+### Closed this pass
+- **TradeHUD SSE production Redis-unavailable stops after stream_error**: in
+  production with `TRADEHUD_FEED_SOURCE=redis` but Redis configured-but-
+  unavailable, the SSE generator emitted `stream_error` then fell through into a
+  synthetic snapshot, making a broken live feed look alive. After `stream_error`
+  the generator now returns; local/dev mock fallback is unchanged.
+  (commit: `fix(tradehud): P2-4 production Redis-unavailable SSE stops after
+  stream_error`.)
+- **Fixture replay LOCAL-DEV-ONLY runtime guard**: `scripts/tradehud_replay_nd_
+  fixtures.py` now enforces LOCAL DEV ONLY at runtime — host allowlist, env guard
+  (BUILDER_ENV/APP_ENV/ENVIRONMENT), scary override (host check only), and Redis
+  URL redaction. (commit: `fix(security): enforce LOCAL-DEV-ONLY runtime guard on
+  fixture replay script`.)
+- **NautilusTrader 1.227.0 -> 1.228.0 drift**: pin upgraded to the current
+  official release, aligned with Daedalus. `engine_contract.py`, `pyproject.toml`,
+  `uv.lock` updated; drift-sample tests updated to keep exercising the same minor
+  vs patch drift categories. (commit: `fix(deps): upgrade nautilus_trader
+  1.227.0 -> 1.228.0 (align with Daedalus)`.)
+- **Adapter/readiness overstatement guard**: readiness wording was already
+  conservative (live_execution OUT_OF_SCOPE requiring DataTester/ExecTester/
+  reconciliation). Hardened with 3 defensive tests so READY cannot be claimed
+  without evidence types and production/live-named capabilities can never be READY.
+  (commit: `test(readiness): lock evidence-gated invariant`.)
+
+### Already closed in the prior 2026-06-21 pass (still closed)
+TradeHUD route auth; evidence-list `context` bug; pipeline redacted compile error
+detail; Redis rate-limit fail-closed default; FastAPI lifespan migration; native
+TradingNode stop idempotency; legacy stream-map owner/expiry.
+
+### Remaining risks (unchanged)
+- Production adapter/live claims still require DataTester/ExecTester/
+  reconciliation artifacts per venue/capability; Builder is evidence-gated
+  scaffold/contract only.
+- Deferred cleanup (locked by green tests): execution_lane module split (P2-2),
+  tradehud redis_adapter module split (P2-3).
+- Not production-ready / not merge-ready until the handguard gate is satisfied.
+

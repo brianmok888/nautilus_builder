@@ -177,3 +177,39 @@ added/verified:
 
 Verdict may move from REQUEST CHANGES once adapter DataTester/ExecTester/
 reconciliation evidence per claimed venue is added (unchanged open work).
+
+---
+## 2026-06-21 remaining findings closure (ultragoal pass) — guard status update
+
+This ultragoal pass (TDD) closes the remaining 2026-06-21 review findings. Guards
+remain ACTIVE; production-readiness wording is still BLOCKED until adapter
+evidence lands.
+
+### Guards advanced/closed this pass
+- **Guard #9 (tradehud seed/replay refuses non-local Redis)**: ✅ ADVANCED.
+  `scripts/tradehud_replay_nd_fixtures.py` now enforces LOCAL DEV ONLY at runtime:
+  host allowlist (localhost/127.0.0.1/::1), environment guard
+  (BUILDER_ENV/APP_ENV/ENVIRONMENT = production/prod/staging/stage -> SystemExit),
+  a scary `--allow-nonlocal-redis-for-fixture-replay` override that bypasses the
+  HOST check ONLY (never the production-env guard), and `redact_redis_url()` in
+  all logs. Covered by 22 test cases.
+- **R-4 / HG-20260613-14 (Nautilus dependency drift)**: ✅ CLOSED. Pin upgraded
+  1.227.0 -> 1.228.0, aligned with Nautilus-Daedalus and the official release.
+  `engine_contract.py` + `pyproject.toml` + `uv.lock` updated; drift-guard tests
+  pass against the new pin.
+- **TradeHUD SSE production Redis-unavailable**: ✅ CLOSED. After `stream_error`
+  in production (configured-but-unavailable Redis), the generator stops instead
+  of presenting a synthetic (alive-looking) snapshot. Local/dev fallback
+  unchanged.
+- **Adapter/readiness overstatement**: wording already conservative; hardened
+  with defensive tests so READY cannot be claimed without evidence types and
+  no live/production-named capability can be READY.
+
+### Still OPEN (unchanged gate)
+- Verdict remains REQUEST CHANGES / NOT PRODUCTION-READY / NOT MERGE-READY.
+- Full production/merge-ready gating still requires DataTester/ExecTester/
+  reconciliation artifacts per claimed venue/capability. Builder remains
+  scaffold/contract/evidence-gated only.
+- Deferred (locked by green tests): execution_lane module split (P2-2),
+  tradehud redis_adapter module split (P2-3).
+

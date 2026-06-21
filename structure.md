@@ -72,7 +72,7 @@ nautilus_builder/
 | Total Python LOC (services/) | ~2,100 |
 | Total Python LOC (tests/) | ~23,700 |
 | Test count | 1,441 passed, 1 integration failure, 1 skipped |
-| NT version | 1.227.0 |
+| NT version | 1.228.0 |
 | Dependencies | FastAPI, NautilusTrader, Pydantic v2, Redis, Postgres, boto3 |
 | Git branches | master (active), feat/close-builder-gaps-v1, feat/close-builder-gaps-v2 |
 
@@ -116,7 +116,7 @@ Purpose: semantic inventory for the current Builder repo against NautilusTrader 
 
 ### Current authority boundaries
 - Builder remains a strategy authoring, validation, backtest/replay, promotion, and execution-lane contract system. It is not the venue adapter source of truth.
-- NautilusTrader is the execution/backtest/live runtime authority. Current local pin: `nautilus_trader==1.227.0`; latest official release checked during review: `v1.228.0`.
+- NautilusTrader is the execution/backtest/live runtime authority. Current local pin: `nautilus_trader==1.228.0`, aligned with the Nautilus-Daedalus reference repo and the official `v1.228.0` release (the 1.227.0→1.228.0 drift was closed on 2026-06-21).
 - `/home/mok/projects/Nautilus-Daedalus` is a reference implementation for Daedalus runtime alignment only, not a vendored dependency.
 - AI/EvoMap/LangChain/LangGraph-style flows are advisory/workflow sidecars: they may draft, explain, and record provenance, but must not bypass manual review or execution-lane authority.
 
@@ -267,7 +267,7 @@ nautilus_builder/
 | Python packages | 36 | 37 (+tradehud_contracts) | +1 |
 | Total files (excl node_modules/.next/.git) | — | 7,619 | — |
 | Total LOC (TS+PY+GO+RS+JS) | — | ~1,567,000 | — |
-| NT version pin | 1.227.0 | 1.227.0 (latest upstream 1.228.0) | drift persists |
+| NT version pin | 1.227.0 | 1.228.0 (aligned with Daedalus + upstream) | drift closed 2026-06-21 |
 | TS typecheck (apps/web) | green | green | — |
 | AGENTS.md files | 8 | 13 | +5 |
 
@@ -295,3 +295,35 @@ nautilus_builder/
 - `packages/py.typed` (new, PEP 561).
 - Deferred: execution_lane module split (P2-2) and tradehud redis_adapter module
   split (P2-3) — behavior locked by the green test gate; splits are a follow-up.
+
+---
+## 2026-06-21 master reconciliation — remaining findings closure (ultragoal pass)
+
+Reference posture unchanged: NautilusTrader is the execution/backtest/live
+authority; AI/LangChain/LangGraph/EvoMap lanes are advisory only. This pass
+closed the remaining review findings listed below using TDD (failing test ->
+minimal fix -> green) and `$superpowers:test-driven-development`.
+
+### Closed this pass (evidence-gated)
+| Item | Status | Fix | Tests |
+| --- | --- | --- | --- |
+| TradeHUD SSE production Redis-unavailable must stop after `stream_error` (P2-4 tightened) | ✅ CLOSED | `services/api/routes/tradehud_sse.py`: after emitting `stream_error` in production with a configured-but-unavailable Redis feed, the generator now `return`s instead of falling through into a synthetic/mock snapshot. Local/dev mock fallback unchanged. | `tests/tradehud_redis/test_tradehud_sse_redis.py` (tightened production-stops test + new local-dev fallback test). |
+| Fixture replay script LOCAL-DEV-ONLY runtime guard | ✅ CLOSED | `scripts/tradehud_replay_nd_fixtures.py`: runtime host allowlist (`localhost`/`127.0.0.1`/`::1`), environment guard (rejects `BUILDER_ENV`/`APP_ENV`/`ENVIRONMENT` in production/prod/staging/stage), scary `--allow-nonlocal-redis-for-fixture-replay` override (host check only; never bypasses the production-env guard), and `redact_redis_url()` for all logs. | `tests/scripts/test_tradehud_replay_nd_fixtures_guard.py` (22 cases). |
+| NautilusTrader version drift (1.227.0 -> 1.228.0) | ✅ CLOSED | Upgraded pin to the current official release `1.228.0` (published 2026-06-08), aligning with Nautilus-Daedalus. `packages/backtest_runner/engine_contract.py`, `pyproject.toml`, `uv.lock` updated. No API breaks; verification failures were the version-drift guard firing because the venv was ahead of the declared pin. | `tests/backtest_runner/test_nautilus_dependency_contract.py`, `tests/backtest_runner/test_runtime_minor_drift.py` updated to exercise the same drift categories against the new pin. |
+| Adapter/readiness overstatement guard | ✅ CLOSED (wording already conservative; hardened) | Readiness matrix already keeps `live_execution` OUT_OF_SCOPE (requires DataTester/ExecTester/reconciliation), `production_deployment` PARTIAL, and every READY capability declares `required_evidence_types`. Added defensive tests so a future change cannot silently overstate production/live readiness. | `tests/readiness/test_readiness_matrix.py` (+3 overstatement-guard tests). |
+| Ledger cleanup | ✅ CLOSED | This section plus parallel closure markers in `findings.md` and `handguard.md`. | — |
+
+### Items already closed in the prior 2026-06-21 pass (still tracked as closed)
+TradeHUD route auth; evidence-list `context` bug; pipeline redacted compile error
+detail; Redis rate-limit fail-closed default; FastAPI `on_event` -> lifespan;
+native TradingNode stop idempotency; legacy stream-map owner/expiry.
+
+### Remaining risks (unchanged, evidence-gated)
+- Production adapter/live claims still require DataTester/ExecTester/
+  reconciliation artifacts per claimed venue/capability; Builder wording remains
+  scaffold/contract/evidence-gated only.
+- Deferred cleanup (behavior locked by green tests): execution_lane module split
+  (P2-2) and tradehud redis_adapter module split (P2-3).
+- Do NOT use "production-ready"/"merge-ready" wording until the
+  production-readiness gate in `handguard.md` is satisfied.
+
