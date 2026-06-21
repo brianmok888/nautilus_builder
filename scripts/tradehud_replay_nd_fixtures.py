@@ -24,12 +24,113 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse, unquote
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+
+# --- LOCAL DEVELOPMENT ONLY safety guards -------------------------------------
+# This tool writes synthetic ND TradeHUD contract fixtures into Redis Streams.
+# It must NEVER be used in production or pointed at non-local trading
+# infrastructure. These guards enforce that at runtime, not just in comments.
+
+_LOCAL_REDIS_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", ""})
+_PRODUCTION_ENV_VALUES = frozenset({"production", "prod", "staging", "stage"})
+_PRODUCTION_ENV_VARS = ("BUILDER_ENV", "APP_ENV", "ENVIRONMENT")
+
+
+def is_local_redis_host(redis_url: str) -> bool:
+    """True iff the Redis URL points at an explicitly local host.
+
+    Allowed hosts: ``localhost``, ``127.0.0.1``, ``::1``, or no host (which the
+    redis client resolves to localhost). Any other hostname/IP is non-local.
+    """
+    if not redis_url:
+        return True
+    try:
+        parsed = urlparse(redis_url)
+    except (ValueError, TypeError):
+        return False
+    host = (parsed.hostname or "").lower()
+    # IPv6 literal hosts may arrive bracketed; urlparse already strips brackets.
+    host = host.strip("[]")
+    return host in _LOCAL_REDIS_HOSTS
+
+
+def redact_redis_url(redis_url: str) -> str:
+    """Return a Redis URL with any userinfo (password) removed for safe logging.
+
+    The host/port/db are preserved so operators retain connection context while
+    secrets (passwords/tokens embedded as userinfo) are never logged.
+    """
+    if not redis_url:
+        return redis_url or ""
+    try:
+        parsed = urlparse(redis_url)
+    except (ValueError, TypeError):
+        return "<redacted: unparseable redis url>"
+    # Rebuild the URL WITHOUT netloc userinfo. Keep scheme/host/port/path only.
+    netloc = parsed.hostname or ""
+    if netloc:
+        # Preserve IPv6 bracketing for readability.
+        if ":" in netloc and not netloc.startswith("["):
+            netloc = f"[{netloc}]"
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+    return f"{parsed.scheme}://{netloc}{parsed.path}"
+
+
+def is_production_like_env(environ: dict[str, str] | None = None) -> bool:
+    """True iff any production-like environment variable is set."""
+    env = environ if environ is not None else os.environ
+    for var in _PRODUCTION_ENV_VARS:
+        val = (env.get(var, "") or "").strip().lower()
+        if val in _PRODUCTION_ENV_VALUES:
+            return True
+    return False
+
+
+def validate_local_dev_guard(
+    redis_url: str,
+    *,
+    allow_nonlocal: bool = False,
+    environ: dict[str, str] | None = None,
+) -> None:
+    """Enforce LOCAL DEVELOPMENT ONLY constraints at runtime.
+
+    Raises ``SystemExit`` (non-zero) when:
+      * any production-like environment is active (BUILDER_ENV / APP_ENV /
+        ENVIRONMENT in production/prod/staging/stage), regardless of host or
+        override; OR
+      * the Redis URL points at a non-local host and the operator did NOT pass
+        the explicit scary ``--allow-nonlocal-redis-for-fixture-replay`` flag.
+
+    The override bypasses the HOST allowlist ONLY; it can never bypass the
+    production-environment guard.
+    """
+    if is_production_like_env(environ):
+        logger.error(
+            "Refusing to run TradeHUD fixture replay: a production-like "
+            "environment is active (BUILDER_ENV/APP_ENV/ENVIRONMENT). This tool "
+            "is LOCAL DEVELOPMENT ONLY and must never touch production Redis."
+        )
+        raise SystemExit(2)
+
+    if not is_local_redis_host(redis_url) and not allow_nonlocal:
+        logger.error(
+            "Refusing to run TradeHUD fixture replay: Redis URL host is "
+            "non-local (%s). This tool is LOCAL DEVELOPMENT ONLY. To target a "
+            "non-local Redis deliberately (still forbidden in production), pass "
+            "--allow-nonlocal-redis-for-fixture-replay.",
+            redact_redis_url(redis_url),
+        )
+        raise SystemExit(2)
+
 
 # Fixture filename → nd.* stream key mapping
 FIXTURE_TO_STREAM = {
@@ -155,6 +256,18 @@ def main():
         "--loop", action="store_true",
         help="Loop continuously instead of single pass",
     )
+    parser.add_argument(
+        "--allow-nonlocal-redis-for-fixture-replay",
+        action="store_true",
+        default=False,
+        help=(
+            "DANGER: bypass the local-Redis host allowlist. This tool is LOCAL "
+            "DEVELOPMENT ONLY and must NEVER be pointed at production trading "
+            "infrastructure. This flag overrides the HOST check ONLY; it cannot "
+            "override the production-environment guard (BUILDER_ENV/APP_ENV/"
+            "ENVIRONMENT=production/prod/staging/stage always exits)."
+        ),
+    )
     args = parser.parse_args()
 
     fixture_dir = Path(args.fixture_dir)
@@ -162,8 +275,16 @@ def main():
         logger.error("Fixture directory not found: %s", fixture_dir)
         sys.exit(1)
 
+    # LOCAL DEVELOPMENT ONLY runtime guard: reject production envs and non-local
+    # Redis hosts unless the scary override flag is explicitly passed.
+    validate_local_dev_guard(
+        args.redis_url,
+        allow_nonlocal=args.allow_nonlocal_redis_for_fixture_replay,
+    )
+
     logger.info("=== TradeHUD ND Fixture Replay (LOCAL DEV ONLY) ===")
-    logger.info("Redis URL: %s", args.redis_url)
+    # Never log the raw Redis URL: it may embed a password/token.
+    logger.info("Redis URL: %s", redact_redis_url(args.redis_url))
     logger.info("Fixture dir: %s", fixture_dir)
     logger.info("Namespace: %s", args.namespace)
     logger.info("Interval: %dms", args.interval_ms)
