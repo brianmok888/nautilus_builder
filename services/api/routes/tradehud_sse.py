@@ -103,13 +103,18 @@ def _is_redis_enabled() -> bool:
 
 
 def _is_production_env() -> bool:
-    """True when the strictest configured Builder environment is production.
+    """True when the configured Builder environment is a non-local, strict
+    environment (staging or production).
 
-    In production, a configured-but-unavailable Redis feed must surface an explicit
-    degraded signal rather than silently presenting a synthetic (alive-looking) stream.
+    In staging/production, a configured-but-unavailable Redis feed must surface an
+    explicit degraded/stream_error signal rather than silently presenting a
+    synthetic (alive-looking) stream. Only local/dev keeps the mock fallback. This
+    matches the canonical `BuilderEnvironment` (LOCAL / STAGING / PRODUCTION) used
+    by `packages.auth.policy` and `fastapi_app._strictest_configured_env`, sourced
+    from BUILDER_ENV / APP_ENV.
     """
     raw = (os.environ.get("BUILDER_ENV", "") or os.environ.get("APP_ENV", "")).strip().lower()
-    return raw == "production"
+    return raw in {"staging", "production"}
 
 
 async def _try_redis_adapter():

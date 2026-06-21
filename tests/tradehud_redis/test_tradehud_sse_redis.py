@@ -164,6 +164,47 @@ async def test_sse_production_redis_unavailable_emits_stream_error_then_stops():
 
 
 @pytest.mark.asyncio
+async def test_sse_staging_redis_unavailable_emits_stream_error_then_stops():
+    """P2-4 (staging parity): in staging, a configured-but-unavailable Redis feed
+    must emit stream_error and stop the generator, just like production. Staging is
+    a non-local environment where a broken live feed must not be masked by a
+    synthetic (alive-looking) snapshot. Only local/dev falls back to mock."""
+    env = {
+        "TRADEHUD_FEED_SOURCE": "redis",
+        "TRADEHUD_REDIS_URL": REDIS_URL_UNREACHABLE,
+        "BUILDER_ENV": "staging",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        gen = tradehud_event_stream("BTCUSDT-PERP")
+        seen_events = []
+        try:
+            first = _parse_sse(await gen.__anext__())
+            seen_events.extend(first if isinstance(first, list) else [first])
+            stopped = False
+            try:
+                await gen.__anext__()
+            except StopAsyncIteration:
+                stopped = True
+            assert stopped, (
+                "Staging Redis-unavailable stream continued past stream_error "
+                "instead of stopping the generator"
+            )
+        finally:
+            await gen.aclose()
+
+    event_names = {e["event"] for e in seen_events}
+    source_statuses = {
+        e["data"].get("source_status")
+        for e in seen_events
+        if isinstance(e.get("data"), dict)
+    }
+    assert "stream_error" in event_names
+    assert "redis_unavailable" in source_statuses
+    # No synthetic/mock snapshot may follow in staging.
+    assert "synthetic" not in source_statuses
+
+
+@pytest.mark.asyncio
 async def test_sse_local_dev_redis_unavailable_still_falls_back_to_mock():
     """P2-4 (complement): local/dev with Redis configured-but-unavailable must
     keep the existing fallback to a synthetic/mock snapshot (unchanged behavior)."""

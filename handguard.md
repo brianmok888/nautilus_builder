@@ -213,3 +213,33 @@ evidence lands.
 - Deferred (locked by green tests): execution_lane module split (P2-2),
   tradehud redis_adapter module split (P2-3).
 
+---
+## 2026-06-21 post-fix rescan — additional improvement
+
+Read-only rescan after the ultragoal closure pass. Suite green at time of
+rescan (1873 passed, 1 skipped, 0 failed).
+
+### Closed this rescan
+- **SSE staging parity (P2-4 consistency):** `services/api/routes/tradehud_sse.py`
+  `_is_production_env()` previously matched only `== "production"`, so in
+  `BUILDER_ENV=staging` a configured-but-unavailable Redis feed silently fell
+  back to a synthetic snapshot (the exact broken-live-feed-looking-alive failure
+  P2-4 was meant to prevent). Extended to treat `staging` and `production` as the
+  strict/non-local set, matching the canonical `BuilderEnvironment` (LOCAL /
+  STAGING / PRODUCTION). New staging test asserts stream_error + stop; local/dev
+  fallback unchanged.
+
+### Tracked follow-ups (architecture, behind a green test gate)
+- **R2** `services/api/fastapi_app.py` is ~1090 LOC (app factory + route
+  registration + startup + evidence guard in one module). Split candidate.
+- **R3** `packages/tradehud_contracts/redis_adapter.py` is ~843 LOC (read/write/
+  redaction/normalization/health mixed). This is the deferred P2-3 split;
+  behavior is locked by green tests, split is a follow-up.
+- Optional: add a `ruff` lint gate to CI (tool installed; currently CI runs only
+  `compileall` + pytest + TS typecheck for Python).
+
+### Still NOT production-ready
+Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
+per claimed venue/capability. Builder remains scaffold/contract/evidence-gated
+only.
+
