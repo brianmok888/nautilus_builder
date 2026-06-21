@@ -759,3 +759,41 @@ findings above, segment by segment, TDD (red -> green) per segment.
   - `tsc --noEmit` in `apps/web` -> exit 0 (imports are type-correct after the
     relative-path recompute).
 - **Regression check**: `tests/api/` + `tests/web/` -> 265 passed, 1 skipped.
+
+
+### S5 — P1-3/P1-4/P1-5: rate-limit fail-closed default, lifespan, session stop CLOSED
+
+**P1-3 (RedisRateLimiter fail-closed default)**:
+- `packages/auth/redis_rate_limit.py`: constructor default flipped
+  `fail_closed: bool = False` -> `True`; module + class docstrings rewritten to
+  state fail-closed is the safe default and fail-open is local/dev opt-in only.
+- `create_fastapi_app` already passed the correct value so production behavior is
+  unchanged; the change removes the footgun of bare construction failing open.
+- `test_fails_open_when_redis_unavailable` (existing) now explicitly passes
+  `fail_closed=False`, documenting the opt-in.
+- New `tests/auth/test_redis_rate_limit_default.py` (2 cases): default construction
+  denies when Redis is down; fail-open requires explicit `fail_closed=False`.
+
+**P1-4 (FastAPI on_event -> lifespan)**:
+- `services/api/fastapi_app.py`: replaced `@app.on_event("startup")` with an
+  `@asynccontextmanager` lifespan that calls the same `_revalidate_evidence_storage`
+  belt-and-suspenders guard, passed via `FastAPI(..., lifespan=_builder_lifespan)`.
+  Identical fail-closed behavior; removes the deprecated-hook warning.
+- `_FakeFastAPI` stub accepts `lifespan=` and records `lifespan_passed`/`on_event_used`.
+- New `tests/api/test_fastapi_lifespan.py`: asserts the app is built with a lifespan
+  handler and does NOT register an on_event hook.
+
+**P1-5 (NativeTradingNodeSessionRunner.stop idempotency)**:
+- `packages/execution_lane/sessions.py`: `TradingNodeStopResult.status` Literal
+  extended with `NOT_FOUND` and `STOP_TIMEOUT`; `stop()` now `pop(session_id,
+  None)`, returns NOT_FOUND for unknown/double stop (no KeyError), records a
+  STOP_TIMEOUT event and skips `dispose()` when the worker thread is still alive
+  after the join timeout.
+- New `tests/execution_lane/test_native_session_stop.py` (4 cases): unknown
+  session -> NOT_FOUND (no crash); double stop -> NOT_FOUND; normal stop calls
+  stop+join+dispose with DISPOSED; hung thread -> STOP_TIMEOUT and dispose() not
+  called.
+
+- **Regression check**: `tests/auth/` + `tests/execution_lane/` + fastapi/lifespan/
+  route_auth_scope/openapi/production_safety -> 189 passed, 1 skipped; the
+  on_event deprecation warning is gone.

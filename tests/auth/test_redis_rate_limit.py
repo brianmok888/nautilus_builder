@@ -67,13 +67,17 @@ class TestRedisRateLimiter:
         assert limiter.is_allowed("key_b") is True
 
     def test_fails_open_when_redis_unavailable(self):
-        """When Redis is unreachable, rate limiter allows request and logs warning."""
-        limiter = self._make_limiter(max_requests=3, window_seconds=60)
+        """Fail-open is a local/dev opt-in only: with fail_closed=False the limiter
+        allows the request and logs a warning when Redis is unreachable."""
+        from packages.auth.redis_rate_limit import RedisRateLimiter
+        limiter = RedisRateLimiter(
+            max_requests=3, window_seconds=60, redis_url="redis://localhost:6379/0", fail_closed=False
+        )
         mock_redis = MagicMock()
         mock_redis.incr.side_effect = Exception("Connection refused")
         limiter._redis = mock_redis
 
-        # Should NOT raise, should return True (fail open)
+        # Should NOT raise, should return True (fail open) ONLY because we opted in.
         assert limiter.is_allowed("client_1") is True
 
     def test_redacts_redis_url_credentials_in_warning(self, monkeypatch, caplog):

@@ -77,7 +77,7 @@ class TradingNodeRunnerResult:
 
 @dataclass(frozen=True)
 class TradingNodeStopResult:
-    status: Literal["DISPOSED", "FAILED"]
+    status: Literal["DISPOSED", "FAILED", "NOT_FOUND", "STOP_TIMEOUT"]
     lifecycle_events: list[dict[str, Any]]
 
 
@@ -196,17 +196,39 @@ class NativeTradingNodeSessionRunner:
         )
 
     def stop(self, *, session_id: str) -> TradingNodeStopResult:
-        node, thread = self._sessions.pop(session_id)
+        record = self._sessions.pop(session_id, None)
+        if record is None:
+            # Unknown session or a double-stop: return a clean NOT_FOUND instead of
+            # raising KeyError. Idempotent so callers can stop defensively.
+            return TradingNodeStopResult(
+                status="NOT_FOUND",
+                lifecycle_events=[
+                    _event("NOT_FOUND", "No active TradingNode session", session_id=session_id),
+                ],
+            )
+
+        node, thread = record
         node.stop()
         thread.join(timeout=5.0)
-        node.dispose()
-        return TradingNodeStopResult(
-            status="DISPOSED",
-            lifecycle_events=[
-                _event("STOPPED", "TradingNode.stop called", session_id=session_id),
-                _event("DISPOSED", "TradingNode.dispose called", session_id=session_id),
-            ],
-        )
+
+        events = [_event("STOPPED", "TradingNode.stop called", session_id=session_id)]
+        if thread.is_alive():
+            # Worker thread outlived the join timeout: do NOT call dispose() while
+            # the node may still be executing; surface an explicit STOP_TIMEOUT.
+            events.append(
+                _event(
+                    "STOP_TIMEOUT",
+                    "TradingNode thread still alive after join timeout",
+                    session_id=session_id,
+                )
+            )
+            final_status = "STOP_TIMEOUT"
+        else:
+            node.dispose()
+            events.append(_event("DISPOSED", "TradingNode.dispose called", session_id=session_id))
+            final_status = "DISPOSED"
+
+        return TradingNodeStopResult(status=final_status, lifecycle_events=events)
 
 
 def default_session_runner() -> TradingNodeSessionRunner:

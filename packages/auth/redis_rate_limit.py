@@ -1,8 +1,11 @@
 """Redis-backed rate limiter for production API routes (L7).
 
 Uses Redis INCR + EXPIRE for sliding window counting per client key.
-Fails open (allows request, logs warning) when Redis is unavailable.
-For local development, use InMemoryRateLimiter instead.
+
+Fail-closed by default: when Redis is unavailable or a Redis command fails, the
+limiter DENIES the request and logs a warning. Fail-open behavior (allow on Redis
+failure) is a local/dev opt-in only via ``fail_closed=False`` and must never be
+used in production. For local development, prefer ``InMemoryRateLimiter``.
 """
 from __future__ import annotations
 
@@ -17,8 +20,9 @@ logger = logging.getLogger(__name__)
 class RedisRateLimiter:
     """Sliding window rate limiter backed by Redis.
 
-    Uses INCR + EXPIRE for atomic counting. Fails open when Redis
-    is unavailable, allowing requests through with a logged warning.
+    Uses INCR + EXPIRE for atomic counting. Fails closed (denies the request)
+    when Redis is unavailable; pass ``fail_closed=False`` to opt into fail-open
+    behavior for local/dev only.
     """
 
     def __init__(
@@ -26,7 +30,7 @@ class RedisRateLimiter:
         max_requests: int = 100,
         window_seconds: int = 60,
         redis_url: str = "redis://localhost:6379/0",
-        fail_closed: bool = False,
+        fail_closed: bool = True,
     ) -> None:
         self._max_requests = max_requests
         self._window_seconds = window_seconds

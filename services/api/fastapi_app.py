@@ -201,22 +201,33 @@ def create_fastapi_app(
     llm_config_service = llm_config_service or LlmConfigService()
     runtime_event_service = runtime_event_service or RuntimeEventService()
     from packages.builder_metadata.version import get_canonical_version as _get_canonical_version
-    app = FastAPI(title="Nautilus Builder API", version=_get_canonical_version())
+    from contextlib import asynccontextmanager
 
-    if hasattr(app, "on_event"):
-        @app.on_event("startup")
-        def _revalidate_evidence_storage() -> None:
-            """Belt-and-suspenders guard: re-check evidence storage config at runtime.
+    @asynccontextmanager
+    async def _builder_lifespan(_app: FastAPI):
+        """Startup/shutdown lifecycle.
 
-            Catches cases where the FastAPI app is created outside create_fastapi_app().
-            """
-            if not isinstance(evidence_repo, InMemoryEvidenceRepository):
-                return
-            if _strictest_configured_env() != BuilderEnvironment.LOCAL:
-                raise ValueError(
-                    "Production/staging requires persistent evidence storage "
-                    "(detected at startup event). Set BUILDER_DATABASE_URL or use local mode."
-                )
+        Re-checks evidence storage config at startup (belt-and-suspenders guard that
+        catches cases where the FastAPI app is created outside create_fastapi_app()).
+        Replaces the deprecated @app.on_event("startup") hook.
+        """
+        _revalidate_evidence_storage()
+        yield
+
+    def _revalidate_evidence_storage() -> None:
+        if not isinstance(evidence_repo, InMemoryEvidenceRepository):
+            return
+        if _strictest_configured_env() != BuilderEnvironment.LOCAL:
+            raise ValueError(
+                "Production/staging requires persistent evidence storage "
+                "(detected at startup). Set BUILDER_DATABASE_URL or use local mode."
+            )
+
+    app = FastAPI(
+        title="Nautilus Builder API",
+        version=_get_canonical_version(),
+        lifespan=_builder_lifespan,
+    )
 
     # --- Middleware (added in reverse execution order: last added = first executed) ---
 

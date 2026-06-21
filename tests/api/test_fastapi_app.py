@@ -7,10 +7,12 @@ import pytest
 
 
 class _FakeFastAPI:
-    def __init__(self, *, title: str, version: str) -> None:
+    def __init__(self, *, title: str, version: str, lifespan=None) -> None:
         self.title = title
         self.version = version
         self.routes: dict[tuple[str, str], object] = {}
+        self.lifespan_passed = lifespan is not None
+        self.on_event_used = False
 
     def get(self, path: str):
         def decorator(handler):
@@ -22,6 +24,14 @@ class _FakeFastAPI:
     def post(self, path: str):
         def decorator(handler):
             self.routes[("POST", path)] = handler
+            return handler
+
+        return decorator
+
+    def on_event(self, event_type: str):
+        self.on_event_used = True
+
+        def decorator(handler):
             return handler
 
         return decorator
