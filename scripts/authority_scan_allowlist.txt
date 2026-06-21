@@ -18,3 +18,9 @@ api_secret=api_secret,
 
 # static_scan.py: scanning for hardcoded secrets, not using them
 hardcoded api_secret
+
+
+# packages/pipeline/redaction.py: redaction regex that DETECTS secret-shaped
+# substrings so they can be scrubbed from pipeline error messages (P0-3). It
+# matches the words, it does not use or grant any authority.
+r"(password|passwd|secret|token|passphrase|apikey|api_secret)(=|:\s*)([^\s,;'\"]+)",
