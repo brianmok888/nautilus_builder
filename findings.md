@@ -710,3 +710,28 @@ findings above, segment by segment, TDD (red -> green) per segment.
 - **Regression check**: `tests/api/` + `tests/tradehud_contracts/` +
   `tests/tradehud_redis/` — only the pre-existing baseline failures remain
   (OpenAPI snapshot P1-1, web contract, trades-stream freshness). No new failures.
+
+
+### S3 — P0-3: pipeline compile failures now preserve redacted root cause CLOSED
+- **Files**: `packages/pipeline/service.py` (PipelineStep + compile except), new
+  `packages/pipeline/redaction.py`.
+- **Bug**: `run_pipeline` wrapped `compile_strategy_spec` in `except Exception:`
+  and recorded only `PipelineStep(name="compile", status="failed")`. No exception
+  type, message, or detail survived, so operators could not diagnose spec
+  validation vs compiler vs filesystem vs Nautilus API drift vs runtime errors.
+- **Fix**:
+  - `PipelineStep` gains optional `detail: str | None = None` and
+    `error_type: str | None = None` (defaults keep `extra="forbid"` and every
+    existing caller/serialized snapshot valid).
+  - new `packages/pipeline/redaction.py::redact_error_message` scrubs Redis URL
+    passwords, bearer tokens, api_key/password/secret/token assignments, while
+    preserving diagnostic text and host/port.
+  - the compile `except` now captures `as exc`, records `error_type=
+    type(exc).__name__` and `detail=redact_error_message(str(exc))`.
+- **Tests** (`tests/pipeline/test_pipeline_compile_error_detail.py`, 4 cases):
+  forced RuntimeError preserves error_type + detail; ValueError with embedded
+  secrets redacts them (redis pw, api_key, bearer, password) while keeping the
+  root-cause sentence; validation failure still skips compile cleanly with
+  detail/error_type None; extra="forbid" still rejects unknown fields.
+- **Regression check**: `tests/pipeline/` + `tests/api/test_pipeline_run.py` ->
+  20 passed.

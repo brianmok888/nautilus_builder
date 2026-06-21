@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from packages.pipeline.redaction import redact_error_message
+
 from packages.backtest_jobs.service import BacktestJobService
 from packages.backtest_runner.runner import run_backtest_fixture
 from packages.strategy_compiler.compiler import compile_strategy_spec
@@ -19,6 +21,12 @@ class PipelineStep(BaseModel):
 
     name: str
     status: str
+    # Optional diagnostic detail for failed steps. Always redacted via
+    # redact_error_message before being stored; None for succeeded/skipped steps.
+    detail: str | None = None
+    # The exception class name (e.g. "ValueError") when status=="failed" due to a
+    # raised exception; None otherwise.
+    error_type: str | None = None
 
 
 class PipelineResult(BaseModel):
@@ -65,8 +73,15 @@ def run_pipeline(spec_payload: dict[str, Any]) -> PipelineResult:
 
     try:
         compile_artifact = compile_strategy_spec(spec_payload, profile="backtest")
-    except Exception:
-        steps.append(PipelineStep(name="compile", status="failed"))
+    except Exception as exc:
+        steps.append(
+            PipelineStep(
+                name="compile",
+                status="failed",
+                error_type=type(exc).__name__,
+                detail=redact_error_message(str(exc)),
+            )
+        )
         steps.extend([
             PipelineStep(name="create_job", status="skipped"),
             PipelineStep(name="run_backtest", status="skipped"),
