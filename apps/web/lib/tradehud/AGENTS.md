@@ -7,7 +7,7 @@ TypeScript runtime for the TradeHUD observational monitor. Consumes normalized N
 - `reducer.ts` — pure `reducer(state, event)` over `TradeHudEvent`; `createInitialState()`. Owns bounded arrays via `pushBounded`.
 - `selectors.ts` — derived views: `selectOrderBookTopN`, `selectRecentTrades`, `selectLanes`, `selectPriceRange`.
 - `replay-feed.ts` — `createFeed(symbol)` factory; `FeedMode = "mock" | "snapshot" | "sse"` selected from env. Returns a `FeedController`.
-- `sse-feed.ts`, `mock-feed.ts` — feed implementations (SSE EventSource; deterministic `MockFeed` with `SeededRng`).
+- `replay-feed.ts`, `mock-feed.ts` — feed implementations (SSE EventSource; deterministic `MockFeed` with `SeededRng`).
 - `freshness.ts` — `computeAge`, `isStale`, `buildFreshness` (status badge logic).
 - `heatmap-buffer.ts`, `ring-buffer.ts` — bounded buffers for the bookmap heatmap and rolling windows.
 - `number-format.ts`, `time-format.ts` — pure formatters (price/qty/notional/bps/pct/age; ns time/latency).
@@ -23,7 +23,7 @@ TypeScript runtime for the TradeHUD observational monitor. Consumes normalized N
 - Never let this layer place orders, call `submit_order`, or import execution-lane internals.
 - Never invent TS types that drift from `packages/tradehud_contracts/models.py`.
 - Never import antd or React here — this is a pure logic layer consumed by `components/tradehud/`.
-- Never add `fetch` outside the feed modules; `sse-feed.ts`/`replay-feed.ts` are the only network entry points.
+- Never add `fetch` outside the feed modules; `replay-feed.ts`/`replay-feed.ts` are the only network entry points.
 
 ## Verification
 ```bash

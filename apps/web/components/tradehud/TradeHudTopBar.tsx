@@ -17,11 +17,11 @@ export function TradeHudTopBar({ state }: { state: TradeHudState }) {
       if (state.feedStatus === "redis_disconnected") return "REDIS DISCONNECTED";
       if (state.feedStatus === "stream_stale") return "STREAM STALE";
       if (state.feedStatus === "stream_missing") return "STREAM MISSING";
-      if (state.feedStatus === "live") return "SSE SYNTHETIC";
+      if (state.feedStatus === "live") return "SSE CONNECTED";
       if (state.feedStatus === "reconnecting") return "SSE RECONNECTING";
       if (state.feedStatus === "fallback") return "SSE FALLBACK → MOCK";
       if (state.feedStatus === "connecting") return "SSE CONNECTING";
-      return "SSE SYNTHETIC";
+      return "SSE STATUS UNKNOWN";
     }
     if (state.feedMode === "snapshot") return "SNAPSHOT API";
     return "UNKNOWN";

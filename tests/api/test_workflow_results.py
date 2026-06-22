@@ -113,6 +113,17 @@ def test_result_dashboard_uses_repository_result_not_fixture() -> None:
     assert payload["artifacts"]["result"].startswith("artifact://")
 
 
+def test_result_dashboard_does_not_synthesize_strategy_version_artifact() -> None:
+    repo = _repository_with_result_and_suggestion()
+    response = create_app(workflow_repository=repo).get("/api/results/res_001")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["strategy_version_id"] == "sv_001"
+    assert "strategy_version_id" not in payload["artifacts"]
+    assert "strategy_001_v001" not in payload["artifacts"].values()
+
+
 def test_result_returns_404_when_not_in_repository() -> None:
     """Missing results return 404 (fixture fallback removed)."""
     app = create_app()

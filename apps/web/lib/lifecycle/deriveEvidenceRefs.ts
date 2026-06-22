@@ -88,17 +88,17 @@ export function deriveEvidenceRefs(input: EvidenceInput): StrategyEvidenceRef[] 
   });
 
   // ── Promotion request ──────────────────────────────────────────
-  const hasPromotion =
-    input.promotionRequested ||
-    input.promotionApproved ||
-    ["approved", "execution_ready"].includes(norm);
+  const hasStatusOnlyPromotion = ["approved", "execution_ready"].includes(norm);
+  const hasPromotion = input.promotionRequested || input.promotionApproved || hasStatusOnlyPromotion;
   refs.push({
     kind: "promotion_request",
     status: !hasPromotion
       ? "missing"
-      : input.promotionApproved || ["approved", "execution_ready"].includes(norm)
+      : input.promotionApproved
         ? "passed"
-        : "present",
+        : input.promotionRequested
+          ? "present"
+          : "unknown",
     label: "Promotion request",
   });
 

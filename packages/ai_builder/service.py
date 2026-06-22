@@ -98,14 +98,22 @@ class AiBuilderService:
         improvement_cycle_id: str,
         strategy_lineage_id: str,
         strategy_version_id: str,
+        spec: Mapping[str, object] | None = None,
     ) -> dict[str, object]:
         _require_non_empty("ai_thread_id", ai_thread_id)
         _require_non_empty("improvement_cycle_id", improvement_cycle_id)
         _require_non_empty("strategy_lineage_id", strategy_lineage_id)
         _require_non_empty("strategy_version_id", strategy_version_id)
-        result = self.generate_draft(prompt, ai_thread_id=ai_thread_id)
-        if not result.accepted:
-            raise ValueError("AI draft must pass validation before apply")
+        if spec is None:
+            result = self.generate_draft(prompt, ai_thread_id=ai_thread_id)
+            if not result.accepted:
+                raise ValueError("AI draft must pass validation before apply")
+            applied_spec = result.spec
+        else:
+            applied_spec = dict(spec)
+            validation_report = validate_strategy_spec(applied_spec)
+            if validation_report.errors:
+                raise ValueError("AI draft must pass validation before apply")
         record = {
             "ai_thread_id": ai_thread_id,
             "improvement_cycle_id": improvement_cycle_id,
@@ -113,7 +121,7 @@ class AiBuilderService:
             "strategy_version_id": strategy_version_id,
             "stage": "draft",
             "mode": "advisory_only",
-            "spec": result.spec,
+            "spec": applied_spec,
         }
         self._store.save(record)
         return record

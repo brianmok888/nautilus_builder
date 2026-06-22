@@ -39,9 +39,9 @@ type PipelineStepResult = {
 };
 
 type PromotionEvidence = {
-  validation_report_ref?: string;
-  backtest_result_ref?: string;
-  gate_compatibility?: string;
+  validation_report?: string;
+  backtest_result?: string;
+  gate_compatibility_report?: string;
   [key: string]: unknown;
 };
 
@@ -108,6 +108,20 @@ export function PipelineRunPanel() {
   const spec = specFromJson(specJson);
   const specValid = spec !== null && spec.strategy_name.trim().length > 0;
 
+  const promotionEvidenceRefs = result?.promotion_evidence
+    ? {
+        validation_report: result.promotion_evidence.validation_report ?? "",
+        backtest_result: result.promotion_evidence.backtest_result ?? "",
+        gate_compatibility_report: result.promotion_evidence.gate_compatibility_report ?? "",
+      }
+    : null;
+  const missingPromotionEvidence = promotionEvidenceRefs
+    ? Object.entries(promotionEvidenceRefs)
+        .filter(([, value]) => value.trim().length === 0)
+        .map(([key]) => key)
+    : ["validation_report", "backtest_result", "gate_compatibility_report"];
+  const promotionEvidenceReady = missingPromotionEvidence.length === 0;
+
   async function runPipeline() {
     if (!spec) {
       message.error("Invalid strategy spec JSON");
@@ -168,16 +182,11 @@ export function PipelineRunPanel() {
 
     const compileHash = result.compile_artifact.compile_hash ?? "";
     const strategyVersion = result.compile_artifact.strategy_version ?? result.compile_artifact.spec_version ?? "";
-    const evidenceRefs: Record<string, string> = {};
-    if (result.promotion_evidence?.validation_report_ref) {
-      evidenceRefs.validation_report = result.promotion_evidence.validation_report_ref;
+    if (!promotionEvidenceReady || !promotionEvidenceRefs) {
+      message.error(`Missing promotion evidence: ${missingPromotionEvidence.join(", ")}`);
+      return;
     }
-    if (result.promotion_evidence?.backtest_result_ref) {
-      evidenceRefs.backtest_result = result.promotion_evidence.backtest_result_ref;
-    }
-    if (result.promotion_evidence?.gate_compatibility) {
-      evidenceRefs.gate_compatibility = result.promotion_evidence.gate_compatibility;
-    }
+    const evidenceRefs: Record<string, string> = promotionEvidenceRefs;
 
     const gateSummary = [
       "Target: shadow (observational only)",
@@ -358,19 +367,28 @@ export function PipelineRunPanel() {
           }
         >
           <Descriptions size="small" bordered column={1}>
-            {result.promotion_evidence.validation_report_ref && (
+            {result.promotion_evidence.validation_report && (
               <Descriptions.Item label="Validation Report">
-                <Tag>{result.promotion_evidence.validation_report_ref}</Tag>
+                <Tag>{result.promotion_evidence.validation_report}</Tag>
               </Descriptions.Item>
             )}
-            {result.promotion_evidence.backtest_result_ref && (
+            {result.promotion_evidence.backtest_result && (
               <Descriptions.Item label="Backtest Result">
-                <Tag>{result.promotion_evidence.backtest_result_ref}</Tag>
+                <Tag>{result.promotion_evidence.backtest_result}</Tag>
               </Descriptions.Item>
             )}
-            {result.promotion_evidence.gate_compatibility && (
+            {result.promotion_evidence.gate_compatibility_report && (
               <Descriptions.Item label="Gate Compatibility">
-                <Tag color="success">{result.promotion_evidence.gate_compatibility}</Tag>
+                <Tag color="success">{result.promotion_evidence.gate_compatibility_report}</Tag>
+              </Descriptions.Item>
+            )}
+            {!promotionEvidenceReady && (
+              <Descriptions.Item label="Missing Evidence">
+                <Space size={4} wrap>
+                  {missingPromotionEvidence.map((key) => (
+                    <Tag key={key} color="error">{key}</Tag>
+                  ))}
+                </Space>
               </Descriptions.Item>
             )}
             <Descriptions.Item label="Execution Constraints">
@@ -393,7 +411,7 @@ export function PipelineRunPanel() {
                 type="primary"
                 icon={<SafetyCertificateOutlined />}
                 loading={isPromoting}
-                disabled={isPromoting || result.promotion_status !== "pending_approval"}
+                disabled={isPromoting || result.promotion_status !== "pending_approval" || !promotionEvidenceReady}
                 onClick={requestPromotion}
                 size="large"
                 block

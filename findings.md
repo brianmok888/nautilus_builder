@@ -1105,3 +1105,24 @@ source files, excluding node_modules/.next).
 No new production-readiness approval is implied. Adapter/live readiness still
 requires venue-specific DataTester/ExecTester/reconciliation evidence, manual
 approval, and final `nt-review` closure per `handguard.md`.
+
+## 2026-06-22 review-fix follow-up — HIGH findings closed, operator-fidelity issues fixed
+
+### Fixed findings
+
+- **HIGH: TradeHUD SSE/snapshot bypassed same-origin auth proxy and masked backend failure with mock data.** Fixed in `apps/web/lib/tradehud/replay-feed.ts`: browser TradeHUD snapshot/SSE endpoints remain same-origin and SSE failures fail closed with `redis_disconnected` instead of starting mock snapshots. Regression: `apps/web/lib/tradehud/sse-feed.test.ts` covers same-origin URL construction and no mock fallback after SSE error.
+- **HIGH: AI Generate & Build validated one draft but saved another, and hid save failure.** Fixed across `packages/ai_builder/service.py`, `services/api/routes/ai_builder.py`, `apps/web/lib/types.ts`, and `apps/web/components/ai-builder/AiStrategyCopilot.tsx`: apply can consume the supplied generated spec, the UI passes that spec through validation/save, and save failure shows a terminal error. Regressions: `tests/ai_builder/test_persistent_audit_store.py` and `apps/web/components/ai-builder/AiStrategyCopilot.test.tsx`.
+- **HIGH: lifecycle/evidence UI inferred readiness from status-only fields.** Fixed in `services/api/routes/evidence_summary.py`, `apps/web/lib/lifecycle/deriveStrategyLifecycle.ts`, and `apps/web/lib/lifecycle/deriveEvidenceRefs.ts`: status-only summaries are marked `status_only` / unknown rather than evidence-passed. Regressions: `tests/api/test_evidence_summary.py`, `deriveStrategyLifecycle.test.ts`, and `deriveEvidenceRefs.test.ts`.
+- **HIGH: pipeline promotion UI/backend evidence schema mismatch.** Fixed in `apps/web/components/pipeline/PipelineRunPanel.tsx`: promotion requires backend keys `validation_report`, `backtest_result`, and `gate_compatibility_report`; the request posts those complete refs and disables promotion while any are absent. Regression: `apps/web/components/pipeline/PipelineRunPanel.test.tsx`.
+- **Operator fidelity: TradeHUD keepalive labeled as synthetic.** Fixed in `apps/web/components/tradehud/TradeHudTopBar.tsx`: SSE live/open status displays `SSE CONNECTED`, not synthetic data. Regression: `TradeHudTopBar.test.tsx`.
+- **Operator fidelity: result dashboard synthesized placeholder strategy-version provenance.** Fixed in `services/api/routes/workflow_results.py` and `apps/web/components/results/ResultsDashboard.tsx`: no placeholder `strategy_001_v001` artifact is injected; unavailable artifact fields render as `Unavailable`. Regressions: `tests/api/test_workflow_results.py` and `ResultsDashboard.test.tsx`.
+- **LOW: stale TradeHUD local guidance filename.** Fixed in `apps/web/lib/tradehud/AGENTS.md` to reference `replay-feed.ts`.
+
+### Verification snapshot
+
+- `pytest tests/ai_builder/test_persistent_audit_store.py tests/api/test_evidence_summary.py tests/api/test_workflow_results.py -q` — 31 passed.
+- `cd apps/web && npm run test -- lib/tradehud/sse-feed.test.ts components/tradehud/TradeHudTopBar.test.tsx components/ai-builder/AiStrategyCopilot.test.tsx components/pipeline/PipelineRunPanel.test.tsx components/results/ResultsDashboard.test.tsx lib/lifecycle/deriveStrategyLifecycle.test.ts lib/lifecycle/deriveEvidenceRefs.test.ts` — 50 passed.
+
+### Current readiness stance
+
+These fixes close the actionable web workflow findings from the follow-up review. They do **not** by themselves approve production/live readiness: venue-specific DataTester/ExecTester, reconciliation, adapter, and manual approval evidence remain required before any live-trading claim.

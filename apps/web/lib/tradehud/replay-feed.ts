@@ -5,7 +5,7 @@
  * SSE mode features:
  * - Named event listeners (snapshot, tradehud_event, ping, stream_health)
  * - Redis-aware feed status tracking (redis_live, redis_degraded, stream_stale, etc.)
- * - Auto-fallback to mock feed if SSE connection fails after bounded retries
+ * - Fail-closed degraded status if SSE connection fails after bounded retries
  * - Bounded exponential backoff with jitter (500ms initial, 15s max)
  * - Connection status tracking via SET_FEED_STATUS events
  * - Clean teardown on component unmount — closes EventSource, clears timers
@@ -35,7 +35,10 @@ function getEnvMode(): FeedMode {
 }
 
 function getApiBase(): string {
-  return process.env.NEXT_PUBLIC_BUILDER_API_BASE ?? "http://127.0.0.1:8000";
+  // TradeHUD authenticated snapshot/SSE traffic must stay same-origin so the
+  // server-side proxy/middleware can attach credentials. Browser EventSource
+  // cannot safely attach BUILDER_API_TOKEN to an absolute public API base.
+  return "";
 }
 
 export interface FeedController {
@@ -143,7 +146,7 @@ function createSnapshotFeed(symbol: string): FeedController {
           dispatch({ type: "SNAPSHOT", payload: data });
         } catch {
           dispatch({ type: "SET_BACKEND", payload: false });
-          dispatch({ type: "SET_FEED_STATUS", payload: { status: "fallback", mode: "snapshot" } });
+          dispatch({ type: "SET_FEED_STATUS", payload: { status: "redis_disconnected", mode: "snapshot" } });
         }
       };
       poll();
@@ -198,7 +201,6 @@ function deriveFeedStatus(data: any): string {
 
 function createSseFeed(symbol: string): FeedController {
   let es: EventSource | null = null;
-  let mockFallback: FeedController | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let reconnectAttempts = 0;
   let stopped = false;
@@ -215,7 +217,7 @@ function createSseFeed(symbol: string): FeedController {
     try {
       es = new EventSource(`${base}/api/tradehud/stream?symbol=${encodeURIComponent(symbol)}`);
     } catch {
-      attemptFallback(dispatch);
+      markFeedUnavailable(dispatch);
       return;
     }
 
@@ -223,10 +225,6 @@ function createSseFeed(symbol: string): FeedController {
       reconnectAttempts = 0;
       dispatch({ type: "SET_BACKEND", payload: true });
       dispatch({ type: "SET_FEED_STATUS", payload: { status: "live", mode: "sse" } });
-      if (mockFallback) {
-        mockFallback.stop();
-        mockFallback = null;
-      }
     });
 
     es.addEventListener("error", () => {
@@ -239,7 +237,7 @@ function createSseFeed(symbol: string): FeedController {
         const delay = backoffDelay(reconnectAttempts++);
         reconnectTimer = setTimeout(() => connect(dispatch), delay);
       } else {
-        attemptFallback(dispatch);
+        markFeedUnavailable(dispatch);
       }
     });
 
@@ -297,11 +295,9 @@ function createSseFeed(symbol: string): FeedController {
     });
   }
 
-  function attemptFallback(dispatch: (event: TradeHudEvent) => void) {
-    if (mockFallback) return;
-    dispatch({ type: "SET_FEED_STATUS", payload: { status: "fallback", mode: "sse" } });
-    mockFallback = createMockFeed(symbol);
-    mockFallback.start(dispatch);
+  function markFeedUnavailable(dispatch: (event: TradeHudEvent) => void) {
+    dispatch({ type: "SET_BACKEND", payload: false });
+    dispatch({ type: "SET_FEED_STATUS", payload: { status: "redis_disconnected", mode: "sse" } });
   }
 
   return {
@@ -314,7 +310,6 @@ function createSseFeed(symbol: string): FeedController {
       stopped = true;
       if (es) { es.close(); es = null; }
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-      if (mockFallback) { mockFallback.stop(); mockFallback = null; }
     },
   };
 }

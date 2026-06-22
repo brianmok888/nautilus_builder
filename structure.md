@@ -517,3 +517,24 @@ evidence. The AI lane remains advisory-only and cannot submit orders.
   `nt-strategy-builder`, `nt-adapters`, `nt-live`, `nt-backtest`, `nt-testing`,
   `nt-review`). The repo must not depend on uninstalled skill names for future
   web workflow, UX, adapter, live, or review work.
+
+## 2026-06-22 review-fix structure update — web workflow evidence/auth seams
+
+### Web workflow seams touched
+
+- `apps/web/lib/tradehud/replay-feed.ts` is the canonical TradeHUD browser feed client. Authenticated snapshot/SSE calls are now same-origin (`/api/tradehud/*`) so server-side proxy/auth middleware can attach credentials; the browser does not use a public API base or browser token for TradeHUD runtime streams.
+- `apps/web/components/tradehud/TradeHudTopBar.tsx` renders SSE keepalive/open status as connection state (`SSE CONNECTED`) instead of implying synthetic market data.
+- `apps/web/components/ai-builder/AiStrategyCopilot.tsx` runs one Generate & Build workflow: generate an accepted StrategySpec, apply the same supplied spec to Builder validation, then save that same spec as a draft strategy. Save failure is terminal and visible.
+- `services/api/routes/ai_builder.py` and `packages/ai_builder/service.py` accept an optional supplied draft spec on apply, preserving draft fidelity instead of regenerating a second spec.
+- `services/api/routes/evidence_summary.py`, `apps/web/lib/lifecycle/deriveStrategyLifecycle.ts`, and `apps/web/lib/lifecycle/deriveEvidenceRefs.ts` keep status-only / label-only readiness as unknown evidence, not passed evidence.
+- `apps/web/components/pipeline/PipelineRunPanel.tsx` now treats promotion evidence as backend-contract keys: `validation_report`, `backtest_result`, and `gate_compatibility_report`; promotion is disabled until all three are present and posts the complete evidence refs.
+- `services/api/routes/workflow_results.py` no longer injects placeholder strategy-version artifact provenance into result dashboard artifacts; unavailable artifact values are rendered as unavailable in `apps/web/components/results/ResultsDashboard.tsx`.
+
+### Regression coverage added/updated
+
+- TradeHUD SSE same-origin and fail-closed coverage: `apps/web/lib/tradehud/sse-feed.test.ts`.
+- TradeHUD status label coverage: `apps/web/components/tradehud/TradeHudTopBar.test.tsx`.
+- AI draft fidelity/save failure coverage: `apps/web/components/ai-builder/AiStrategyCopilot.test.tsx` and `tests/ai_builder/test_persistent_audit_store.py`.
+- Evidence-summary status-only coverage: `tests/api/test_evidence_summary.py`, `apps/web/lib/lifecycle/deriveStrategyLifecycle.test.ts`, and `apps/web/lib/lifecycle/deriveEvidenceRefs.test.ts`.
+- Pipeline promotion evidence coverage: `apps/web/components/pipeline/PipelineRunPanel.test.tsx`.
+- Result provenance coverage: `tests/api/test_workflow_results.py` and `apps/web/components/results/ResultsDashboard.test.tsx`.

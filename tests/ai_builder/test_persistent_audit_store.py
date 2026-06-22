@@ -49,3 +49,22 @@ def test_ai_draft_apply_rejects_blank_provenance_ids() -> None:
             strategy_lineage_id="lineage_strategy_001",
             strategy_version_id="strategy_001_v002",
         )
+
+
+def test_ai_draft_apply_uses_supplied_spec_without_regenerating() -> None:
+    class ExplodingProvider:
+        def draft_spec(self, prompt: str) -> dict[str, object]:
+            raise AssertionError(f"provider must not regenerate supplied draft: {prompt}")
+
+    generated = AiBuilderService().generate_draft("Create EMA RSI", ai_thread_id="thread_source")
+
+    result = AiBuilderService(provider=ExplodingProvider()).apply_draft_to_strategy(
+        prompt="Create EMA RSI",
+        ai_thread_id="ai_thread_001",
+        improvement_cycle_id="cycle_001",
+        strategy_lineage_id="lineage_strategy_001",
+        strategy_version_id="strategy_001_v002",
+        spec=generated.spec,
+    )
+
+    assert result["spec"] == generated.spec

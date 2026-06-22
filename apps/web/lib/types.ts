@@ -245,6 +245,7 @@ export type AiDraftPayload = {
   improvement_cycle_id?: string;
   strategy_lineage_id?: string;
   strategy_version_id?: string;
+  spec?: Record<string, unknown>;
 };
 
 export type AiDraftResult = {

@@ -36,6 +36,13 @@ function MetricValue({ label, value }: { label: string; value: unknown }) {
   );
 }
 
+function ArtifactValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined || value === "") {
+    return <Tag>Unavailable</Tag>;
+  }
+  return <Typography.Text code>{String(value)}</Typography.Text>;
+}
+
 export const ResultsDashboard = ({
   resultId,
   payload,
@@ -176,7 +183,7 @@ export const ResultsDashboard = ({
             <Descriptions column={1} size="small" bordered>
               {Object.entries(payload.artifacts).map(([key, value]) => (
                 <Descriptions.Item key={key} label={key}>
-                  <Typography.Text code>{String(value)}</Typography.Text>
+                  <ArtifactValue value={value} />
                 </Descriptions.Item>
               ))}
             </Descriptions>

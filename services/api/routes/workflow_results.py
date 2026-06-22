@@ -43,7 +43,6 @@ def _dashboard_result_payload(result_id: str) -> dict[str, object]:
         "metrics": {"trade_count": 0, "fill_count": 0},
         "artifacts": {
             "result": result_ref,
-            "strategy_version_id": "strategy_001_v001",
         },
         "trades": [],
         "fills": [],

@@ -16,12 +16,16 @@ def apply_ai_draft_payload(
 ) -> ApiResponse:
     service = service or AiBuilderService()
     try:
+        spec = payload.get("spec")
+        if spec is not None and not isinstance(spec, dict):
+            raise ValueError("spec must be an object when provided")
         record = service.apply_draft_to_strategy(
             str(payload.get("prompt", "")),
             ai_thread_id=str(payload.get("ai_thread_id", "")),
             improvement_cycle_id=str(payload.get("improvement_cycle_id", "")),
             strategy_lineage_id=str(payload.get("strategy_lineage_id", "")),
             strategy_version_id=str(payload.get("strategy_version_id", "")),
+            spec=spec,
         )
     except ValueError as exc:
         return ApiResponse({"error": "invalid_ai_apply_request", "details": str(exc)}, status_code=422)

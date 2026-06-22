@@ -39,22 +39,22 @@ def test_backtested_strategy_has_compile_evidence(repo: InMemoryStrategyReposito
     payload = strategy_evidence_summary_payload(repo, "demo_compiled")
     result = payload.json()
     assert result["strategyStatus"] == "backtested"
-    assert result["compile"]["status"] == "passed_inferred"
+    assert result["compile"]["status"] == "status_only"
     assert result["compile"]["hash"] is None
 
 
-def test_approved_strategy_has_promotion_ready(repo: InMemoryStrategyRepository) -> None:
+def test_approved_strategy_has_status_only_promotion(repo: InMemoryStrategyRepository) -> None:
     payload = strategy_evidence_summary_payload(repo, "demo_promotion_requested")
     result = payload.json()
     assert result["strategyStatus"] == "approved"
-    assert result["promotion"]["status"] == "ready"
+    assert result["promotion"]["status"] == "status_only"
 
 
-def test_execution_ready_strategy_has_promotion_ready(repo: InMemoryStrategyRepository) -> None:
+def test_execution_ready_strategy_has_status_only_promotion(repo: InMemoryStrategyRepository) -> None:
     payload = strategy_evidence_summary_payload(repo, "demo_promotion_ready")
     result = payload.json()
     assert result["strategyStatus"] == "execution_ready"
-    assert result["promotion"]["status"] == "ready"
+    assert result["promotion"]["status"] == "status_only"
 
 
 def test_evidence_summary_includes_audit_events(repo: InMemoryStrategyRepository) -> None:
@@ -135,7 +135,7 @@ def test_compile_status_inferred_from_lifecycle_does_not_create_compile_audit(
     payload = strategy_evidence_summary_payload(repo, "demo_compiled")
     result = payload.json()
 
-    assert result["compile"]["status"] == "passed_inferred"
+    assert result["compile"]["status"] == "status_only"
     assert all(event["kind"] != "compiled" for event in result["audit"])
 
 

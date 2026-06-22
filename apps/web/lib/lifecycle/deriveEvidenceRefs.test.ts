@@ -70,8 +70,15 @@ describe("deriveEvidenceRefs", () => {
     expect(promotion!.status).toBe("missing");
   });
 
-  it("marks promotion as passed when status is approved", () => {
+  it("marks promotion as unknown when only status is approved", () => {
     const refs = deriveEvidenceRefs(baseInput({ status: "approved" }));
+    const promotion = refs.find((r) => r.kind === "promotion_request");
+    expect(promotion!.status).toBe("unknown");
+  });
+
+
+  it("marks promotion as passed when explicit promotion approval evidence exists", () => {
+    const refs = deriveEvidenceRefs(baseInput({ promotionApproved: true }));
     const promotion = refs.find((r) => r.kind === "promotion_request");
     expect(promotion!.status).toBe("passed");
   });

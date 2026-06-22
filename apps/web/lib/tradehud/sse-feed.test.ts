@@ -1,5 +1,5 @@
 /**
- * Tests for SSE feed controller — auto-fallback behavior.
+ * Tests for SSE feed controller — authenticated same-origin, fail-closed behavior.
  * Uses a mock EventSource that supports addEventListener with named events.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -107,6 +107,18 @@ describe("SSE feed controller", () => {
     feed.stop();
   });
 
+  it("keeps EventSource same-origin even when a public API base is configured", () => {
+    process.env.NEXT_PUBLIC_BUILDER_API_BASE = "https://api.example.invalid";
+    const feed = createFeed("BTCUSDT-PERP");
+    feed.start(() => {});
+
+    expect(MockEventSource.instances[0].url).toMatch(/^\/api\/tradehud\/stream\?/);
+    expect(MockEventSource.instances[0].url).not.toContain("api.example.invalid");
+
+    feed.stop();
+    delete process.env.NEXT_PUBLIC_BUILDER_API_BASE;
+  });
+
   it("dispatches SET_FEED_STATUS connecting on start", () => {
     const feed = createFeed("BTCUSDT-PERP");
     const events: { type: string; payload?: unknown }[] = [];
@@ -173,6 +185,24 @@ describe("SSE feed controller", () => {
       (e) => e.type === "SET_BACKEND" && e.payload === false,
     );
     expect(backendEvent).toBeDefined();
+    feed.stop();
+  });
+
+  it("fails closed instead of starting mock snapshots after SSE errors", () => {
+    const feed = createFeed("BTCUSDT-PERP");
+    const events: { type: string; payload?: unknown }[] = [];
+    feed.start((ev) => events.push(ev));
+
+    const es = MockEventSource.instances[0];
+    es.simulateError();
+
+    const disconnectedEvent = events.find(
+      (e) => e.type === "SET_FEED_STATUS" && (e.payload as { status?: string })?.status === "redis_disconnected",
+    );
+    expect(disconnectedEvent).toBeDefined();
+    expect(events.some((e) => e.type === "SNAPSHOT")).toBe(false);
+    expect(events.some((e) => (e.payload as { feedMode?: string } | undefined)?.feedMode === "mock")).toBe(false);
+
     feed.stop();
   });
 

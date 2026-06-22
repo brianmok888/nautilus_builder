@@ -115,16 +115,16 @@ def strategy_evidence_summary_payload(
 
     # Backend status implies compile succeeded (compile is prerequisite for backtest).
     if status in ("backtested", "approved", "execution_ready") and compile_evidence["status"] == "missing":
-        compile_evidence["status"] = "passed_inferred"
+        compile_evidence["status"] = "status_only"
 
     # Promotion evidence — derived from strategy status only.
     # The Builder has no persistent promotion request store; the strategy status
     # itself is the source of truth for promotion state.
     promotion_evidence: dict[str, Any] = {"status": "missing"}
     if status == "execution_ready":
-        promotion_evidence = {"status": "ready"}
+        promotion_evidence = {"status": "status_only"}
     elif status == "approved":
-        promotion_evidence = {"status": "ready"}
+        promotion_evidence = {"status": "status_only"}
     elif status == "backtested":
         # Backtested but not yet promoted — check if a replay succeeded.
         if replay_evidence["status"] == "passed":

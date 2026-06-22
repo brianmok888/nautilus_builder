@@ -90,18 +90,25 @@ describe("deriveStrategyLifecycle", () => {
     expect(result.nextAction).toBe("review_replay_errors");
   });
 
-  it("returns promotion_ready when status is approved", () => {
+  it("returns unknown promotion when only status is approved", () => {
     const result = deriveStrategyLifecycle(
       baseInput({ status: "approved" }),
     );
-    expect(result.currentStage).toBe("promotion_ready");
-    expect(result.promotionStatus).toBe("ready");
+    expect(result.promotionStatus).toBe("unknown");
     expect(result.nextAction).toBe("inspect_evidence");
   });
 
-  it("returns promotion_ready when status is execution_ready", () => {
+  it("returns unknown promotion when only status is execution_ready", () => {
     const result = deriveStrategyLifecycle(
       baseInput({ status: "execution_ready" }),
+    );
+    expect(result.promotionStatus).toBe("unknown");
+  });
+
+
+  it("returns promotion_ready when explicit promotion approval evidence exists", () => {
+    const result = deriveStrategyLifecycle(
+      baseInput({ promotionApproved: true }),
     );
     expect(result.currentStage).toBe("promotion_ready");
     expect(result.promotionStatus).toBe("ready");

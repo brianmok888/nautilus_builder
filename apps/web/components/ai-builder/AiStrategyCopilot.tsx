@@ -52,15 +52,21 @@ export const AiStrategyCopilot = () => {
     setStrategy(null);
     setSteps(["process", "wait", "wait"]);
     setIsBusy(true);
+    let activeStepIndex = 0;
 
     try {
+      const issuedAt = Date.now();
+      const draftIds = {
+        ai_thread_id: `thread_${issuedAt}`,
+        improvement_cycle_id: `cycle_${issuedAt}`,
+        strategy_lineage_id: `lineage_${issuedAt}`,
+        strategy_version_id: `v_${issuedAt}`,
+      };
+
       // Step 1: Generate StrategySpec via AI
       const result = await generateAiDraft({
         prompt: prompt.trim(),
-        ai_thread_id: `thread_${Date.now()}`,
-        improvement_cycle_id: `cycle_${Date.now()}`,
-        strategy_lineage_id: `lineage_${Date.now()}`,
-        strategy_version_id: `v_${Date.now()}`,
+        ...draftIds,
       });
       setDraft(result);
 
@@ -72,33 +78,27 @@ export const AiStrategyCopilot = () => {
       setStep(0, "finish");
 
       // Step 2: Validate via backend
+      activeStepIndex = 1;
       setStep(1, "process");
       await applyAiDraftToBuilder({
         prompt: prompt.trim(),
-        ai_thread_id: `thread_${Date.now()}`,
-        improvement_cycle_id: `cycle_${Date.now()}`,
-        strategy_lineage_id: `lineage_${Date.now()}`,
-        strategy_version_id: `v_${Date.now()}`,
+        ...draftIds,
+        spec: result.spec,
       });
       setStep(1, "finish");
 
       // Step 3: Save strategy as draft (pending backtest)
+      activeStepIndex = 2;
       setStep(2, "process");
-      try {
-        const saved = await createStrategy({
-          spec: result.spec,
-          adapter_id: adapterId,
-          status: "draft",
-        });
-        setStrategy(saved);
-      } catch {
-        // Best-effort save
-      }
+      const saved = await createStrategy({
+        spec: result.spec,
+        adapter_id: adapterId,
+        status: "draft",
+      });
+      setStrategy(saved);
       setStep(2, "finish");
     } catch (err) {
-      // Find which step failed
-      const failedIdx = steps.indexOf("process");
-      if (failedIdx >= 0) setStep(failedIdx, "error");
+      setStep(activeStepIndex, "error");
       setStepError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsBusy(false);

@@ -380,3 +380,15 @@ smoke guard token.
   authority separation.
 - **Verification evidence**: `doc/nautilus_builder_implementation_prompts.md`
   was corrected on 2026-06-22 and this guardrail was added to prevent drift.
+
+## 2026-06-22 review-fix guardrail additions
+
+| ID | Guard | Status | Enforced By | Tests |
+|---|-------|--------|-------------|-------|
+| HG-20260622-01 | TradeHUD browser SSE/snapshot calls stay same-origin; browser must not bypass server auth proxy with a public API base | ACTIVE | `apps/web/lib/tradehud/replay-feed.ts` returns same-origin API base for TradeHUD feed clients | `apps/web/lib/tradehud/sse-feed.test.ts` |
+| HG-20260622-02 | TradeHUD SSE connection failure must fail closed/degraded, not silently fall back to mock market data | ACTIVE | SSE error path dispatches `redis_disconnected` and no mock `SNAPSHOT` fallback | `apps/web/lib/tradehud/sse-feed.test.ts` |
+| HG-20260622-03 | AI draft apply/save must preserve the generated StrategySpec; save failure must be visible | ACTIVE | `apply_draft_to_strategy(..., spec=...)` and `AiStrategyCopilot` pass/save the same `result.spec` | `test_persistent_audit_store.py`, `AiStrategyCopilot.test.tsx` |
+| HG-20260622-04 | Status-only evidence is not proof of readiness | ACTIVE | Evidence summary emits `status_only`; lifecycle/evidence refs derive unknown instead of passed | `test_evidence_summary.py`, lifecycle Vitest tests |
+| HG-20260622-05 | Shadow promotion requires complete backend evidence refs | ACTIVE | `PipelineRunPanel` requires `validation_report`, `backtest_result`, `gate_compatibility_report` before request | `PipelineRunPanel.test.tsx` |
+| HG-20260622-06 | Result dashboard must not synthesize placeholder provenance IDs | ACTIVE | `workflow_results.py` omits placeholder strategy-version artifact; UI renders unavailable values explicitly | `test_workflow_results.py`, `ResultsDashboard.test.tsx` |
+| HG-20260622-07 | SSE keepalive/open status must not be labeled as synthetic data | ACTIVE | `TradeHudTopBar.tsx` renders `SSE CONNECTED` for `feedStatus=live` | `TradeHudTopBar.test.tsx` |

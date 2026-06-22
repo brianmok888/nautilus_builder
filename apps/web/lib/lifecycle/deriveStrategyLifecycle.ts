@@ -97,21 +97,13 @@ function deriveReplayStatus(input: LifecycleInput): LifecycleSubStatus {
   const lifecycleNorm = normalize(input.backtestJobLifecycleStatus);
   const combined = `${jobNorm} ${stageNorm} ${lifecycleNorm}`;
   const artifactRefs = input.backtestResultArtifactRefs ?? {};
-  const hasArtifacts =
-    Object.keys(artifactRefs).length > 0 ||
-    combined.includes("succeed") ||
-    combined.includes("completed");
+  const hasArtifacts = Object.keys(artifactRefs).length > 0;
+  const hasStatusOnlyReplay = Boolean(input.backtestJobId || jobNorm || stageNorm || lifecycleNorm) ||
+    ["backtested", "approved", "execution_ready"].includes(norm);
 
   if (combined.includes("fail")) return "failed";
   if (hasArtifacts) return "passed";
-  if (combined.includes("running") || combined.includes("pending") || combined.includes("queued")) {
-    return "unknown";
-  }
-  if (["approved", "execution_ready"].includes(norm)) {
-    // Promotion requires replay evidence, so mark "passed" if backend advanced.
-    return "passed";
-  }
-  if (["backtested"].includes(norm)) return "passed";
+  if (hasStatusOnlyReplay) return "unknown";
   return "missing";
 }
 
@@ -121,10 +113,9 @@ function derivePromotionStatus(
   promotionApproved: boolean | undefined,
 ): PromotionSubStatus {
   const norm = normalize(status);
-  if (norm === "execution_ready") return "ready";
-  if (norm === "approved") return "ready";
   if (promotionApproved) return "ready";
   if (promotionRequested) return "requested";
+  if (["approved", "execution_ready"].includes(norm)) return "unknown";
   return "missing";
 }
 

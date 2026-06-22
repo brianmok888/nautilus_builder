@@ -60,6 +60,26 @@ describe("ResultsDashboard", () => {
     expect(screen.getByText(/equity_curve → drawdown/)).toBeTruthy();
   });
 
+  test("renders unavailable for null artifact provenance instead of literal null", () => {
+    render(
+      <ResultsDashboard
+        resultId="result-44"
+        payload={{
+          result_id: "result-44",
+          metrics: {},
+          artifacts: { strategy_version_id: null },
+          trades: [],
+          fills: [],
+          logs: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("strategy_version_id")).toBeTruthy();
+    expect(screen.getByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("null")).toBeNull();
+  });
+
   test("keeps dashboard observational without execution authority", () => {
     render(<ResultsDashboard resultId="result-42" />);
 
