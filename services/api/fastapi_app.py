@@ -14,6 +14,7 @@ from packages.backtest_jobs.service import BacktestJobService
 from packages.catalog_datasets import CatalogDatasetRegistryService
 from packages.execution_lane import ExecutionLaneService
 from packages.llm_config import LlmConfigService
+from packages.common.protocols import BacktestJobServiceProtocol, StrategyRepositoryProtocol, WorkflowRepositoryProtocol
 from packages.strategy_spec.repository import InMemoryStrategyRepository
 from packages.workflow_spine import InMemoryWorkflowRepository
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
@@ -59,9 +60,9 @@ class _PgWorkflowAdapter:
         self._pg = pg_result_repo
         self._fallback = fallback_repo
 
-    def save_result(self, record):
-        self._fallback.save_result(record)
-        self._pg.save_result(record)
+    def save_result(self, result):
+        self._fallback.save_result(result)
+        self._pg.save_result(result)
 
     def result(self, result_id, *, context=None):
         from packages.auth import ProjectScopeError
@@ -104,10 +105,23 @@ class _PgWorkflowAdapter:
     def suggestions(self, result_id):
         return self._fallback.suggestions(result_id)
 
+    def save_ai_suggestion(self, suggestion):
+        return self._fallback.save_ai_suggestion(suggestion)
+
+    def suggestions_for_result(self, result_id, *, context=None):
+        return self._fallback.suggestions_for_result(result_id, context=context)
+
+    def suggestions_for_lineage(self, strategy_lineage_id, *, context=None):
+        return self._fallback.suggestions_for_lineage(strategy_lineage_id, context=context)
+
+    def suggestions_for_ai_thread(self, ai_thread_id, *, context=None):
+        return self._fallback.suggestions_for_ai_thread(ai_thread_id, context=context)
+
+
 def create_fastapi_app(
-    workflow_repository: InMemoryWorkflowRepository | None = None,
-    strategy_repository: InMemoryStrategyRepository | None = None,
-    backtest_job_service: BacktestJobService | None = None,
+    workflow_repository: WorkflowRepositoryProtocol | None = None,
+    strategy_repository: StrategyRepositoryProtocol | None = None,
+    backtest_job_service: BacktestJobServiceProtocol | None = None,
     auth_token_service: AuthTokenService | None = None,
     catalog_dataset_registry: CatalogDatasetRegistryService | None = None,
     artifact_store: LocalJsonArtifactStore | None = None,
@@ -369,7 +383,7 @@ def create_fastapi_app(
             return _fastapi_response(auth_error, JSONResponse)
         result = get_evidence(evidence_id, project_id=context.project_id, repo=evidence_repo)
         if result is None:
-            return _fastapi_response(ApiResponse(error="not_found"), JSONResponse)
+            return _fastapi_response(ApiResponse({"error": "not_found"}), JSONResponse)
         return _fastapi_response(ApiResponse(result), JSONResponse)
 
     @app.post("/api/evidence/{evidence_id}/verify")
@@ -379,7 +393,7 @@ def create_fastapi_app(
             return _fastapi_response(auth_error, JSONResponse)
         result = verify_evidence(evidence_id, project_id=context.project_id, repo=evidence_repo)
         if result is None:
-            return _fastapi_response(ApiResponse(error="not_found"), JSONResponse)
+            return _fastapi_response(ApiResponse({"error": "not_found"}), JSONResponse)
         return _fastapi_response(ApiResponse(result), JSONResponse)
 
     @app.get("/api/evidence")

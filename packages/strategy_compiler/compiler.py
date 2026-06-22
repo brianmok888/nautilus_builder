@@ -134,14 +134,10 @@ def compile_strategy_spec_bundle(
         "max_slippage_bps": None,
         "execution_authority": False,
     }
-    if family == "microstructure_v1":
-        risk = spec.risk  # type: ignore[union-attr]
-        risk_data["max_position_notional_usd"] = risk.max_position_notional_usd
-        risk_data["max_loss_notional_usd"] = risk.max_loss_notional_usd
-        risk_data["max_hold_ms"] = risk.max_hold_ms
-    else:
-        risk_raw = spec_dump.get("risk", {})
-        risk_data["max_position_notional_usd"] = risk_raw.get("position_size_pct")
+    # Classic_v1 path: microstructure_v1 returns early above (line ~34),
+    # so only classic_v1 specs reach this risk-contract block.
+    risk_raw = spec_dump.get("risk", {})
+    risk_data["max_position_notional_usd"] = risk_raw.get("position_size_pct")
     risk_contract_hash = canonical_hash(risk_data)
 
     # Build IR

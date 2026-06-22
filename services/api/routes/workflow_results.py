@@ -20,8 +20,16 @@ def workflow_result_payload(
         return ApiResponse({"error": "result_not_found", "result_id": result_id}, status_code=404)
     payload = result.model_dump(mode="json")
     dashboard_payload = _dashboard_result_payload(result_id)
-    dashboard_payload["metrics"] = {**dashboard_payload["metrics"], **payload.get("metrics", {})}
-    dashboard_payload["artifacts"] = {**dashboard_payload["artifacts"], **payload.get("artifact_refs", {})}
+    base_metrics = dashboard_payload.get("metrics", {})
+    base_artifacts = dashboard_payload.get("artifacts", {})
+    dashboard_payload["metrics"] = {
+        **(base_metrics if isinstance(base_metrics, dict) else {}),
+        **payload.get("metrics", {}),
+    }
+    dashboard_payload["artifacts"] = {
+        **(base_artifacts if isinstance(base_artifacts, dict) else {}),
+        **payload.get("artifact_refs", {}),
+    }
     payload.update(dashboard_payload)
     return ApiResponse(payload)
 

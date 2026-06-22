@@ -36,7 +36,8 @@ def strategy_evidence_summary_payload(
     if detail is None:
         return ApiResponse({"error": "strategy_not_found", "strategy_id": strategy_id}, status_code=404)
 
-    versions = detail.get("versions", [])
+    _raw_versions = detail.get("versions", [])
+    versions = _raw_versions if isinstance(_raw_versions, list) else []
     latest_version = versions[-1] if versions else {}
     spec = latest_version.get("spec", {}) if isinstance(latest_version, dict) else {}
     strategy_version_id = latest_version.get("strategy_version_id", "") if isinstance(latest_version, dict) else ""

@@ -24,7 +24,26 @@ nautilus-builder-backend-check = "services.backend_runtime:main"
 [project.optional-dependencies]
 test = [
     "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=7.0",
     "PyYAML>=6.0",
+]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=7.0",
+    "PyYAML>=6.0",
+    "ruff>=0.15",
+    "basedpyright>=1.30",
+    "pip-audit>=2.7",
+    "pre-commit>=4.0",
+]
+ai = [
+    "instructor>=1.0",
+    "httpx>=0.28",
+]
+migrations = [
+    "alembic>=1.13",
 ]
 
 [tool.setuptools.packages.find]
@@ -32,8 +51,22 @@ include = ["packages*", "services*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=packages --cov=services --cov-report=term-missing"
+asyncio_mode = "auto"
 filterwarnings = [
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["packages", "services"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+# Note: coverage threshold (fail_under) is enforced in CI via
+# `--cov-fail-under=70` on the full suite, not here, so targeted dev
+# runs (e.g. `pytest tests/strategy_compiler/`) are not blocked by the
+# gate. See report §3.5 for per-package ratchet targets.
 
 [tool.ruff]
 line-length = 120
@@ -45,3 +78,29 @@ target-version = "py312"
 # packages/ and services/. Whitespace/style warnings (W, E1/E2/E3/E5) are out of
 # scope. Test code (tests/) is intentionally out of the ruff gate.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+# Narrowed from pyright defaults to match this codebase's auth-correlation
+# pattern: require_context() returns tuple[Context | None, Error | None] and
+# callers guard the error before using the context. pyright cannot correlate
+# the two tuple members, so reportOptionalMemberAccess/reportArgumentType would
+# require a large refactor of every route handler for zero behavioral gain.
+# These are tracked for a future optional-narrowing hardening pass.
+reportOptionalMemberAccess = "none"
+reportArgumentType = "none"
+include = [
+    "packages/ai_builder",
+    "packages/auth",
+    "packages/pipeline",
+    "packages/promotions",
+    "packages/strategy_compiler",
+    "packages/strategy_validation",
+    "services/api",
+]
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "apps/web",
+]

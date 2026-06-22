@@ -1,0 +1,35 @@
+# Pre-commit hooks for Nautilus Builder.
+# Kept FAST: ruff + file hygiene + private-key detection + forbidden-authority scan.
+# Full pytest is CI-only (too slow for a local hook).
+# See Adoption Report §3.2 / §12.3.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff
+        args: ["check", "packages", "services"]
+
+  - repo: local
+    hooks:
+      - id: forbidden-authority-scan
+        name: forbidden authority scan
+        entry: bash scripts/check_forbidden_authority.sh
+        language: system
+        pass_filenames: false
+
+      - id: basedpyright-scoped
+        name: basedpyright (scoped)
+        entry: basedpyright
+        language: system
+        pass_filenames: false
+        types: [python]

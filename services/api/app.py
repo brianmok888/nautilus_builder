@@ -1,4 +1,7 @@
-from services.api.router import ApiApp
+from __future__ import annotations
+
+from services.api.router import ApiApp, ApiResponse
+from packages.common.protocols import BacktestJobServiceProtocol, StrategyRepositoryProtocol, WorkflowRepositoryProtocol
 from services.api.routes.ai_builder import apply_ai_draft_payload, generate_ai_draft_payload
 from services.api.routes.backtest_jobs import backtest_job_events_payload, backtest_job_payload, cancel_backtest_job_payload, create_backtest_job_payload
 from services.api.routes.backtest_execution import run_backtest_job_payload
@@ -25,9 +28,9 @@ import os
 
 
 def create_app(
-    workflow_repository: InMemoryWorkflowRepository | None = None,
-    strategy_repository: InMemoryStrategyRepository | None = None,
-    backtest_job_service: BacktestJobService | None = None,
+    workflow_repository: WorkflowRepositoryProtocol | None = None,
+    strategy_repository: StrategyRepositoryProtocol | None = None,
+    backtest_job_service: BacktestJobServiceProtocol | None = None,
     execution_lane_service: ExecutionLaneService | None = None,
     llm_config_service: LlmConfigService | None = None,
     catalog_dataset_registry: CatalogDatasetRegistryService | None = None,
@@ -132,7 +135,7 @@ def create_app(
     return app
 
 
-def _generate_ai_draft(payload: dict[str, object]) -> dict[str, object]:
+def _generate_ai_draft(payload: dict[str, object]) -> "ApiResponse | dict[str, object]":
     from packages.ai_builder.rate_limiter import DEFAULT_AI_BUILDER_RATE_LIMITER
 
     if not DEFAULT_AI_BUILDER_RATE_LIMITER.allow("ai_builder_draft"):
