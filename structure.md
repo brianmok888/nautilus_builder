@@ -506,3 +506,14 @@ Adoption of these tools does NOT move any adapter/venue closer to production or
 live readiness. Adapter/live claims still require per-venue DataTester,
 ExecTester, reconciliation, kill-switch/risk/credential, and operator-approval
 evidence. The AI lane remains advisory-only and cannot submit orders.
+
+## 2026-06-22 prompt-routing structure note
+
+- Canonical review ledgers in this repository are lowercase:
+  `structure.md`, `findings.md`, and `handguard.md`.
+- Implementation prompts live in `doc/nautilus_builder_implementation_prompts.md`.
+- Prompt routing must start at the installed `superpowers:nt` router, then use
+  the narrower installed NT skills by scope (`nt-architect`, `nt-implement`,
+  `nt-strategy-builder`, `nt-adapters`, `nt-live`, `nt-backtest`, `nt-testing`,
+  `nt-review`). The repo must not depend on uninstalled skill names for future
+  web workflow, UX, adapter, live, or review work.

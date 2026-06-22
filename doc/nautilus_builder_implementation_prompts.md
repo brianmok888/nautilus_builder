@@ -2,21 +2,32 @@
 
 ## How to Use These Prompts
 
-Use these prompts with the `nautilus-trader-dev-skill` workflow.
+Use these prompts with the installed `superpowers:nt` workflow.
 
 Recommended skill chain:
 
 ```text
-nt
-  → nt-architect
-  → nt-ai-strategy-builder
-  → nt-strategy-builder
-  → nt-backtest
-  → nt-testing
-  → nt-review
+superpowers:nt
+  → nt-architect          # component boundaries and NautilusTrader mapping
+  → nt-implement          # Strategy/Actor/Indicator/custom component templates
+  → nt-strategy-builder   # backtest/live-system assembly when applicable
+  → nt-adapters           # only when adapter/provider integration is in scope
+  → nt-live               # only for TradingNode/runtime lifecycle work
+  → nt-backtest           # backtest engine, fill/matching model, result evidence
+  → nt-testing            # DataTester/ExecTester and repo test fixtures
+  → nt-review             # final trading, safety, FFI, and deployment review
 ```
 
 Do not implement everything in one blob.
+
+
+## 2026-06-22 Prompt Routing Correction
+
+The current installed skill surface does **not** include a standalone
+`nt-ai-strategy-builder` skill. AI strategy-builder work must route through the
+installed `superpowers:nt` router and the narrower NT skills listed above. Keep
+AI output advisory/draft-only until StrategySpec validation, NautilusTrader
+backtest evidence, promotion evidence, and `nt-review` all pass.
 
 Each prompt must produce:
 
@@ -32,7 +43,7 @@ Each prompt must produce:
 # Prompt 1 — Create StrategySpec Schema and Models
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Create the StrategySpec schema/model layer for Nautilus Builder.
@@ -84,7 +95,7 @@ Deliver:
 # Prompt 2 — Build Hard-Rule Validator
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement the StrategySpec hard-rule validator.
@@ -135,7 +146,7 @@ Deliver:
 # Prompt 3 — Adapter and Instrument Registry
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement backend-approved AdapterRegistry and InstrumentRegistry APIs.
@@ -187,7 +198,7 @@ Deliver:
 # Prompt 4 — Async Backtest Job Runtime
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement durable asynchronous BacktestJob runtime.
@@ -237,7 +248,7 @@ Deliver:
 # Prompt 5 — RuleGraphStrategy Compiler
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement StrategySpec compiler to safe RuleGraph strategy configs.
@@ -284,7 +295,7 @@ Deliver:
 # Prompt 6 — NautilusTrader Backtest Worker
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement the NautilusTrader backtest worker that executes compiled RuleGraph strategies.
@@ -330,7 +341,7 @@ Deliver:
 # Prompt 7 — Visual Strategy Builder UX
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Build the Visual Strategy Builder MVP.
@@ -385,7 +396,7 @@ Deliver:
 # Prompt 8 — Live Terminal / Job Console
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement a browser terminal-style job console using xterm.js.
@@ -438,10 +449,10 @@ Deliver:
 # Prompt 9 — AI Strategy Builder Skill
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
-Add an nt-ai-strategy-builder skill to guide AI strategy generation.
+Refresh the AI strategy-builder prompt guidance using the installed `superpowers:nt` skill surface; do not assume a separate `nt-ai-strategy-builder` skill exists.
 
 Context:
 AI should help users create safe StrategySpec drafts for Nautilus-backed backtesting and Daedalus signal-preview promotion. AI is advisory only.
@@ -456,20 +467,20 @@ Hard rules:
 - Daedalus live profile may emit StrategySignalPreview only.
 
 Required files:
-- skills/nt-ai-strategy-builder/SKILL.md
-- skills/nt-ai-strategy-builder/templates/strategy_spec.yaml
-- skills/nt-ai-strategy-builder/templates/backtest_analysis.md
-- skills/nt-ai-strategy-builder/rules/forbidden_execution.md
-- skills/nt-ai-strategy-builder/rules/promotion_policy.md
+- doc/nautilus_builder_implementation_prompts.md
+- docs/superpowers/prompts/2026-05-22-nautilus-builder-implementation-prompts-revised.md
+- tests/ai_builder/test_instructor_provider_contract.py
+- tests/ai_builder/test_prompt_redaction.py
+- tests/web/test_sectioned_operator_ui.py
 - update skills/nt/SKILL.md router
 
 Acceptance tests:
-- router selects nt-ai-strategy-builder for AI/UX strategy builder tasks;
+- `superpowers:nt` routes AI/UX strategy-builder tasks through nt-architect, nt-implement/nt-strategy-builder, nt-testing, and nt-review;
 - skill forbids raw live execution;
 - skill requires StrategySpec output;
 - skill references validators as enforcement layer;
-- skill routes backtest implementation to nt-strategy-builder/nt-backtest;
-- skill routes final safety review to nt-review.
+- prompt guidance routes backtest implementation to nt-strategy-builder/nt-backtest;
+- prompt guidance routes final safety review to nt-review.
 
 Deliver:
 - new skill files;
@@ -483,7 +494,7 @@ Deliver:
 # Prompt 10 — Daedalus Shadow Promotion Integration
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement shadow promotion path from backtested StrategySpec to Daedalus StrategySignalPreview lane.
@@ -529,7 +540,7 @@ Deliver:
 # Prompt 11 — End-to-End MVP Verification
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Run end-to-end verification for Nautilus Builder MVP.
@@ -565,7 +576,7 @@ Deliver:
 # Prompt 12 — Lifecycle and Versioning
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement dev-style lifecycle and versioning for Nautilus Builder.
@@ -635,7 +646,7 @@ Deliver:
 # Prompt 14 — Repository and Dependency Setup
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement clean repository and dependency setup for Nautilus Builder and Nautilus-Daedalus.
@@ -684,7 +695,7 @@ Deliver:
 # Prompt 15 — Existing Strategy Registry and Import
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Implement the existing strategy registry and safe import/fork flow.
@@ -751,7 +762,7 @@ Deliver:
 # Prompt 16 — Rename Product to Nautilus Builder
 
 ```text
-Use the nautilus-trader-dev-skill router.
+Use the installed `superpowers:nt` router.
 
 Task:
 Rename the product from Nautilus Strategy Lab to Nautilus Builder.

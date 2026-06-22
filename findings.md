@@ -1074,3 +1074,34 @@ source files, excluding node_modules/.next).
 - Backend API tests: 191 passed, 1 skipped (HTTP contract exercised)
 - Web vitest: 206 passed, 4 skipped; tsc clean
 - OpenAPI snapshot: 3/3 passed (backend contract stable)
+
+## 2026-06-22 prompt-routing follow-up — fixed stale skill references
+
+### Result: prompt gap fixed, findings ledger updated
+
+- **Status of the original review request**: the active repo uses lowercase
+  ledger filenames (`structure.md`, `findings.md`, `handguard.md`). The pushed
+  `master` already contained the 2026-06-22 frontend/backend reconciliation
+  entry in `findings.md`; this follow-up adds the missing prompt-routing result.
+- **Prompt bug found**: `doc/nautilus_builder_implementation_prompts.md`
+  directed agents to a stale `nautilus-trader-dev-skill` workflow and a
+  non-installed `nt-ai-strategy-builder` skill. That could send future agents
+  away from the current `superpowers:nt` router and its installed subskills.
+- **Fix applied**: the prompt pack now routes through `superpowers:nt`, then
+  `nt-architect`, `nt-implement`, `nt-strategy-builder`, `nt-adapters`,
+  `nt-live`, `nt-backtest`, `nt-testing`, and `nt-review` as scope requires.
+- **Web/UX review stance remains unchanged**: the browser workflow is an
+  authoring, advisory, and observational layer. It can draft StrategySpec,
+  show validation/evidence/progress, request cancel/promotion, and display
+  TradeHUD state; it must not own runtime authority, credentials, or live order
+  submission.
+- **Reference alignment**: NautilusTrader official developer/adapters/testing
+  guidance remains the authority for component boundaries and DataTester /
+  ExecTester evidence. LangChain/LangGraph/EvoMap-style advisory flows are
+  process and provenance references only, not trading authority.
+
+### Residual risk
+
+No new production-readiness approval is implied. Adapter/live readiness still
+requires venue-specific DataTester/ExecTester/reconciliation evidence, manual
+approval, and final `nt-review` closure per `handguard.md`.

@@ -362,3 +362,21 @@ submit orders.
 
 `CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay
 smoke guard token.
+
+## HG-20260622-23 — Prompt routing must use installed NT skills
+
+- **Status**: ACTIVE.
+- **Rule**: Prompt packs and agent handoffs must name the installed
+  `superpowers:nt` router and installed NT subskills. Do not route work to
+  nonexistent skill names such as `nt-ai-strategy-builder` unless that skill is
+  actually created, installed, tested, and listed in the session skill catalog.
+- **Required route for AI/web strategy-builder work**: `superpowers:nt` →
+  `nt-architect` → `nt-implement`/`nt-strategy-builder`/`nt-signals` as needed
+  → `nt-backtest` → `nt-testing` → `nt-review`. Add `nt-adapters` or `nt-live`
+  only when adapter/runtime lifecycle work is actually in scope.
+- **Safety boundary**: Prompt-generated output is advisory draft material. It
+  cannot bypass StrategySpec validation, NautilusTrader backtest evidence,
+  promotion gates, manual approval, credential handling rules, or runtime
+  authority separation.
+- **Verification evidence**: `doc/nautilus_builder_implementation_prompts.md`
+  was corrected on 2026-06-22 and this guardrail was added to prevent drift.
