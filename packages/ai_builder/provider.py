@@ -11,6 +11,22 @@ from sqlite3 import Connection
 from typing import Protocol
 
 
+def _default_httpx_transport() -> OpenAITransport:
+    """Build a default HttpxJsonTransport wrapped to match the OpenAITransport signature.
+
+    Replaces the raw ``_urllib_json_transport`` default with httpx for explicit
+    timeouts and TLS verification (Adoption Report §4.1 / P2-5).
+    """
+    from packages.ai_builder.http_transport import HttpxJsonTransport
+
+    def _transport(url: str, headers: dict[str, str], payload: dict[str, object], timeout_secs: float) -> dict[str, object]:
+        # Use a fresh transport honoring the per-call timeout (not the 30s default).
+        per_call = HttpxJsonTransport(timeout_secs=timeout_secs, verify=True)
+        return per_call.post_json(url=url, headers=headers, payload=payload)
+
+    return _transport
+
+
 class DraftProviderProtocol(Protocol):
     def draft_spec(self, prompt: str) -> dict[str, object]: ...
 
@@ -131,7 +147,7 @@ class OpenAICompatibleDraftProvider:
         transport: OpenAITransport | None = None,
     ) -> None:
         self._config = config
-        self._transport = transport or _urllib_json_transport
+        self._transport = transport or _default_httpx_transport()
         self._last_metadata: dict[str, object] = {
             "provider": "openai_compatible",
             "model": config.model,
