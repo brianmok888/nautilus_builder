@@ -201,6 +201,22 @@ class SqliteAiDraftAuditStore:
 
 
 def build_default_draft_provider(environ: Mapping[str, str] | None = None) -> DraftProviderProtocol:
+    env = environ if environ is not None else __import__("os").environ
+    provider_kind = env.get("BUILDER_AI_PROVIDER", "").strip().lower()
+    if provider_kind == "instructor":
+        from packages.ai_builder.instructor_provider import (
+            InstructorDraftProvider,
+            InstructorProviderConfig,
+        )
+        inst_config = InstructorProviderConfig(
+            provider=env.get("BUILDER_INSTRUCTOR_PROVIDER", "openai").strip().lower(),
+            model=env.get("BUILDER_INSTRUCTOR_MODEL", "").strip(),
+            api_key_env=env.get("BUILDER_INSTRUCTOR_API_KEY_ENV", "BUILDER_AI_API_KEY").strip(),
+            base_url=env.get("BUILDER_INSTRUCTOR_BASE_URL") or None,
+            timeout_secs=float(env.get("BUILDER_INSTRUCTOR_TIMEOUT_SECS", "30")),
+            max_retries=int(env.get("BUILDER_INSTRUCTOR_MAX_RETRIES", "2")),
+        )
+        return InstructorDraftProvider(config=inst_config)
     config = OpenAICompatibleProviderConfig.from_env(environ)
     if config is not None:
         return OpenAICompatibleDraftProvider(config)
