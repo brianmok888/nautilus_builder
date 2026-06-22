@@ -1126,3 +1126,75 @@ approval, and final `nt-review` closure per `handguard.md`.
 ### Current readiness stance
 
 These fixes close the actionable web workflow findings from the follow-up review. They do **not** by themselves approve production/live readiness: venue-specific DataTester/ExecTester, reconciliation, adapter, and manual approval evidence remain required before any live-trading claim.
+
+## 2026-06-22 WebUI / Web Workflow / UX Deep Review ($superpowers:code-review, $nt-review)
+
+**Scope**: `apps/web/` (166 TS/TSX files, 92 non-test components), `services/api/routes/`, `packages/tradehud_contracts/`. Cross-referenced against `Nautilus-Daedalus` (Rust + Python actors, no webui) and official NautilusTrader developer guide (adapter/live-runtime contracts). Primary review lane `$nt-review`; supporting lanes `$nt-architect`, `$nt-adapters`, `$nt-live`, `$nt-testing`.
+
+**Verification snapshot (this review)**: frontend vitest 46 files / 217 passed / 2 skipped / 0 failed; `tsc --noEmit` exit 0 (clean types); backend `pytest` not re-run this pass (no backend code changed).
+
+**Independent review status**: review performed directly by the leader lane; parallel `code-reviewer`/`architect` subagent lanes were unavailable in this session (native subagent dispatch not supported here). Findings below are the leader's own analysis with file:line evidence. Per `$code-review` contract, the absence of independent-lane evidence means this review is COMMENT-only, not an APPROVE substitute, and does not by itself establish merge-ready status.
+
+### CRITICAL (0)
+(none)
+
+### HIGH (2)
+
+**H-20260622-WEB-01: `app/results/[resultId]/page.tsx` server component fetches with no error boundary — backend failure yields a raw 500.**
+`app/results/[resultId]/page.tsx:6` is an async server component: `const payload = await fetchResultSummary(resultId)` with no try/catch. There is **no `error.tsx`** anywhere in `apps/web/app/` (confirmed: `find app -name 'error.tsx'` is empty) and no `not-found.tsx`. If the backend is unreachable, returns an error, or the resultId is invalid, the operator gets a Next.js default error page with no recovery affordance rather than an inline error card.
+Risk: an operator clicking a result link during a backend blip hits an unrecoverable 500 and loses context. This is the only workflow route that is a pure server component, so the gap is localized but user-facing.
+Fix: wrap the fetch in try/catch and render a degraded `ResultsDashboard` with an `error` payload (matching the existing `Alert` pattern used by `BacktestLaunchPanel.tsx:313`), or add `app/results/[resultId]/error.tsx`. Backend `workflow_results.py` already emits unavailable artifacts as `Unavailable` — extend that contract to the route layer.
+
+**H-20260622-WEB-02: No `error.tsx` route boundaries exist — any unhandled render error in the app shows a raw error page.**
+Confirmed: zero `error.tsx` files across all 13 route segments. The app relies solely on the single client-side `components/shell/ErrorBoundary.tsx` (which wraps `{children}` in `BuilderShell`). That boundary does not cover server components (like the results route above) or the TradeHUD route (`apps/web/app/tradehud/page.tsx` renders `TradeHudShell` directly, outside the `BuilderShell`/`ErrorBoundary`). A runtime error inside any TradeHUD panel crashes the whole monitoring view with no fallback.
+Risk: the TradeHUD live-monitoring view is the most error-sensitive surface (real-time data, malformed SSE payloads); a single panel throwing renders the entire operator HUD unusable.
+Fix: add `app/error.tsx` (root) and `app/tradehud/error.tsx` (segment) as client error boundaries. The `ErrorBoundary.tsx` component is reusable; wrap TradeHUD panels or add segment boundaries.
+
+### MEDIUM (5)
+
+**M-20260622-WEB-01: No data-fetching library — 13 components hand-roll `useEffect`+`apiFetch`; no caching, dedup, or automatic refetch.**
+13 of 92 non-test components call `apiFetch` directly in `useEffect`. There is no SWR/react-query (only `hooks/useHealthCheck.ts` does polling). Consequences: no stale-while-revalidate (operators see stale or blank data on navigation back), no request deduplication (mounting a component twice fires twice), and no automatic refetch on focus/reconnect. The SSE feed (`replay-feed.ts`) correctly handles reconnection for TradeHUD, but the strategy/backtest/pipeline CRUD views do not recover from transient network drops without a manual page refresh.
+Fix: adopt SWR (zero-dependency on Next, matches the repo's no-heavy-dep posture) for the read paths, or add a shared `useApiData` hook with refetch-on-reconnect. Not a correctness bug, but a UX resilience gap for an operator tool.
+
+**M-20260622-WEB-02: Three data-fetching components lack explicit error handling.**
+`components/terminal/JobTerminal.tsx`, `components/strategy-builder/StrategyBuilderWorkspace.tsx`, and `app/results/[resultId]/page.tsx` call fetch-derived functions without a `catch`/`setError`/`Alert` path. `JobTerminal` is static (no real fetch), so it is effectively safe; `StrategyBuilderWorkspace` calls `fetchAdapters`/`fetchStrategies` but renders `<ValidationPanel errors={[]} />` regardless of fetch outcome (a fetch failure silently yields an empty strategy list with no error shown).
+Fix: add an error state + `Alert` to `StrategyBuilderWorkspace` matching the `BacktestLaunchPanel` pattern.
+
+**M-20260622-WEB-03: TradeHUD route is unreachable from the sidebar navigation.**
+`components/shell/BuilderSidebar.tsx:27-34` lists 8 nav items (Overview, Strategy Builder, Backtest Center, Execution Lane, Strategy Specs, Pipeline, Results, Settings). `/tradehud` — the live ND-runtime monitoring HUD — is **not** in the sidebar. It is only reachable by direct URL. An operator cannot discover the live monitoring surface from the primary navigation.
+Fix: add a TradeHUD nav item, e.g. `{ href: "/tradehud", label: "Live Monitor", icon: <MonitorOutlined /> }`, gated behind a feature flag if it is not yet promoted to all operators.
+
+**M-20260622-WEB-04: No keyboard interaction handlers in the app (`onKeyDown`/`onKeyUp`/`onKeyPress` = 0 occurrences).**
+Confirmed: zero keyboard event handlers across all components. For an operator-facing trading-adjacent tool, keyboard accessibility (e.g., escape to close modals, enter to confirm promotions, arrow navigation in the order book ladder) is absent. Ant Design provides default keyboard support for its own components (Modal/Drawer), but custom panels (OrderBookLadder, TradeTape, heatmap) have no keyboard affordances. This is a WCAG operability gap.
+Fix: add `role`/`tabIndex`/`onKeyDown` to interactive custom panels; prioritize the promotion-confirmation flow and order book ladder.
+
+**M-20260622-WEB-05: Loading-state coverage is inconsistent — 12 of 13 fetching components show a loading indicator.**
+13 components fetch data; 12 have `Spin`/`Skeleton`/`loading` state. The one without (`app/results/[resultId]/page.tsx`) is the server component above (H-WEB-01), which has no loading state because Next.js shows its own loading for server components — but there is also no `loading.tsx` file, so the default Next suspense fallback applies. For the client components, coverage is good; this is a consistency note, not a blocker.
+
+### LOW (4)
+
+**L-20260622-WEB-01: `dangerouslySetInnerHTML` in `app/layout.tsx:55` — safe by construction.**
+The inline `<script>` is a static, developer-authored asset-retry guard (`assetFailureReloadGuard`) with no user-input interpolation. No XSS surface. Documented here only because it appeared in the audit scan; no action needed.
+
+**L-20260622-WEB-02: `sse-feed.test.ts` exists but `sse-feed.ts` does not — SSE implementation lives in `replay-feed.ts`.**
+The test file `lib/tradehud/sse-feed.test.ts` references behavior implemented in `replay-feed.ts` (the `createSseFeed` factory at `replay-feed.ts:202`). The naming is slightly misleading (a reader expects `sse-feed.ts`). The prior review already corrected the stale AGENTS.md reference (2026-06-22 review-fix). Consider renaming the test to `replay-feed.sse.test.ts` or extracting `createSseFeed` to its own module for naming clarity. Non-blocking.
+
+**L-20260622-WEB-03: No `not-found.tsx` — invalid resultId/strategyId shows default Next 404.**
+Mild UX polish: custom not-found pages for `/results/[resultId]` and `/strategies/[strategyId]` would let the operator navigate back contextually. Low priority.
+
+**L-20260622-WEB-04: `BuilderSafetyBanner.tsx` is always-visible static text on every page.**
+`components/shell/BuilderSafetyBanner.tsx` renders a fixed "Builder-only mode" `Alert` on all routes, including `/tradehud` (which is not under `BuilderShell`, so it actually does not show there) and `/config`. It is informationally correct but always-on with no dismiss affordance. Minor: consider making it dismissible per-session or contextual to the builder routes.
+
+### ARCHITECTURE WATCHLIST
+
+- **NT alignment — CLEAR**: `packages/tradehud_contracts/config.py:42-55` maps TradeHUD events to the canonical `nd.*` Redis stream namespace (`nd.gate_decision`, `nd.trade_action`, `nd.execution_report`, `nd.strategy_signal_preview`), matching `Nautilus-Daedalus/nautilus_actors/topic_contracts.py:3-30` exactly. A legacy `nautilus:tradehud:*` map exists with an explicit migration note ("all producers publish nd.* streams"). No drift detected.
+- **Safety boundary — CLEAR**: `ExecutionLaneFeaturePanel.tsx` sends `browser_runtime_actions: "disabled"` and exposes only paper-profile save + runtime-plan fetch; no live start/stop/order authority reaches the browser. Consistent with the "Builder-only mode" safety contract and HG-20260622 guards.
+- **SSE resilience — CLEAR (well-implemented)**: `replay-feed.ts` `createSseFeed` uses bounded exponential backoff with jitter (500ms initial, 15s max), named SSE event listeners (snapshot/tradehud_event/stream_health/ping), Redis-aware status derivation, fail-closed `redis_disconnected` on exhaustion, and clean teardown (`es.close()` + `clearTimeout`). This is above the bar for a browser SSE client.
+- **Data-layer strategy — WATCH**: the absence of a data-fetching library (M-WEB-01) is an emerging maintainability risk as the component count grows; hand-rolled fetch logic will diverge in error/loading handling. Recommend a shared hook or SWR before adding more read views.
+
+### SYNTHESIS
+- code-reviewer (leader lane) recommendation: **COMMENT**
+- architect status: **WATCH** (data-layer strategy + error-boundary coverage)
+- final recommendation: **COMMENT**
+
+This review does not alter the standing production-readiness verdict: the webui is a **builder/operator review surface**, not a live-order surface. The HIGH findings (error-boundary gaps) should be addressed before the next operator-facing release; they do not gate the safety contract (no order authority is exposed). Live-trading claims still require venue DataTester/ExecTester, reconciliation, adapter, and manual-approval evidence per the standing guards.

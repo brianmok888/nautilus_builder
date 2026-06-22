@@ -392,3 +392,32 @@ smoke guard token.
 | HG-20260622-05 | Shadow promotion requires complete backend evidence refs | ACTIVE | `PipelineRunPanel` requires `validation_report`, `backtest_result`, `gate_compatibility_report` before request | `PipelineRunPanel.test.tsx` |
 | HG-20260622-06 | Result dashboard must not synthesize placeholder provenance IDs | ACTIVE | `workflow_results.py` omits placeholder strategy-version artifact; UI renders unavailable values explicitly | `test_workflow_results.py`, `ResultsDashboard.test.tsx` |
 | HG-20260622-07 | SSE keepalive/open status must not be labeled as synthetic data | ACTIVE | `TradeHudTopBar.tsx` renders `SSE CONNECTED` for `feedStatus=live` | `TradeHudTopBar.test.tsx` |
+
+## 2026-06-22 WebUI / Web Workflow / UX deep review — guardrail additions
+
+### Current verdict guard (2026-06-22, webui review)
+The webui deep review (`$superpowers:code-review` + `$nt-review` primary, `$nt-architect`/`$nt-adapters`/`$nt-live`/`$nt-testing` supporting) does **not** change the standing production-readiness verdict. The browser surface is a builder/operator review tool; no order authority reaches the browser. Two HIGH findings (error-boundary gaps) gate operator-facing release comfort, not the safety contract.
+
+### Independent review status
+Leader-lane direct review only. Parallel `code-reviewer`/`architect` native subagent lanes were unavailable in this session. Per `$code-review` contract, the review recommendation is **COMMENT** (not APPROVE); merge-ready status for any UI change addressing these findings still requires independent-lane evidence.
+
+### New guards (must be enforced / restored)
+
+| ID | Guard | Status | Enforced By | Tests |
+|-----|-------|--------|-------------|-------|
+| HG-20260622-WEB-01 | Server-component fetch routes must not crash on backend failure | ACTIVE (gap → tracked) | `app/results/[resultId]/page.tsx` must wrap `fetchResultSummary` in try/catch or rely on an `error.tsx` boundary; route renders degraded `Alert` payload, not a raw 500 | (to be added when fixed; tracked in findings.md H-WEB-01) |
+| HG-20260622-WEB-02 | Every route segment must have an error boundary | ACTIVE (gap → tracked) | `app/error.tsx` (root) + `app/tradehud/error.tsx` (segment) client boundaries; TradeHUD route must not be outside all error boundaries | (to be added when fixed; tracked in findings.md H-WEB-02) |
+| HG-20260622-WEB-03 | `/tradehud` must be navigable from the primary sidebar | ACTIVE (gap → tracked) | `components/shell/BuilderSidebar.tsx` includes a TradeHUD/Live-Monitor nav item (feature-gated if needed) | (to be added when fixed; tracked in findings.md M-WEB-03) |
+
+### Verified-safe (no new guard needed — confirmed this review)
+- **Execution safety boundary**: `ExecutionLaneFeaturePanel.tsx` emits `browser_runtime_actions: "disabled"`; only paper-profile save + runtime-plan fetch reach the browser; no live start/stop/order buttons. Aligns with the standing "Builder-only mode" contract.
+- **SSE same-origin + fail-closed**: `replay-feed.ts` `createSseFeed` keeps TradeHUD snapshot/SSE same-origin (`/api/tradehud/*`), fails closed to `redis_disconnected` after bounded retries, never silently falls back to mock after an SSE error. Covered by `sse-feed.test.ts` (carry-forward HG-20260622-01/02).
+- **ND contract alignment**: `packages/tradehud_contracts/config.py` maps to canonical `nd.*` streams matching `Nautilus-Daedalus/nautilus_actors/topic_contracts.py`. No drift.
+- **No XSS surface**: the single `dangerouslySetInnerHTML` (`app/layout.tsx:55`) is a static, developer-authored asset-retry guard with no user-input interpolation. Safe by construction.
+- **Type safety**: `tsc --noEmit` exit 0; frontend vitest 217 passed / 0 failed.
+
+### Updated promotion checklist (2026-06-22, webui)
+- [ ] Before the next operator-facing release: add route-level `error.tsx` boundaries (root + tradehud + results) — closes H-WEB-01/H-WEB-02.
+- [ ] Add TradeHUD to sidebar navigation — closes M-WEB-03.
+- [ ] Independent `code-reviewer` + `architect` lane evidence required before marking any UI fix merge-ready (leader-lane review is COMMENT-only).
+- [ ] Live-trading promotion still requires venue DataTester/ExecTester, reconciliation, adapter, and manual-approval evidence (unchanged).

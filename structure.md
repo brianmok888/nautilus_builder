@@ -538,3 +538,69 @@ evidence. The AI lane remains advisory-only and cannot submit orders.
 - Evidence-summary status-only coverage: `tests/api/test_evidence_summary.py`, `apps/web/lib/lifecycle/deriveStrategyLifecycle.test.ts`, and `apps/web/lib/lifecycle/deriveEvidenceRefs.test.ts`.
 - Pipeline promotion evidence coverage: `apps/web/components/pipeline/PipelineRunPanel.test.tsx`.
 - Result provenance coverage: `tests/api/test_workflow_results.py` and `apps/web/components/results/ResultsDashboard.test.tsx`.
+
+## 2026-06-22 structure update — WebUI / Web Workflow / UX deep review
+
+### Review scope and authority
+- **Scope**: `apps/web/` (166 TS/TSX files; 92 non-test components), `services/api/routes/`, `packages/tradehud_contracts/`. Route inventory: 13 `page.tsx` segments (`/`, `/builder`, `/builder/[strategyId]`, `/backtests`, `/backtests/[jobId]`, `/execution`, `/strategies`, `/strategies/[strategyId]`, `/pipeline`, `/results`, `/results/[resultId]`, `/config`, `/tradehud`).
+- **Reference authority**: `Nautilus-Daedalus` (Rust `crates/` + Python `nautilus_actors/`; **no webui** — its value is the ND runtime contract, not a frontend reference). Official NautilusTrader developer guide (adapter/live-runtime contracts). This is a `$nt-review`-primary review with `$nt-architect`/`$nt-adapters`/`$nt-live`/`$nt-testing` supporting lanes.
+- **Independent review status**: leader-lane direct review; parallel `code-reviewer`/`architect` native subagent lanes unavailable this session → COMMENT-only, not an APPROVE substitute.
+
+### Web workflow topology (current, verified)
+```
+Browser
+  └─ Next.js 15 App Router (apps/web/app)
+       ├─ middleware.ts — same-origin proxy: /api/* + /health/backend → backend (127.0.0.1:8000)
+       │                  server-side Bearer token only when BUILDER_ENV/APP_ENV=local; no-store HTML caching
+       ├─ BuilderShell (sidebar + topbar + SafetyBanner + ErrorBoundary)
+       │    ├─ BuilderDashboard — 1-2-3 workflow tabs (Strategy / Backtest / Execution) via WorkflowSteps
+       │    └─ routes: /builder /backtests /execution /strategies /pipeline /results /config
+       └─ /tradehud — TradeHudShell (OUTSIDE BuilderShell; direct render)
+            ├─ createFeed() → mock | snapshot | sse  (replay-feed.ts)
+            │    └─ SSE: EventSource → /api/tradehud/stream?symbol=  (named events: snapshot, tradehud_event, stream_health, ping)
+            ├─ reducer.ts — bounded state (MAX_TRADES, MAX_ORDER_EVENTS, MAX_FILLS, MAX_BARS)
+            └─ freshness.ts — source_status derivation (live/synthetic/stale/missing/true_zero/unavailable)
+
+Backend (services/api)
+  └─ packages/tradehud_contracts/redis_adapter.py ← Redis nd.* streams (ND-aligned)
+```
+
+### Webui seams touched / verified this review
+- `apps/web/lib/tradehud/replay-feed.ts` — canonical TradeHUD browser feed client. Mock/snapshot/SSE modes; bounded backoff; fail-closed; clean teardown. (No change this pass; verified resilient.)
+- `apps/web/lib/api.ts` — `apiFetch` wrapper with `ApiError`, same-origin URL resolution, auth-token injection (local-env-only). No 401→login redirect (throws raw error to caller).
+- `apps/web/middleware.ts` — `/api/*` + `/health/backend` reverse proxy; server-side auth only in local env; no-store HTML.
+- `apps/web/components/shell/` — `BuilderShell`, `BuilderSidebar` (8 nav items, no TradeHUD), `BuilderTopBar`, `BuilderSafetyBanner`, `ErrorBoundary` (client-only).
+- `apps/web/components/dashboard/BuilderDashboard.tsx` — workflow hub; tabs map to route paths.
+- `apps/web/components/config/ExecutionLaneFeaturePanel.tsx` — paper profile save + runtime-plan fetch only; `browser_runtime_actions: "disabled"`; no live order authority.
+- `apps/web/components/tradehud/TradeHudShell.tsx` — 22-panel live HUD grid; uses reducer + selectors; renders outside BuilderShell/ErrorBoundary.
+
+### Metrics (verified 2026-06-22)
+| Metric | Value |
+|--------|-------|
+| Frontend TS/TSX files (excl node_modules/.next) | 166 |
+| Non-test components | 92 |
+| Route segments (page.tsx) | 13 |
+| `error.tsx` boundaries | **0** (gap — H-WEB-02) |
+| `not-found.tsx` | 0 |
+| Data-fetching components (manual useEffect+apiFetch) | 13 |
+| Data-fetching components with loading state | 12 (1 gap: results/[resultId]) |
+| Data-fetching components with error handling | 10 (3 gaps, 1 static) |
+| Keyboard handlers (onKeyDown/Up/Press) | **0** (WCAG operability gap — M-WEB-04) |
+| Components with aria/role attributes | 20 |
+| SWR/react-query usage | 0 (manual fetch only) |
+| Frontend vitest | 46 files / 217 passed / 2 skipped / 0 failed |
+| `tsc --noEmit` | exit 0 (clean) |
+| dangerouslySetInnerHTML | 1 (static asset-retry guard, safe) |
+
+### ND runtime contract alignment — verified
+`packages/tradehud_contracts/config.py:42-55` maps TradeHUD events to canonical `nd.*` streams matching `Nautilus-Daedalus/nautilus_actors/topic_contracts.py`:
+- `gate` → `nd.gate_decision`, `trade_action` → `nd.trade_action`, `execution` → `nd.execution_report`, `signal` → `nd.strategy_signal_preview`, `book_top` → `nd.public_quote_tick`, `account`/`positions` → `nd.state_bundle`.
+Legacy `nautilus:tradehud:*` stream map retained with explicit migration note. No drift.
+
+### New structural risks surfaced (see findings.md for severity)
+- **No route-level error boundaries** (`error.tsx` = 0). Server-component fetch failures (`results/[resultId]`) and TradeHUD panel errors render raw error pages. (HIGH)
+- **TradeHUD route is outside `BuilderShell`/`ErrorBoundary`** and absent from sidebar nav — discoverability + resilience gap. (MEDIUM)
+- **No data-fetching library** — manual `useEffect`+`apiFetch` across 13 components; no caching/dedup/refetch. (MEDIUM, WATCH)
+
+### Still NOT production-ready
+Unchanged from prior verdicts. The webui is a builder/operator review surface. Live-trading claims still require venue-specific DataTester/ExecTester, reconciliation, adapter, and manual-approval evidence. The HIGH web findings (error boundaries) gate the next operator-facing release comfort, not the safety contract (no order authority is browser-exposed).
