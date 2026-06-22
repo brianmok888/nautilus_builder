@@ -1046,3 +1046,31 @@ per claimed venue/capability.
 
 Adoption does not create adapter/live readiness. Adapter/live claims still
 require DataTester/ExecTester/reconciliation evidence per venue/capability.
+
+## 2026-06-22 frontend/backend reconciliation ($omo) — contract aligned
+
+Cross-referenced all 48 backend routes against all frontend API calls (164
+source files, excluding node_modules/.next).
+
+### Result: contract aligned, zero real disconnects
+
+- **Frontend→backend**: 0 real disconnects. Every frontend API call maps to an
+  existing backend route. The 3 initial "disconnect" flags were false positives
+  (normalization artifacts + test-fixture hardcoded IDs in *.test.tsx files).
+- **Backend→frontend**: 3 backend-only routes with no frontend UI caller
+  (NOT bugs — API-first design, all 3 have backend test coverage):
+  - `/api/promotions/shadow` — tested in test_route_mounts.py, test_route_auth_scope
+  - `/api/strategy-registry/external` — tested in test_strategy_module_registry
+  - `/api/tradehud/health` — tested in test_tradehud_route_auth, test_fastapi_app
+- **Type contracts**: OpenAPI snapshot passes (3/3). AiDraftResult, ResultDashboardPayload,
+  StrategyDetail, ExecutionLaneStatus, and 33 other frontend types align with backend
+  response shapes.
+- **Auth contract**: frontend sends `Authorization: Bearer ${BUILDER_API_TOKEN}`;
+  backend `_context_from_authorization` expects exactly this format. Aligned.
+
+### Verification
+
+- Python suite: 1912 passed, 1 skipped, 0 failed
+- Backend API tests: 191 passed, 1 skipped (HTTP contract exercised)
+- Web vitest: 206 passed, 4 skipped; tsc clean
+- OpenAPI snapshot: 3/3 passed (backend contract stable)
