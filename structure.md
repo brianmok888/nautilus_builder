@@ -436,3 +436,73 @@ contract still green). `tsc --noEmit` clean.
 Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
 per claimed venue/capability.
 
+
+## 2026-06-22 Adoption Validation Report — implementation complete ($omo + TDD)
+
+Implemented the Adoption Validation Report's 6-PR adoption sequence with TDD
+for code changes (PR3/PR4 RED→GREEN→REFACTOR).
+
+### Adopted (Tier 1 — clear wins)
+
+- **basedpyright + pip-audit + pre-commit** (PR1, dev/CI-only): scoped standard
+  mode on 7 packages. Found and fixed 4 real bugs (broken import, dead code,
+  wrong constructor args, incomplete adapter). pip-audit clean. pre-commit
+  hooks fast (ruff + hygiene + private-key + authority scan). CI
+  `static-analysis` job added.
+- **pytest-cov + pytest-asyncio** (PR2, folded into PR1): coverage config +
+  `asyncio_mode=auto`. Global gate 70% enforced in CI via `--cov-fail-under`;
+  current coverage **84.43%**.
+- **instructor** (PR3): `InstructorDraftProvider` behind
+  `DraftProviderProtocol`, extraction-only. `StrategySpecDraftModel`
+  (`extra="forbid"`, Literal-locked advisory fields). No tools/agency/order
+  authority. 15 contract tests. `BUILDER_AI_PROVIDER=instructor` env selection.
+- **HTTPX transport** (PR4): `HttpxJsonTransport` replaces urllib default for
+  AI provider calls. Explicit timeouts, TLS verify, MockTransport testability.
+  Closes backlog P2-5. 7 transport tests.
+- **Alembic baseline** (PR5, Phase 1 dual-run): `alembic.ini` + `env.py` +
+  stamp-only baseline. Custom runner unchanged. No ORM swap. 5 smoke tests.
+
+### Deferred (with ADR)
+
+- **TanStack Virtual** (PR6): DEFERRED via ADR 0004. Primary list surface
+  (`ResultsListClient.tsx`) is pagination-controlled (pageSize 20);
+  virtualization would be premature complexity below ~500 simultaneous rows.
+  Adopt on trigger: list renders 500+ rows without pagination + measured jank.
+
+### ADRs added (docs/adr/)
+
+- ADR 0001: AI structured output provider (instructor) — Accepted
+- ADR 0002: Python static analysis baseline (basedpyright) — Accepted
+- ADR 0003: Database migration framework (Alembic) — Accepted (Phase 1)
+- ADR 0004: UI virtualization (TanStack) — Deferred
+
+### New files
+
+- `packages/ai_builder/instructor_provider.py`
+- `packages/ai_builder/http_transport.py`
+- `packages/common/protocols.py` (+ `__init__.py`)
+- `alembic.ini`, `migrations/env.py`, `migrations/script.py.mako`,
+  `migrations/versions/0001_baseline_current_schema.py`
+- `.pre-commit-config.yaml`
+- `docs/adr/0001..0004`
+- Tests: `test_instructor_provider_contract.py` (15), `test_http_transport.py` (7),
+  `test_alembic_baseline.py` (5)
+
+### Verification (2026-06-22)
+
+- ruff: All checks passed
+- basedpyright: 0 errors, 0 warnings, 0 notes
+- pip-audit: No known vulnerabilities found
+- authority scan: PASSED (no submit_order/TradeAction/agency in production code)
+- Python suite: **1912 passed, 1 skipped, 0 failed** (coverage 84.43%)
+- Web vitest: **206 passed, 4 skipped, 0 failed**; tsc clean
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay
+smoke guard token.
+
+### Still NOT production-ready
+
+Adoption of these tools does NOT move any adapter/venue closer to production or
+live readiness. Adapter/live claims still require per-venue DataTester,
+ExecTester, reconciliation, kill-switch/risk/credential, and operator-approval
+evidence. The AI lane remains advisory-only and cannot submit orders.

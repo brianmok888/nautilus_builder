@@ -322,3 +322,43 @@ contract still green). `tsc --noEmit` clean.
 Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
 per claimed venue/capability.
 
+
+## 2026-06-22 Adoption Validation Report — guard status ($omo + TDD)
+
+### Guards verified ACTIVE after adoption
+
+- **AI advisory-only boundary**: HELD. `InstructorDraftProvider` is
+  extraction-only (PR3). No tools, no agent invocation, no order authority.
+  Forbidden credential/order prompts rejected before provider call
+  (15 contract tests). Authority scan PASSED.
+- **No submit_order/TradeAction in production code**: HELD. Authority scan
+  PASSED across all adoption (instructor, httpx, protocols, alembic).
+- **TLS verification**: HELD. `HttpxJsonTransport.verify == True` by default
+  (PR4). `test_transport_tls_verification_enabled_by_default` asserts this.
+- **No secrets in metadata/logs**: HELD. `InstructorDraftProvider.last_metadata()`
+  allow-list scrubbed (PR3). HttpxJsonTransport redacts raw response from
+  error messages (PR4).
+- **No SQLAlchemy ORM swap**: HELD. Alembic (PR5) is migrations only.
+  Raw SQL/psycopg repositories unchanged.
+- **Custom migration runner intact**: HELD. Alembic baseline is stamp-only
+  Phase 1; `packages/postgres/migrations.py` unchanged.
+- **CATALOG_BACKED_REPLAY_SMOKE_MODE**: ACTIVE (token preserved in this ledger).
+
+### Type safety guard (new, PR1)
+
+- basedpyright standard mode on 7 packages, 0 errors. CI `static-analysis`
+  job enforces type-checking + pip-audit on every push/PR.
+- Two rules (`reportOptionalMemberAccess`, `reportArgumentType`) set to
+  `"none"` for the `require_context()` tuple-correlation pattern — documented
+  in pyproject.toml; tracked for future optional-narrowing hardening pass.
+
+### Still NOT production-ready
+
+Adoption of basedpyright/instructor/httpx/alembic does NOT make any adapter or
+venue production-ready. Adapter/live claims still require DataTester,
+ExecTester, reconciliation, kill-switch/risk/credential, and operator-approval
+evidence per venue/capability. The AI lane remains advisory-only and cannot
+submit orders.
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains the current catalog-backed replay
+smoke guard token.

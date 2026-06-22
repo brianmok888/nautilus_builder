@@ -1001,3 +1001,48 @@ contract still green). `tsc --noEmit` clean.
 Adapter/live claims still require DataTester/ExecTester/reconciliation artifacts
 per claimed venue/capability.
 
+
+## 2026-06-22 Adoption Validation Report — findings ($omo + TDD)
+
+### Closed by this adoption pass
+
+- **P2-5 (LLM transport urllib → httpx)**: CLOSED. `HttpxJsonTransport` is now
+  the default AI provider transport (`packages/ai_builder/http_transport.py`).
+  Explicit timeouts, TLS verify=True default, no Bandit S310 suppression needed.
+  Closes PR4.
+- **Latent import bug (found by basedpyright)**: CLOSED.
+  `services/api/middleware.py` imported `RequestIdMiddleware` from nonexistent
+  `packages.auth.request_id` — corrected to `packages.auth.audit_middleware`.
+- **Latent ApiResponse constructor bug**: CLOSED. `ApiResponse(error="not_found")`
+  (2 sites in fastapi_app.py) would crash at runtime — corrected to
+  `ApiResponse({"error": "not_found"})`.
+- **Dead code / unreachable attribute access**: CLOSED. The microstructure_v1
+  risk branch in `strategy_compiler/compiler.py` accessed non-existent
+  `RiskBlock` attributes (would AttributeError if reached). Removed (unreachable;
+  microstructure returns early).
+- **Incomplete `_PgWorkflowAdapter`**: CLOSED. Missing 4 delegating methods
+  (`suggestions_for_result/lineage/ai_thread`, `save_ai_suggestion`) that routes
+  call — would AttributeError in Postgres mode. Completed.
+
+### New adoption (no findings opened — all green)
+
+- basedpyright: 0 errors after fixes above. Two rules set to `"none"` for the
+  `require_context()` tuple-correlation pattern (documented; tracked for future
+  optional-narrowing pass).
+- instructor provider: advisory-only boundary held. 15 contract tests confirm
+  no tools/agency/order authority; forbidden prompts rejected before call;
+  metadata scrubbed.
+- Alembic baseline: stamp-only Phase 1, custom runner unchanged.
+
+### Verification
+
+- Python suite: 1912 passed, 1 skipped, 0 failed (coverage 84.43%)
+- Web vitest: 206 passed, 4 skipped, 0 failed; tsc clean
+- ruff clean, basedpyright 0 errors, pip-audit clean, authority scan PASSED
+
+`CATALOG_BACKED_REPLAY_SMOKE_MODE` remains documented in this ledger.
+
+### Still NOT production-ready
+
+Adoption does not create adapter/live readiness. Adapter/live claims still
+require DataTester/ExecTester/reconciliation evidence per venue/capability.
