@@ -1,28 +1,31 @@
-# AGENTS — apps/web/components/tradehud
+# TradeHUD panel knowledge base
 
-The live TradeHUD panel set — the observational runtime monitor UI. ~25 TSX panels mounted by `apps/web/app/tradehud/page.tsx` via `TradeHudShell`.
+## OVERVIEW
+Observational market, account and evidence panels mounted by TradeHudShell; retained domain, score 7.
 
-## Scope (panel groups)
-- **Shell/layout**: `TradeHudShell.tsx` (root layout + feed wiring), `TradeHudTopBar.tsx`, `TradeTape.tsx`, `LaneHealthStrip.tsx`.
-- **Market**: `OrderBookLadder.tsx`, `BookmapHeatmapPanel.tsx`, `PriceChartOverlay.tsx`, `TradeHistoryPanel.tsx`.
-- **Account/execution**: `AccountSummaryPanel.tsx`, `PositionsPanel.tsx`, `OpenOrdersPanel.tsx`, `OrderHistoryPanel.tsx`, `AssetsPanel.tsx`, `ExecutionReportPanel.tsx`.
-- **Signals/evidence**: `SignalPreviewPanel.tsx`, `GateDecisionPanel.tsx`, `TradeActionEvidencePanel.tsx`, `QuantLevelsPanel.tsx`, `TickToTradeLatencyPanel.tsx`.
-- **Health/status**: `RuntimeHealthPanel.tsx`, `FreshnessBadge.tsx`, `StatusChip.tsx`, `HashPill.tsx`.
+## WHERE TO LOOK
+| Task | Files | Role |
+|---|---|---|
+| Mount point | ../../app/tradehud/page.tsx | TradeHUD route |
+| Feed and state wiring | TradeHudShell.tsx | Feed lifecycle and reducer |
+| Layout/status | TradeHudTopBar.tsx, TradeTape.tsx, LaneHealthStrip.tsx | Shared display chrome |
+| Market depth | OrderBookLadder.tsx, BookmapHeatmapPanel.tsx | Depth visualization |
+| Price/trades | PriceChartOverlay.tsx, TradeHistoryPanel.tsx | Market history |
+| Account | AccountSummaryPanel.tsx, PositionsPanel.tsx, AssetsPanel.tsx | Observed balances/positions |
+| Orders | OpenOrdersPanel.tsx, OrderHistoryPanel.tsx, ExecutionReportPanel.tsx | Reported state |
+| Decision evidence | SignalPreviewPanel.tsx, GateDecisionPanel.tsx, TradeActionEvidencePanel.tsx | Intent and gate context |
+| Quant/latency | QuantLevelsPanel.tsx, TickToTradeLatencyPanel.tsx | Runtime context |
+| Health badges | RuntimeHealthPanel.tsx, FreshnessBadge.tsx, StatusChip.tsx | Source status |
 
-## Conventions
-- Panels read state via selectors from `lib/tradehud/selectors.ts` and formatters from `lib/tradehud/{number,time}-format.ts`. Never parse raw events in a panel.
-- Use Ant Design primitives; no new UI library.
-- Panel text must reinforce authority limits: draft-only, advisory-only, observational-only.
-- Colocated tests (`*.test.tsx`) run under Vitest/jsdom.
+## CONVENTIONS
+- Read state through lib/tradehud selectors and shared formatters.
+- Keep raw event parsing and network transport out of individual panels.
+- Colocated .test.tsx checks run with Vitest/jsdom.
+- Keep evidence labels distinct from execution reports and account snapshots.
+- Test the panel slice with npm run test -- components/tradehud from apps/web.
+- Browser coverage is in e2e/tradehud.spec.ts under the separate Playwright runner.
 
-## Anti-patterns (THIS PROJECT)
-- Never place orders, expose credentials, or call `submit_order`/`TradeAction` from a panel.
-- Never fetch directly — data comes through the feed + reducer; panels are display-only.
-- Never drift TS types away from `lib/tradehud/types.ts` (mirror of `packages/tradehud_contracts/models.py`).
-- Never treat these panels as runtime authority — they display backend/ND state only.
-
-## Verification
-```bash
-cd apps/web && npx vitest run components/tradehud
-cd apps/web && npx playwright test e2e/tradehud.spec.ts
-```
+## ANTI-PATTERNS
+- Do not place orders or expose credentials through an observational panel.
+- Do not show a missing metric as zero or infer a fill from trade-action intent.
+- Do not fetch per panel or drift from the shared TradeHUD event types.

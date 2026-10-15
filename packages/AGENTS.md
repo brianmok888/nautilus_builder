@@ -1,27 +1,36 @@
-# AGENTS
+# Packages knowledge base
 
-## Scope
-- `packages/` is the canonical implementation layer.
-- Put domain rules, models, validators, compilers, registries, and verification helpers here.
+## OVERVIEW
+Canonical Python domain layer; score 13, with bounded packages and explicit public facades.
 
-## Conventions
-- Keep one bounded seam per package: `strategy_spec`, `strategy_validation`, `backtest_runner`, `lifecycle`, `promotions`, etc.
-- Export the intended public surface from each package `__init__.py`.
-- Favor strict Pydantic models and explicit booleans/enums over loose dict contracts.
-- Keep route/worker concerns out of package modules.
+## STRUCTURE
+- Contracts and checks: strategy_spec, strategy_validation, evidence_ledger, lifecycle.
+- Compilation and research: strategy_compiler, backtest_runner, backtest_jobs, research_jobs.
+- Registries and storage: strategy_registry, adapter_registry, catalog_datasets, postgres.
+- Workflows and operations: workflow_spine, pipeline, execution_lane, config, auth.
+- Display contracts: tradehud_contracts and ui_contracts; neither is a browser runtime.
+- Small support seams include errors, audit, observability, common and compatibility.
 
-## Current patterns
-- `strategy_spec` + `strategy_validation` define schema and hard-rule truth.
-- `strategy_compiler`, `backtest_jobs`, `runtime_events`, and `backtest_runner` model backend-owned execution flow.
-- `ui_contracts` defines behavior contracts used by tests; it is not a real frontend runtime.
-- `system_verification` is a composed verification harness, not production orchestration.
+## WHERE TO LOOK
+| Task | Location | Contract |
+|---|---|---|
+| Spec and hard validation | strategy_spec/, strategy_validation/ | Schema plus policy |
+| Generated strategy bundles | strategy_compiler/ | Deterministic artifacts |
+| Backtest engines and replay | backtest_runner/ | Fixture versus engine evidence |
+| Read-only ND normalization | tradehud_contracts/ | Python payload authority |
+| Jobs and workflow identity | workflow_spine/, backtest_jobs/ | Versioned workflow records |
+| Persistence | postgres/, artifact_store/ | Builder-owned storage |
+| Local execution sessions | execution_lane/ | Explicit runner and credential boundaries |
 
-## Do not
-- Do not import Nautilus-Daedalus internals.
-- Do not create live order authority in Builder.
-- Do not hide policy boundaries in UI stubs or route wrappers.
-- Do not bypass validation/lifecycle checks when adding new seams.
+## CONVENTIONS
+- Keep each seam bounded; expose intended imports through its __init__.py.
+- Prefer strict Pydantic contracts and explicit enums/booleans over loose dictionaries.
+- Keep transport wiring in services; domain decisions belong here.
+- system_verification is a composed check harness, not production orchestration.
+- Verify a seam with tests/<seam>/ before expanding the test slice.
+- Preserve stable hashes, artifact names and explicit error values.
 
-## Verification
-- Prefer focused seam tests first, then broader suite slices.
-- Keep deterministic outputs where possible: stable hashes, fixed artifact names, explicit error strings.
+## ANTI-PATTERNS
+- Do not import Nautilus-Daedalus internals or create production order authority.
+- Do not put validation, lifecycle or promotion rules only in route/UI adapters.
+- Do not bypass package-level checks when adding a new caller.

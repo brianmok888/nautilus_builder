@@ -1,25 +1,35 @@
-# AGENTS
+# Test knowledge base
 
-## Scope
-- `tests/` is feature-mirrored contract enforcement.
-- Tests define what the repo actually guarantees today.
+## OVERVIEW
+Feature-mirrored Python contract enforcement; score 11, separate from the frontend test runners.
 
-## Conventions
-- Mirror feature/package names: `tests/<domain>/test_<behavior>.py`.
-- Use behavior-first names that describe the rule being preserved.
-- Keep tests small and boundary-oriented: forbidden behavior, lifecycle gates, replay, contract payloads, deterministic hashing.
-- Use `tests/conftest.py` repo-root path insertion; imports should come from `packages.*` or `services.*` directly.
+## STRUCTURE
+- Domain slices mirror packages: strategy_spec, strategy_validation, strategy_compiler.
+- Workflow/evidence slices include workflow_spine, promotions and evidence_ledger.
+- Runtime contract slices include execution_lane, backtest_runner and replay.
+- Transport/storage slices include api, auth, postgres and artifact_store.
+- TradeHUD has tradehud_contracts, tradehud_redis and shared fixtures.
+- web/ checks Python/source UI contracts; integration/ composes backend seams.
+- Hygiene and CI slices check repository/deployment boundaries.
 
-## Current harness reality
-- Lightweight pytest only; no fixture-heavy framework, DB harness, or frontend runner.
-- `tests/web/` validates Python-backed UI contracts, not actual TSX execution.
-- `tests/integration/` is still a minimal verification harness, not a full deployed E2E stack.
+## WHERE TO LOOK
+| Task | Location | Surface exercised |
+|---|---|---|
+| Import setup | conftest.py | Adds repository root to sys.path |
+| HTTP behavior | api/ | FastAPI, auth, SSE and OpenAPI |
+| TradeHUD payloads | tradehud_contracts/, tradehud_redis/ | Normalization and adapter contracts |
+| Storage behavior | postgres/ | Repository and migration contracts |
+| Browser behavior | ../apps/web/e2e/ | Separate Playwright runner |
+| React and TS behavior | ../apps/web/**/*.test.ts* | Separate Vitest runner |
 
-## Do not
-- Do not add tests that assume a real frontend build pipeline exists.
-- Do not couple tests to Nautilus-Daedalus source or live credentials.
-- Do not turn contract tests into broad end-to-end simulations without real runtime support.
+## CONVENTIONS
+- Use behavior-first test_<rule>.py names and packages.* or services.* imports.
+- Run python3 -m pytest tests/<seam>/ -q for the affected contract first.
+- Root pyproject.toml configures asyncio auto mode and coverage for packages/services.
+- Inspect each fixture before inferring whether it uses fakes, SQLite or an external service.
+- Python web tests do not execute TSX; frontend builds and test runners now exist independently.
 
-## Verification
-- Run focused slices while changing one seam.
-- Use the full suite only after seam-local tests are green.
+## ANTI-PATTERNS
+- Do not claim deployed E2E coverage from an in-process integration or source-text assertion.
+- Do not require live credentials or imports from the Daedalus source tree.
+- Do not substitute browser tests for backend policy contracts, or vice versa.

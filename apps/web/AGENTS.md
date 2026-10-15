@@ -1,65 +1,37 @@
-# AGENTS
+# Web application knowledge base
 
-## Scope
-- `apps/web/` is the operator-facing Next.js 15 frontend.
-- Stack: React 19, Ant Design 6, TypeScript 5 (strict), Vitest, Playwright.
-- This is a **display-only advisory layer**. Runtime, order, and credential authority live in the Python backend.
-
-## Structure
-```
-apps/web/
-├── app/                  # Next.js App Router pages
-│   ├── backtests/        # Backtest job detail + status
-│   ├── builder/          # Strategy Builder workspace
-│   ├── config/           # Execution lane config
-│   ├── execution/        # Execution lane status
-│   ├── results/          # Backtest results/reports
-│   └── strategies/       # Strategy list/detail
-├── components/           # UI components (see components/AGENTS.md)
-├── hooks/                # React hooks (useHealthCheck, etc.)
-├── lib/                  # API client, types, strategySpec helpers
-├── e2e/                  # Playwright E2E specs
-└── middleware.ts         # Cache-Control: no-store for VM demo safety
-```
+## OVERVIEW
+Next.js 15, React 19 and Ant Design 6 operator UI; score 10, a separate TypeScript application.
 
 ## WHERE TO LOOK
-| Task                | Location                              |
-|---------------------|---------------------------------------|
-| Add a page route    | `app/<route>/page.tsx`                |
-| Add/edit a component| `components/<domain>/`                |
-| API client calls    | `lib/api.ts`, `lib/apiClient.ts`      |
-| Shared types        | `lib/types.ts`                        |
-| Strategy spec logic | `lib/strategySpec.ts`                 |
-| E2E tests           | `e2e/builder-shell.spec.ts`           |
-| Unit tests          | `lib/*.test.ts`, `components/**/*.test.tsx` |
+| Task | Location | Notes |
+|---|---|---|
+| Routes and server/client composition | app/ | See app/AGENTS.md |
+| Feature views | components/ | See components/AGENTS.md |
+| HTTP calls and response types | lib/api.ts, lib/types.ts | No apiClient.ts compatibility module |
+| Strategy spec helpers | lib/strategySpec.ts | Builder-side spec manipulation |
+| ND display data flow | lib/tradehud/, components/tradehud/ | Feed, reducer, panels |
+| Backend health | hooks/useHealthCheck.ts | UI health hook |
+| Same-origin API proxy | middleware.ts | Backend destination and local token policy |
+| Browser checks | e2e/, playwright.config.ts | Playwright configuration |
+| Unit checks | vitest.config.mts | Colocated Vitest/jsdom tests |
 
-## Conventions
-- Pages are thin shells that mount components from `components/`.
-- `lib/api.ts` is the sole API client — never call `fetch` directly in components.
-- `lib/types.ts` holds shared TS interfaces; keep them aligned with Python Pydantic models.
-- Components use Ant Design primitives; avoid introducing new UI libraries.
-- `middleware.ts` forces no-store caching for all HTML — do not remove.
+## CONVENTIONS
+- npm scripts in package.json own dev, build, typecheck, test and test:e2e.
+- Run frontend commands from apps/web, not the root placeholder vitest.config.ts.
+- TypeScript uses strict mode and disallows JS application files.
+- Ordinary Builder HTTP calls use lib/api.ts; TradeHUD transport lives in lib/tradehud/replay-feed.ts.
+- Python Pydantic contracts remain the reference for shared response shapes.
+- middleware.ts supplies no-store HTML/API behavior; static assets retain their cache policy.
+- Server bearer-token injection is limited to explicitly local environments.
+- Keep credentials server-side; NEXT_PUBLIC variables are browser-visible configuration.
 
-## Anti-patterns (THIS PROJECT)
-- Never embed API keys, exchange credentials, or `TradeAction` calls in frontend code.
-- Never import from `node_modules/antd/` internals — use the public API only.
-- Never bypass `lib/api.ts` for backend calls.
-- Never treat the frontend as runtime authority — it displays backend state, it does not own it.
-- Never add state management libraries (Redux, Zustand) without explicit agreement.
-- Components must reinforce authority limits in visible text: draft-only, advisory-only, observational-only.
+## ANTI-PATTERNS
+- Do not add browser order submission or claim the UI owns execution authority.
+- Do not expose BUILDER_API_TOKEN as NEXT_PUBLIC_BUILDER_API_TOKEN.
+- Do not edit .next output or restore the deleted apiClient.ts abstraction.
+- Do not describe Python tests/web as React execution coverage.
 
-## Commands
-```bash
-npm run dev          # Next.js dev server
-npm run build        # Production build
-npm run typecheck    # tsc --noEmit
-npm run test         # Vitest unit tests
-npm run test:e2e     # Playwright E2E
-```
-
-## Notes
-- `tsconfig.json` has `strict: true` and `allowJs: false` — no JS files allowed.
-- The `.next/` build output is gitignored but present locally; do not edit it.
-- `e2e/` uses Playwright, not Vitest — they have separate configs.
-- `lib/` unit tests (`*.test.ts`) run under Vitest with jsdom.
-- Python-backed UI contract truth lives in `packages/ui_contracts/` and `tests/web/`.
+## COMMANDS
+- npm run typecheck; npm run test; npm run build.
+- npm run test:e2e selects Playwright; scripts/e2e_webui.sh is the repository's operational browser smoke path.

@@ -1,31 +1,32 @@
-# AGENTS — apps/web/lib/tradehud
+# TradeHUD client data knowledge base
 
-TypeScript runtime for the TradeHUD observational monitor. Consumes normalized ND payloads; never owns runtime authority.
+## OVERVIEW
+Normalized ND display state and feeds; retained distinct domain, measured score 6.
 
-## Scope
-- `types.ts` — TS interfaces mirroring `packages/tradehud_contracts/models.py` (book top/L2, trades, bars, liquidations, signals, gate, account/positions/orders, quant levels, lane + runtime health, `SourceStatus`, `SourceFreshnessMeta`).
-- `reducer.ts` — pure `reducer(state, event)` over `TradeHudEvent`; `createInitialState()`. Owns bounded arrays via `pushBounded`.
-- `selectors.ts` — derived views: `selectOrderBookTopN`, `selectRecentTrades`, `selectLanes`, `selectPriceRange`.
-- `replay-feed.ts` — `createFeed(symbol)` factory; `FeedMode = "mock" | "snapshot" | "sse"` selected from env. Returns a `FeedController`.
-- `replay-feed.ts`, `mock-feed.ts` — feed implementations (SSE EventSource; deterministic `MockFeed` with `SeededRng`).
-- `freshness.ts` — `computeAge`, `isStale`, `buildFreshness` (status badge logic).
-- `heatmap-buffer.ts`, `ring-buffer.ts` — bounded buffers for the bookmap heatmap and rolling windows.
-- `number-format.ts`, `time-format.ts` — pure formatters (price/qty/notional/bps/pct/age; ns time/latency).
-- `*.test.ts` — Vitest unit tests colocated with their module.
+## WHERE TO LOOK
+| Task | Module | Contract |
+|---|---|---|
+| Event and snapshot shapes | types.ts | Mirror Python TradeHUD contracts |
+| State updates | reducer.ts | Pure reducer plus createInitialState |
+| Derived panel data | selectors.ts | Order book, trades, lanes, ranges |
+| Feed selection and transport | replay-feed.ts | createFeed and mock/snapshot/SSE modes |
+| Synthetic feed | mock-feed.ts | Deterministic seeded mock data |
+| Staleness status | freshness.ts | Age and freshness calculations |
+| Rolling windows | ring-buffer.ts, heatmap-buffer.ts | Bounded buffers |
+| Formatting | number-format.ts, time-format.ts | Display conversions |
+| Feed behavior tests | sse-feed.test.ts | Tests replay-feed implementation; no sse-feed.ts module |
 
-## Conventions
-- `types.ts` is the TS mirror of the Python models — keep both in lockstep when the Python contract changes.
-- `reducer` must stay pure: same `(state, event)` → same output. No fetch, no side effects.
-- Feeds dispatch `TradeHudEvent`s into the reducer; components subscribe via selectors, never call feeds directly.
-- Formatters in `number-format.ts`/`time-format.ts` accept `null` and render a safe placeholder.
+## CONVENTIONS
+- Feed implementations dispatch TradeHudEvent values into the reducer.
+- Preserve a pure state/event transition without fetches or transport side effects.
+- Keep TS interfaces aligned with packages/tradehud_contracts/models.py.
+- Preserve missing versus explicit zero through reduction and formatting.
+- Bound histories through the provided buffer helpers.
+- Freshness/provenance describe source evidence, not order execution readiness.
+- Run npm run test -- lib/tradehud from apps/web for the colocated checks.
 
-## Anti-patterns (THIS PROJECT)
-- Never let this layer place orders, call `submit_order`, or import execution-lane internals.
-- Never invent TS types that drift from `packages/tradehud_contracts/models.py`.
-- Never import antd or React here — this is a pure logic layer consumed by `components/tradehud/`.
-- Never add `fetch` outside the feed modules; `replay-feed.ts`/`replay-feed.ts` are the only network entry points.
-
-## Verification
-```bash
-cd apps/web && npx vitest run lib/tradehud
-```
+## ANTI-PATTERNS
+- Do not parse raw ND Redis fields here; consume backend-normalized payloads.
+- Do not introduce unbounded event arrays or an extra parallel feed implementation.
+- Do not replace absent values with plausible market/account numbers.
+- Do not interpret mock, snapshot or SSE mode alone as proof of a live ND connection.

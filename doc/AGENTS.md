@@ -1,24 +1,32 @@
-# AGENTS
+# Product specification knowledge base
 
-## Scope
-- `doc/` is the source-truth Builder spec set.
-- Keep it policy-oriented: roles, hard rules, allowed/forbidden behavior, target architecture.
+## OVERVIEW
+Primary Builder policy/specification set; retained distinct domain, measured structural score 0.
 
-## Highest-value files
-- `README.md`: product naming rule.
-- `nautilus_builder_spec.md`: main system spec.
-- `nautilus_builder_hardguards.md`: strongest contributor constraints.
-- `nautilus_builder_directory_architecture.md`: target repo layout, not current files.
-- `nautilus_builder_lifecycle_versioning.md`: canonical lifecycle terms.
-- `nautilus_builder_repo_dependency_architecture.md`: Builder ↔ NautilusTrader ↔ Daedalus boundary.
+## WHERE TO LOOK
+| Task | File | Meaning |
+|---|---|---|
+| Product identity | README.md | Naming and product boundaries |
+| System behavior | nautilus_builder_spec.md | Main specification |
+| Contributor limits | nautilus_builder_hardguards.md | Hard rules |
+| Target layout | nautilus_builder_directory_architecture.md | Intended architecture |
+| Lifecycle vocabulary | nautilus_builder_lifecycle_versioning.md | Canonical state terms |
+| Repository boundaries | nautilus_builder_repo_dependency_architecture.md | Builder, engine and runtime roles |
+| Planned delivery | nautilus_builder_implementation_plan.md | Plan, not completion evidence |
+| Implementation prompts | nautilus_builder_implementation_prompts.md | Task guidance |
 
-## Conventions
-- Keep flat `nautilus_builder_*` filenames.
-- Prefer declarative policy prose over tutorial prose.
-- Prefer Builder-side framing even when discussing Daedalus integration.
+## CONVENTIONS
+- Keep flat nautilus_builder_* snake_case filenames.
+- Write declarative product policy rather than implementation tutorials.
+- Frame integrations from Builder's side of the contract.
+- Label target architecture separately from source-verified current layout.
+- Check packages/, services/ and tests/ before describing implemented behavior.
+- Keep the lifecycle terms aligned across specifications and validation models.
+- Derived execution notes under docs/ do not supersede this policy set.
 
-## Do not
-- Do not describe planned paths as already implemented.
-- Do not weaken `UX must not own runtime`.
-- Do not turn Builder docs into Daedalus implementation instructions.
-- Do not rename domain packages into vague labels.
+## ANTI-PATTERNS
+- Do not describe planned paths as implemented modules.
+- Do not weaken the rule that UX must not own runtime.
+- Do not turn Builder policy into instructions to modify Daedalus.
+- Do not replace domain package names with vague architectural labels.
+- Do not cite an implementation prompt as proof that its work has shipped.
